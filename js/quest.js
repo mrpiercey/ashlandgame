@@ -526,13 +526,16 @@ var G = window.G = window.G || {};
 
     // the whole banner is back up: time to celebrate
     if (allDelivered()) {
-      var doneChoices = [
-        { label: "We're ready to SOAR!", cb: function () { G.Game.startEnding(); } },
-        { label: 'Just visiting!', cb: onClose }
-      ];
-      if (secretParty) {
-        doneChoices.unshift({ label: "Let's CELEBRATE!", cb: function () { G.Game.startParty(); } });
-      }
+      // they may have finished touring the building after delivering the
+      // last letter -- check again so the party unlocks either way
+      if (G.Game && G.Game.allRoomsVisited && G.Game.allRoomsVisited()) secretParty = true;
+      // visited every room? the party is the only way forward
+      var doneChoices = secretParty
+        ? [{ label: "Let's CELEBRATE!", cb: function () { G.Game.startParty(); } }]
+        : [
+            { label: "We're ready to SOAR!", cb: function () { G.Game.startEnding(); } },
+            { label: 'Just visiting!', cb: onClose }
+          ];
       G.Dialogue.start([
         { name: name, text: 'Just LOOK at that banner shine! S! O! A! R! Ashland is whole again, and it is all thanks to YOU!' }
       ], { choices: doneChoices });
@@ -629,14 +632,15 @@ var G = window.G = window.G || {};
         { label: "We're ready to SOAR!", cb: function () { G.Game.startEnding(); } },
         { label: 'Let me look around!', cb: onClose }
       ];
-      // SECRET ENDING: they explored EVERY room before finishing the quest
+      // SECRET ENDING: they explored EVERY room before finishing the quest,
+      // so the party is the only option on the menu
       if (G.Game && G.Game.allRoomsVisited && G.Game.allRoomsVisited()) {
         secretParty = true;
         pages.push({
           name: name,
           text: 'Wait a minute... YOU FOUND ALL OF THE LETTERS AND VISITED EVERY CLASSROOM! We love to celebrate effort here the Ashland Way... so let\'s CELEBRATE!'
         });
-        choices.unshift({ label: "Let's CELEBRATE!", cb: function () { G.Game.startParty(); } });
+        choices = [{ label: "Let's CELEBRATE!", cb: function () { G.Game.startParty(); } }];
       }
       G.Dialogue.start(pages, { choices: choices });
       return;

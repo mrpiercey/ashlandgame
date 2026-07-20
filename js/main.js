@@ -2062,6 +2062,21 @@ var G = window.G = window.G || {};
     ctx.fillRect(bnx - 44, bny + 8, 88, 1);
     G.Tiles.drawTinyText(ctx, 'GO EAGLES!', bnx - 24, bny + 1, '#14522f', 1);
 
+    // giant golden S-O-A-R bobbing above the banner
+    var SOAR = ['S', 'O', 'A', 'R'];
+    var ls = 28, lgap = 5;
+    var lw = SOAR.length * ls + (SOAR.length - 1) * lgap;
+    for (var li = 0; li < SOAR.length; li++) {
+      var glx = Math.round(bnx - lw / 2 + li * (ls + lgap));
+      var gly = Math.round(bny - 10 - ls + Math.sin(t * 2 + li * 0.9) * 2.5);
+      ctx.drawImage(G.Quest.icons[SOAR[li]], glx, gly, ls, ls);
+      // the followers' twinkle, supersized
+      if ((Math.floor(t * 6) + li * 3) % 9 === 0) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(glx + 3 + (li * 9) % 20, gly + 3, 3, 3);
+      }
+    }
+
     // streamers scalloped along the top of the gym
     var cols2 = ['#c43a3a', '#3a63c4', '#2e8f57', '#9a6ee0', '#e06a92'];
     for (var st = 0; st < 12; st++) {
@@ -2258,7 +2273,8 @@ var G = window.G = window.G || {};
     }
 
     // wall-mounted name signs sit behind the characters
-    drawDoorSigns(cam);
+    // (except at the party -- the gym goes full decoration, no signage)
+    if (!party) drawDoorSigns(cam);
 
     // entities sorted by y
     var ents = [];
