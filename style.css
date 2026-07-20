@@ -89,7 +89,8 @@ body.touch #touch-controls { display: block; }
   background: rgba(160, 30, 40, 0.6);
   color: #fff;
   font-family: 'Press Start 2P', monospace;
-  font-size: 13px;
+  font-size: 10px;
+  line-height: 1.7;
   pointer-events: auto;
   touch-action: none;
 }

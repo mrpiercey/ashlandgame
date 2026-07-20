@@ -563,11 +563,17 @@ var G = window.G = window.G || {};
       return;
     }
 
-    walkerMet = true;
-    G.Dialogue.start([
-      { name: name, text: "Hello! I'm Mrs. Walker, the principal of Ashland Elementary. I'm SO excited for the 26/27 school year!" },
-      { name: name, text: 'See that empty banner up on my wall? Our four golden letters -- S, O, A, R -- are MISSING! Have you talked to EDDIE THE EAGLE yet? He is waddling around the hallway near the front doors. Go hear his story!' }
-    ], { onDone: onClose });
+    var hello = [];
+    if (!walkerMet) {
+      walkerMet = true;
+      hello.push({ name: name, text: "Hello! I'm Mrs. Walker, the principal of Ashland Elementary. I'm SO excited for the 26/27 school year!" });
+    }
+    // she knows whether Eddie's story has been heard -- no sending kids
+    // back to a conversation they already had
+    hello.push(metEddie
+      ? { name: name, text: 'Oh, I see you already talked to Eddie about him losing our golden letters! Go upstairs or downstairs and talk to one of the classroom teachers -- see if they have seen anything!' }
+      : { name: name, text: 'See that empty banner up on my wall? Our four golden letters -- S, O, A, R -- are MISSING! Have you talked to EDDIE THE EAGLE yet? He is waddling around the hallway near the front doors. Go hear his story!' });
+    G.Dialogue.start(hello, { onDone: onClose });
   }
 
   // Mrs. Walker's reaction right after the letters fly onto the wall

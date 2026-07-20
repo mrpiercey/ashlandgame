@@ -2485,7 +2485,7 @@ var G = window.G = window.G || {};
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.font = font(8);
-      var start = document.body.classList.contains('touch') ? 'TAP TALK TO START' : 'PRESS ENTER';
+      var start = document.body.classList.contains('touch') ? 'TAP THE RED BUTTON TO START' : 'PRESS ENTER';
       ctx.fillStyle = '#0a1430';
       ctx.fillText(start, SW / 2 + 1, 213);
       ctx.fillStyle = '#ffffff';
