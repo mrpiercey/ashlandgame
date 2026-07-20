@@ -19,6 +19,18 @@ var G = window.G = window.G || {};
   }
   function release(dir) { held[dir] = false; }
 
+  // keys that keep their special jobs (or belong to the browser) and
+  // therefore never count as the interact button
+  var NOT_ACTION = {
+    ShiftLeft: 1, ShiftRight: 1, KeyX: 1,        // run
+    KeyM: 1,                                     // mute
+    ControlLeft: 1, ControlRight: 1, AltLeft: 1, AltRight: 1,
+    MetaLeft: 1, MetaRight: 1, OSLeft: 1, OSRight: 1,
+    Tab: 1, CapsLock: 1, ContextMenu: 1, NumLock: 1, ScrollLock: 1,
+    PrintScreen: 1, Pause: 1, Insert: 1,
+    PageUp: 1, PageDown: 1, Home: 1, End: 1
+  };
+
   window.addEventListener('keydown', function (e) {
     if (e.repeat) {
       if (KEYMAP[e.code]) e.preventDefault();
@@ -26,12 +38,15 @@ var G = window.G = window.G || {};
     }
     var d = KEYMAP[e.code];
     if (d) { press(d); e.preventDefault(); }
-    if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyZ') {
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyX') held.run = true;
+    if (e.code === 'KeyM') G.Audio.toggleMute();
+    // any other key is the interact button (space, enter, letters --
+    // whatever a kid mashes) as long as the browser isn't using it
+    if (!d && !NOT_ACTION[e.code] && !/^F\d+$/.test(e.code) &&
+        !e.metaKey && !e.ctrlKey && !e.altKey) {
       actionPressed = true;
       e.preventDefault();
     }
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyX') held.run = true;
-    if (e.code === 'KeyM') G.Audio.toggleMute();
   });
   window.addEventListener('keyup', function (e) {
     var d = KEYMAP[e.code];
@@ -69,6 +84,7 @@ var G = window.G = window.G || {};
       actionPressed = false;
       return v;
     },
+    pressAction: function () { actionPressed = true; },
     peekAction: function () { return actionPressed; },
     consumeDir: function (dir) {
       var v = dirPressed[dir];

@@ -21,7 +21,7 @@ html, body {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   background: #000;
-  cursor: none; /* keyboard game: no mouse arrow floating over the school */
+  cursor: pointer; /* mouse students: click a teacher or object to walk over */
   /* sizing is handled by fit() in main.js (fills phones, snaps to crisp
      whole-number scales on big screens) */
 }

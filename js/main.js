@@ -19,6 +19,7 @@ var G = window.G = window.G || {};
   var officerFrames = null;
 
   var transition = null; // {phase:'out'|'in', t, onMid}
+  var autoWalk = null;   // click-to-move: {path:[[tx,ty]..], i, target, tries}
   var banner = null;     // {text, timer}
   var bumpCooldown = 0;
   var confetti = [];
@@ -65,6 +66,17 @@ var G = window.G = window.G || {};
     player.y = spawn.y * TS;
     player.dir = spawn.dir;
     unstickPlayer(); // in case the spawn area was painted over in the editor
+
+    // mouse (and tap) support: click a teacher or an object to walk over
+    // and interact; anywhere else the click is just the action button
+    canvas.addEventListener('pointerdown', onCanvasClick);
+    // touching the keyboard always hands control back to the player
+    // (run and mute keys don't steer, so they don't interrupt the walk)
+    window.addEventListener('keydown', function (e) {
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' ||
+          e.code === 'KeyX' || e.code === 'KeyM') return;
+      autoWalk = null;
+    });
 
     window.addEventListener('resize', fit);
     // live-reload edits from the editors in other tabs
@@ -841,6 +853,187 @@ var G = window.G = window.G || {};
     return null;
   }
 
+  // ---- click-to-move: walk to whatever the mouse picked -------------------
+  function playerTile() {
+    return { x: Math.floor((player.x + 8) / TS), y: Math.floor((player.y + 11) / TS) };
+  }
+
+  function onCanvasClick(e) {
+    var r = canvas.getBoundingClientRect();
+    var gx = (e.clientX - r.left) / r.width * TOTAL_W;
+    var gy = (e.clientY - r.top) / r.height * SH;
+    // outside free play (title, dialogue, battle, menus...) a click is
+    // simply the action button -- it advances whatever is on screen
+    if (state !== 'play' || G.Dialogue.isActive() || transition || ceremony) {
+      G.Input.pressAction();
+      return;
+    }
+    if (gx >= SW) return; // the stats panel isn't clickable
+    var cam = cameraPos();
+    clickToWalk(gx + cam.x, gy + cam.y);
+  }
+
+  function clickToWalk(wx, wy) {
+    var m = map();
+    // a person under the click? (generous box around the sprite)
+    var who = null;
+    m.npcs.forEach(function (n) {
+      var npx = (n.px !== undefined) ? n.px : n.x * TS;
+      var npy = (n.py !== undefined) ? n.py : n.y * TS;
+      if (wx >= npx - 2 && wx <= npx + 18 && wy >= npy - 15 && wy <= npy + 18) who = n;
+    });
+    if (who) { startAutoWalk({ kind: 'npc', npc: who }); return; }
+
+    var tx = Math.floor(wx / TS), ty = Math.floor(wy / TS);
+    if (tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) return;
+    var t = m.get(tx, ty);
+    var trigger = (m.doors && m.doors[tx + ',' + ty]) || (m.stairs && m.stairs[tx + ',' + ty]);
+    if (G.Tiles.isWalkable(t) && !trigger && t !== 'door' && t !== 'stairU' && t !== 'stairD') {
+      // plain floor: just walk there
+      startAutoWalk({ kind: 'tile', x: tx, y: ty, onto: true });
+    } else if (G.Tiles.isWalkable(t)) {
+      // a door or stairway: walk onto it (the warp fires by itself)
+      if (!party) startAutoWalk({ kind: 'tile', x: tx, y: ty, onto: true, goal: true });
+    } else {
+      // furniture, a sign, a switch: walk up next to it and take a look
+      startAutoWalk({ kind: 'tile', x: tx, y: ty, interact: true });
+    }
+  }
+
+  // BFS over walkable tiles; door/stair/warp tiles only allowed as the goal
+  function findWalkPath(m, tx, ty, adjacent, goalIsTrigger) {
+    function open(x, y) {
+      if (x < 0 || y < 0 || x >= m.w || y >= m.h) return false;
+      var t = m.get(x, y);
+      if (!G.Tiles.isWalkable(t)) return false;
+      if (t === 'door' || t === 'mat' || t === 'stairU' || t === 'stairD') return false;
+      if ((m.doors && m.doors[x + ',' + y]) || (m.stairs && m.stairs[x + ',' + y])) return false;
+      return true;
+    }
+    var goals = {};
+    if (adjacent) {
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
+        if (open(tx + d[0], ty + d[1])) goals[(tx + d[0]) + ',' + (ty + d[1])] = true;
+      });
+    } else {
+      if (!goalIsTrigger && !open(tx, ty)) return null;
+      goals[tx + ',' + ty] = true;
+    }
+    if (!Object.keys(goals).length) return null;
+    var s = playerTile();
+    if (goals[s.x + ',' + s.y]) return [];
+    var q = [[s.x, s.y]], from = {};
+    from[s.x + ',' + s.y] = null;
+    while (q.length) {
+      var cur = q.shift();
+      var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (var i = 0; i < dirs.length; i++) {
+        var nx = cur[0] + dirs[i][0], ny = cur[1] + dirs[i][1];
+        var key = nx + ',' + ny;
+        if (from[key] !== undefined) continue;
+        var isGoal = goals[key];
+        if (!isGoal && !open(nx, ny)) continue;
+        from[key] = cur;
+        if (isGoal) {
+          var path = [[nx, ny]];
+          var b = cur;
+          while (b && from[b[0] + ',' + b[1]] !== null) {
+            path.unshift(b);
+            b = from[b[0] + ',' + b[1]];
+          }
+          return path;
+        }
+        q.push([nx, ny]);
+      }
+    }
+    return null;
+  }
+
+  function startAutoWalk(target) {
+    var m = map();
+    var path = target.kind === 'npc'
+      ? findWalkPath(m, target.npc.x, target.npc.y, true)
+      : findWalkPath(m, target.x, target.y, !target.onto, target.goal);
+    if (!path) { autoWalk = null; return; }
+    autoWalk = { path: path, i: 0, target: target };
+    if (!path.length) arriveAutoWalk();
+  }
+
+  function arriveAutoWalk() {
+    var t = autoWalk.target;
+    autoWalk = null;
+    var p = playerTile();
+    var faceAndTalk = function (tx, ty) {
+      var ddx = tx - p.x, ddy = ty - p.y;
+      // interactions need a straight line, two tiles at most
+      if ((ddx === 0) === (ddy === 0) || Math.abs(ddx) + Math.abs(ddy) > 2) return false;
+      player.dir = ddx > 0 ? 'right' : ddx < 0 ? 'left' : ddy > 0 ? 'down' : 'up';
+      tryInteract();
+      return true;
+    };
+    if (t.kind === 'npc') {
+      var n = t.npc;
+      // teachers wander -- if this one strolled off mid-walk, chase once more
+      var talked = faceAndTalk(n.tx !== undefined ? n.tx : n.x, n.ty !== undefined ? n.ty : n.y);
+      if (!talked && (t.tries || 0) < 3) {
+        startAutoWalk({ kind: 'npc', npc: n, tries: (t.tries || 0) + 1 });
+      }
+    } else if (t.interact) {
+      faceAndTalk(t.x, t.y);
+    }
+  }
+
+  function updateAutoWalk(dt) {
+    var speed = (G.Input.held.run ? 148 : 88) * dt;
+    var wp = autoWalk.path[autoWalk.i];
+    var gx = wp[0] * TS, gy = wp[1] * TS - 3; // feet centered on the tile
+    var moved = false;
+    var ddx = gx - player.x, ddy = gy - player.y;
+    if (Math.abs(ddx) > 0.5) {
+      var sx = Math.sign(ddx) * Math.min(speed, Math.abs(ddx));
+      player.dir = ddx > 0 ? 'right' : 'left';
+      if (boxBlocked(player.x + sx, player.y)) { autoWalk = null; }
+      else { player.x += sx; moved = true; }
+    } else if (Math.abs(ddy) > 0.5) {
+      var sy = Math.sign(ddy) * Math.min(speed, Math.abs(ddy));
+      player.dir = ddy > 0 ? 'down' : 'up';
+      if (boxBlocked(player.x, player.y + sy)) { autoWalk = null; }
+      else { player.y += sy; moved = true; }
+    }
+    player.moving = moved;
+    if (moved) {
+      player.anim += dt * (G.Input.held.run ? 11 : 7);
+      recordTrail();
+    } else if (!autoWalk) {
+      player.anim = 0;
+      return;
+    }
+    if (Math.abs(gx - player.x) <= 0.5 && Math.abs(gy - player.y) <= 0.5) {
+      player.x = gx; player.y = gy;
+      autoWalk.i++;
+      if (autoWalk.i >= autoWalk.path.length) {
+        player.moving = false;
+        player.anim = 0;
+        arriveAutoWalk();
+        return;
+      }
+      // chasing someone who wandered off our route's end? re-route (Eddie
+      // especially never stands still for long)
+      if (autoWalk.target.kind === 'npc') {
+        var n2 = autoWalk.target.npc;
+        var ntx = n2.tx !== undefined ? n2.tx : n2.x;
+        var nty = n2.ty !== undefined ? n2.ty : n2.y;
+        var last = autoWalk.path[autoWalk.path.length - 1];
+        if (Math.abs(last[0] - ntx) + Math.abs(last[1] - nty) !== 1) {
+          var tgt = autoWalk.target;
+          tgt.replans = (tgt.replans || 0) + 1;
+          if (tgt.replans <= 20) { startAutoWalk(tgt); return; }
+        }
+      }
+    }
+    checkTriggers();
+  }
+
   function movePlayer(dt) {
     var held = G.Input.held;
     var speed = (held.run ? 148 : 88) * dt;
@@ -849,6 +1042,9 @@ var G = window.G = window.G || {};
     else if (held.right) { dx = 1; player.dir = 'right'; }
     if (held.up) { dy = -1; if (!dx) player.dir = 'up'; }
     else if (held.down) { dy = 1; if (!dx) player.dir = 'down'; }
+
+    if (dx || dy) autoWalk = null;      // the d-pad overrides the mouse too
+    else if (autoWalk) { updateAutoWalk(dt); return; }
 
     player.moving = !!(dx || dy);
     if (!player.moving) { player.anim = 0; return; }
@@ -1000,6 +1196,7 @@ var G = window.G = window.G || {};
   }
 
   function warpTo(mapId, tx, ty, dir, bannerText, sfxName) {
+    autoWalk = null; // a room change makes any old walking route nonsense
     G.Audio.sfx(sfxName);
     transition = {
       phase: 'out', t: 0,
@@ -1792,8 +1989,9 @@ var G = window.G = window.G || {};
     G.Dialogue.start([
       { text: 'Summer is almost over, and Ashland Elementary is getting ready for the 26/27 school year...' },
       { text: '...but something is WRONG. The four golden letters of the school motto -- S, O, A, R -- are MISSING!' },
-      { text: 'EDDIE THE EAGLE is racing around the hallway near you, and he looks worried. Walk up to him and press SPACE (or A, or ENTER) -- he knows what happened!' },
-      { text: 'Use the ARROW KEYS (or the d-pad) to walk. Walk into doors to enter rooms!' }
+      { text: 'EDDIE THE EAGLE is racing around the hallway near you, and he looks worried. Walk up to him and press almost any key -- he knows what happened!' },
+      { text: 'Use the ARROW KEYS (or the d-pad) to walk. Walk into doors to enter rooms!' },
+      { text: 'On a computer you can also use the MOUSE: click a teacher or an object and you will walk right over and check it out!' }
     ]);
   }
 
