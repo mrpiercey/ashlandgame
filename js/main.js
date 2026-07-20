@@ -493,6 +493,100 @@ var G = window.G = window.G || {};
     });
   }
 
+  // ---- guide arrow: points the student toward the current objective -------
+  // far away: a gold arrow floats in front of the student, aimed at the
+  // target. within a few tiles: it hops above the target and points straight
+  // down so there's no missing who (or what) to visit.
+  function guideTargetPos() {
+    var g = G.Quest.guide();
+    if (!g) return null;
+    var m = map();
+    function npcPos(match) {
+      for (var i = 0; i < m.npcs.length; i++) {
+        var n = m.npcs[i];
+        if (match(n)) {
+          return {
+            x: (n.px !== undefined ? n.px : n.x * TS) + 8,
+            y: (n.py !== undefined ? n.py : n.y * TS) + 8
+          };
+        }
+      }
+      return null;
+    }
+    function doorTo(roomId) {
+      var r = G.Maps.returns[roomId + ':0'];
+      if (r && r.map === currentMapId) return { x: r.x * TS + 8, y: r.y * TS + 8 };
+      return null;
+    }
+    if (g.kind === 'eddie') return npcPos(function (n) { return n.kind === 'eagle'; });
+    if (g.kind === 'walker') {
+      if (currentMapId === 'm-walker') return npcPos(function (n) { return n.roomId === 'm-walker'; });
+      return doorTo('m-walker');
+    }
+    var roomId = g.roomId;
+    var inRoom = currentMapId === roomId ||
+      (roomId === 'b-gym' && currentMapId === 'basement' && inGymArea());
+    if (g.kind === 'hunt') {
+      if (inRoom && g.spot && g.spot.tiles && g.spot.tiles.length) {
+        // the nearest object that counts
+        var best = null, bd = Infinity;
+        g.spot.tiles.forEach(function (t) {
+          var dx = t[0] * TS + 8 - (player.x + 8), dy = t[1] * TS + 8 - (player.y + 8);
+          var d = dx * dx + dy * dy;
+          if (d < bd) { bd = d; best = { x: t[0] * TS + 8, y: t[1] * TS + 8 }; }
+        });
+        return best;
+      }
+      return doorTo(roomId);
+    }
+    // g.kind === 'room': a hint points at a teacher
+    if (roomId === 'b-gym' && currentMapId === 'basement') {
+      return npcPos(function (n) { return n.roomId === 'b-gym'; });
+    }
+    if (currentMapId === roomId) return npcPos(function (n) { return n.roomId === roomId; });
+    return doorTo(roomId);
+  }
+
+  function drawArrowAt(x, y, angle) {
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate(angle);
+    ctx.fillStyle = '#1c1c26';                     // outline
+    ctx.beginPath();
+    ctx.moveTo(9, 0); ctx.lineTo(-3, -7); ctx.lineTo(-3, -2.5); ctx.lineTo(-9, -2.5);
+    ctx.lineTo(-9, 2.5); ctx.lineTo(-3, 2.5); ctx.lineTo(-3, 7); ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#f7d84d';                     // gold
+    ctx.beginPath();
+    ctx.moveTo(7, 0); ctx.lineTo(-1.5, -5); ctx.lineTo(-1.5, -1.2); ctx.lineTo(-7.5, -1.2);
+    ctx.lineTo(-7.5, 1.2); ctx.lineTo(-1.5, 1.2); ctx.lineTo(-1.5, 5); ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawGuideArrow(cam) {
+    if (G.Dialogue.isActive() || ceremony) return;
+    var t = guideTargetPos();
+    if (!t) return;
+    var px = player.x + 8, py = player.y + 8;
+    var dx = t.x - px, dy = t.y - py;
+    var dist = Math.hypot(dx, dy);
+    if (dist < 56) {
+      // hover right above the target, pointing down at it
+      var bob = Math.sin(Date.now() / 180) * 2.5;
+      drawArrowAt(t.x - cam.x, t.y - 30 - cam.y + bob, Math.PI / 2);
+    } else {
+      // float ahead of the student, aimed at the target
+      var a = Math.atan2(dy, dx);
+      var pulse = Math.sin(Date.now() / 200) * 2;
+      drawArrowAt(
+        px + Math.cos(a) * (22 + pulse) - cam.x,
+        py + Math.sin(a) * (22 + pulse) - cam.y - 4,
+        a
+      );
+    }
+  }
+
   // ---- the delivery ceremony: letters fly onto Mrs. Walker's banner -------
   var ceremony = null; // {items, t, sparkles, flash, settle, onDone}
 
@@ -1851,6 +1945,8 @@ var G = window.G = window.G || {};
     // the golden letters float along behind the player
     drawFollowers(cam);
     if (ceremony) drawCeremony(cam);
+    // the objective arrow rides above everything, even the dark
+    drawGuideArrow(cam);
   }
 
   // ---- door signs: the shared engine lives in js/signs.js -----------------

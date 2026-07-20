@@ -96,6 +96,18 @@ var G = window.G = window.G || {};
     return Object.keys(talkCount).length > 0 || countFound() > 0;
   }
 
+  // what the GTA-style guide arrow should point at right now (semantic
+  // target -- main.js resolves it to pixels on the current map)
+  function guide() {
+    if (allDelivered()) return null;
+    if (hunt) return { kind: 'hunt', roomId: hunt.roomId, spot: hunt.spot };
+    if (allFound()) return { kind: 'walker' };
+    if (pendingHint && !found[pendingHint.letter]) return { kind: 'room', roomId: pendingHint.roomId };
+    if (!metEddie) return { kind: 'eddie' };
+    if (!metWalker && !chattedWithStaff()) return { kind: 'walker' };
+    return null;
+  }
+
   function init() {
     // every room with a teacher except the principal can hold a letter
     // (co-teachers like Mrs. Songstad defer to their room's main teacher)
@@ -645,6 +657,7 @@ var G = window.G = window.G || {};
     clearHunt: function () { hunt = null; },
     isSpotType: function (t) { return !!SPOT_LABELS[t]; },
     battleAsk: battleAsk,
-    objective: objective
+    objective: objective,
+    guide: guide
   };
 })();
