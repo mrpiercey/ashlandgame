@@ -159,9 +159,13 @@ var G = window.G = window.G || {};
     var who = G.TEACHERS[roomId].name;
     var where = { middle: 'on the ground floor', top: 'up on the top floor', basement: 'down on the lower floor' }[room.floor];
     // name the room number too: "Mrs. Smith's room" alone is ambiguous
-    // (rooms 213 AND 235!)
+    // (rooms 213 AND 235!) -- and rooms with real names (The Office, the
+    // Cafeteria...) go by their name, not "so-and-so's room"
     var num = roomNum(roomId);
-    var place = who + "'s room" + (num ? ' (Room ' + num + ')' : '');
+    var title = room.name.toLowerCase().replace(/(^|[\s/])\w/g, function (c) { return c.toUpperCase(); });
+    var place = num
+      ? who + "'s room (Room " + num + ')'
+      : (/^the\b/i.test(room.name) ? title : 'the ' + title);
     var hints = [
       'I heard ' + who + ' found something shiny while setting up! Check ' + place + ', ' + where + '.',
       'Psst... someone spotted a golden letter in ' + place + ', ' + where + '!',
@@ -189,7 +193,7 @@ var G = window.G = window.G || {};
     var roomLabel = room ? room.name.toLowerCase().replace(/(^|[\s/])\w/g, function (c) { return c.toUpperCase(); }) : '';
     // "the Cafeteria", but never "the Mrs. Todd's Office"
     var placeName = num || !room ? null
-      : /^(mrs|mr|ms|dr)\b/i.test(room.name) ? roomLabel : 'the ' + roomLabel;
+      : /^(mrs|mr|ms|dr|the)\b/i.test(room.name) ? roomLabel : 'the ' + roomLabel;
     var introFirst = {
       name: name,
       text: t.intro ||
@@ -596,7 +600,7 @@ var G = window.G = window.G || {};
       ];
     } else {
       pages = [
-        { name: name, text: 'Well hey there, friend! I\'m Officer Garth, Ashland\'s school resource officer. Welcome to the front office!' },
+        { name: name, text: 'Well hey there, friend! I\'m Officer Garth, Ashland\'s school resource officer. Welcome to The Office!' },
         { name: name, text: 'Mrs. Coleman and I keep everything running smooth around here. She does the important stuff... I mostly hand out high fives!' },
         { name: name, text: 'You know my favorite letter? S! Because S is for SAFETY AT WORK AND PLAY -- the first word in SOAR. Safety is kind of my whole thing!' },
         { name: name, text: 'If you ever need anything, you come find me or Mrs. Coleman right here. Now go help Eddie track down those letters!' }

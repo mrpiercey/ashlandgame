@@ -19,10 +19,10 @@ var G = window.G = window.G || {};
     '..OSSSSSSSSSSO..',
     '..OSSSSSSSSSSO..',
     '..OSWESSSSWESO..',
-    '..OssSSSSSSssO..',
-    '..OSSSsSSsSSSO..',
-    '...OSSssssSSO...',
-    '....OssssssO....'
+    '..OSSSSSSSSSSO..',
+    '..OSSSSSSSSSSO..',
+    '...OSSSSSSSSO...',
+    '....OSSSSSSO....'
   ];
 
   var FACE_UP = [
@@ -38,7 +38,7 @@ var G = window.G = window.G || {};
     '..OSSSSSSSSSSO..',
     '..OSSSSSSSSSSO..',
     '...OSSSSSSSSO...',
-    '....OssssssO....'
+    '....OSSSSSSO....'
   ];
 
   var FACE_LEFT = [
@@ -52,9 +52,9 @@ var G = window.G = window.G || {};
     '..OSSSSSSSSSSO..',
     '..OWESSSSSSSSO..',
     '..OSSSSSSSSSSO..',
-    '..OSsSSSSSSSO...',
-    '...OSssssSSO....',
-    '....OssssO......'
+    '..OSSSSSSSSSO...',
+    '...OSSSSSSSO....',
+    '....OSSSSO......'
   ];
 
   var HAIR = {

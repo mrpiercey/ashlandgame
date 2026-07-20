@@ -12,7 +12,7 @@ var G = window.G = window.G || {};
   add('m-todd', "MRS. TODD'S OFFICE", 'office', 'middle');
   add('m-walker', "MRS. WALKER'S OFFICE", 'principal', 'middle');
   add('m-nurse', "NURSE'S OFFICE", 'office', 'middle');
-  add('m-front', 'FRONT OFFICE', 'office', 'middle');
+  add('m-front', 'THE OFFICE', 'office', 'middle');
   add('m-eagles', "EAGLE'S NEST", 'office', 'middle');
   add('m-caf', 'CAFETERIA', 'cafeteria', 'middle');
 

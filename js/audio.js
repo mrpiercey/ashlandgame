@@ -196,13 +196,27 @@ var G = window.G = window.G || {};
     }
   }
 
-  // victory jingle: loops from the moment the quiz is answered right
-  // until the player presses enter
+  // victory music: plays from the moment the quiz is answered right until
+  // the player presses enter (victorysound.mp3; chiptune jingle fallback)
   var victoryTimer = null;
+  var victoryEl = null;
   function playVictory() {
     if (battleEl && battleEl !== 'missing') battleEl.pause();
-    if (!ensure()) return;
     stopVictory();
+    if (victoryEl !== 'missing') {
+      if (!victoryEl) {
+        victoryEl = new Audio('victorysound.mp3');
+        victoryEl.loop = true;
+        victoryEl.addEventListener('error', function () { victoryEl = 'missing'; });
+      }
+      victoryEl.volume = muted ? 0 : 0.55;
+      try { victoryEl.currentTime = 0; } catch (e) {}
+      var p = victoryEl.play();
+      if (p && p.catch) p.catch(function () {});
+      return;
+    }
+    // no mp3? the old chiptune jingle still saves the day
+    if (!ensure()) return;
     var run = function () {
       SFX.victory(ctx.currentTime + 0.02);
       victoryTimer = setTimeout(run, 1900);
@@ -211,6 +225,9 @@ var G = window.G = window.G || {};
   }
   function stopVictory() {
     if (victoryTimer) { clearTimeout(victoryTimer); victoryTimer = null; }
+    if (victoryEl && victoryEl !== 'missing') {
+      try { victoryEl.pause(); } catch (e) {}
+    }
   }
 
   // ---- sfx ----------------------------------------------------------------
@@ -266,6 +283,7 @@ var G = window.G = window.G || {};
     Object.keys(trackEls).forEach(function (f) { trackEls[f].volume = m ? 0 : 0.55; });
     if (battleEl && battleEl !== 'missing') battleEl.volume = m ? 0 : 0.55;
     if (titleEl && titleEl !== 'missing') titleEl.volume = m ? 0 : 0.55;
+    if (victoryEl && victoryEl !== 'missing') victoryEl.volume = m ? 0 : 0.55;
     var btn = document.getElementById('mute-btn');
     if (btn) btn.classList.toggle('muted', m);
   }
