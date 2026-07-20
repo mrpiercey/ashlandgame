@@ -230,6 +230,42 @@ var G = window.G = window.G || {};
     }
   }
 
+  // ---- secret ending music --------------------------------------------------
+  // Eddie's dramatic fly-over reprises the title theme; the gym party pumps
+  // the upbeat letter-encounter track
+  var flightEl = null;
+  var partyEl = null;
+  function playFlight() {
+    if (bgmEl) bgmEl.pause();
+    if (!flightEl) {
+      flightEl = new Audio('introtheme.mp3');
+      flightEl.loop = true;
+      flightEl.addEventListener('error', function () { flightEl = 'missing'; });
+    }
+    if (flightEl === 'missing') return;
+    flightEl.volume = muted ? 0 : 0.55;
+    try { flightEl.currentTime = 0; } catch (e) {}
+    var p = flightEl.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+  function playParty() {
+    if (flightEl && flightEl !== 'missing') flightEl.pause();
+    if (bgmEl) bgmEl.pause();
+    if (!partyEl) {
+      partyEl = new Audio('lettermusic.mp3');
+      partyEl.loop = true;
+      partyEl.addEventListener('error', function () { partyEl = 'missing'; });
+    }
+    if (partyEl === 'missing') return;
+    partyEl.volume = muted ? 0 : 0.55;
+    var p = partyEl.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+  function stopParty() {
+    if (flightEl && flightEl !== 'missing') flightEl.pause();
+    if (partyEl && partyEl !== 'missing') partyEl.pause();
+  }
+
   // ---- sfx ----------------------------------------------------------------
   var SFX = {
     blip: function (t) { note(midi(84), t, 0.06, 'square', 0.25); },
@@ -284,6 +320,8 @@ var G = window.G = window.G || {};
     if (battleEl && battleEl !== 'missing') battleEl.volume = m ? 0 : 0.55;
     if (titleEl && titleEl !== 'missing') titleEl.volume = m ? 0 : 0.55;
     if (victoryEl && victoryEl !== 'missing') victoryEl.volume = m ? 0 : 0.55;
+    if (flightEl && flightEl !== 'missing') flightEl.volume = m ? 0 : 0.55;
+    if (partyEl && partyEl !== 'missing') partyEl.volume = m ? 0 : 0.55;
     var btn = document.getElementById('mute-btn');
     if (btn) btn.classList.toggle('muted', m);
   }
@@ -297,6 +335,9 @@ var G = window.G = window.G || {};
     playFloor: playFloor,
     playBattle: playBattle,
     stopBattle: stopBattle,
+    playFlight: playFlight,
+    playParty: playParty,
+    stopParty: stopParty,
     playVictory: playVictory,
     stopVictory: stopVictory,
     sfx: sfx,

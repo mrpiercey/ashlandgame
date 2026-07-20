@@ -39,6 +39,14 @@ var G = window.G = window.G || {};
     G.Audio.initButton();
     G.Audio.playTitle();
 
+    // shh: ...?ashlandway is the teacher-testing code. It loads the game
+    // with every room visited and all four letters already caught, so the
+    // finale (and the you-know-what in the gym) is one Walker visit away.
+    if (/[?&]ashlandway\b/.test(location.search)) {
+      debugVisitAll();
+      G.Quest.LETTERS.forEach(function (l) { G.Quest.collect(l); });
+    }
+
     playerFrames = G.Sprites.make({
       hair: '#c8451f', skin: '#f2c398', shirt: '#2e8f57', pants: '#3d5c92', shoes: '#e8e8e2', style: 'short'
     });
@@ -158,6 +166,11 @@ var G = window.G = window.G || {};
       return;
     }
 
+    if (state === 'partyfly') {
+      updatePartyFly(dt);
+      return;
+    }
+
     if (state === 'ending') {
       endingTimer += dt;
       updateConfetti(dt);
@@ -178,6 +191,8 @@ var G = window.G = window.G || {};
     }
 
     updateFollowers(dt);
+    // the party never stops -- not even while you're chatting
+    if (party) updateParty(dt);
 
     if (G.Dialogue.isActive()) {
       G.Dialogue.update(ctx);
@@ -726,6 +741,11 @@ var G = window.G = window.G || {};
   function solidAt(px, py) {
     var m = map();
     var tx = Math.floor(px / TS), ty = Math.floor(py / TS);
+    // during the party the gym is the whole world (and the DJ table is real)
+    if (party) {
+      if (px < 21 * TS) return 'wall';
+      if (ty === BOOTH.y && tx >= BOOTH.x0 && tx <= BOOTH.x1) return 'booth';
+    }
     var t = m.get(tx, ty);
     if (!G.Tiles.isWalkable(t)) return t || 'void';
     // NPCs are solid (their body, plus the tile they're stepping into)
@@ -757,6 +777,7 @@ var G = window.G = window.G || {};
   function updateNpcs(dt) {
     var m = map();
     m.npcs.forEach(function (n) {
+      if (n.dancing) return; // party dancers groove via updateParty instead
       if (n.kind !== 'teacher' && n.kind !== 'eagle' && n.kind !== 'officer') return;
       var eagle = n.kind === 'eagle';   // Eddie is restless: fast, far-ranging
       if (n.hx === undefined) {
@@ -889,6 +910,7 @@ var G = window.G = window.G || {};
 
   var lastTriggerKey = null;
   function checkTriggers() {
+    if (party) return; // nobody leaves through a door mid-party
     var m = map();
     var cx = Math.floor((player.x + 8) / TS);
     var cy = Math.floor((player.y + 11) / TS);
@@ -1683,6 +1705,12 @@ var G = window.G = window.G || {};
           }
           n.dir = player.dir === 'up' ? 'down' : player.dir === 'down' ? 'up'
             : player.dir === 'left' ? 'right' : 'left';
+          if (party) {
+            // party guests only have one thing to say: THANK YOU
+            if (n.dj || n.kind === 'eagle') G.Quest.djDialogue(null);
+            else G.Quest.partyDialogue(n, null);
+            return;
+          }
           if (n.kind === 'eagle') {
             G.Quest.eagleDialogue(null);
           } else if (n.kind === 'officer') {
@@ -1693,6 +1721,18 @@ var G = window.G = window.G || {};
           return;
         }
       }
+    }
+
+    if (party) {
+      // facing the DJ table works just like facing the DJ
+      for (var bs = 1; bs <= 2; bs++) {
+        var btx = px + dx * bs, bty = py + dy * bs;
+        if (bty === BOOTH.y && btx >= BOOTH.x0 && btx <= BOOTH.x1) {
+          G.Quest.djDialogue(null);
+          return;
+        }
+      }
+      return; // no hunts, facts or switches during the party
     }
 
     // hunting? check whether we pressed on the object hiding the letter
@@ -1757,24 +1797,295 @@ var G = window.G = window.G || {};
     ]);
   }
 
+  function beginEnding() {
+    state = 'ending';
+    endingTimer = 0;
+    confetti = [];
+    for (var i = 0; i < 120; i++) {
+      confetti.push({
+        x: Math.random() * SW,
+        y: Math.random() * -SH,
+        vy: 30 + Math.random() * 60,
+        vx: (Math.random() - 0.5) * 20,
+        c: ['#f7d84d', '#2e8f57', '#c43a3a', '#3a63c4', '#9a6ee0', '#ffffff'][i % 6],
+        s: 2 + (i % 3)
+      });
+    }
+    G.Audio.sfx('victory');
+  }
+
   function startEnding() {
+    transition = { phase: 'out', t: 0, onMid: beginEnding };
+  }
+
+  // ---- SECRET ENDING: the Ashland dance party ------------------------------
+  // Earned by visiting every room before delivering the last letter. Eddie
+  // flies a victory lap, then the whole staff throws a dance party in the
+  // gym: DJ Eddie on the decks far right, everyone dancing, disco lights
+  // (kid-safe sweeps, no hard strobe), and the student free to celebrate.
+  var party = null;    // {t, savedNpcs}
+  var partyFly = null; // {t, sparkles, ending}
+  var BOOTH = { x0: 41, x1: 43, y: 18 }; // DJ table tiles (gym far right)
+
+  function allRoomsVisited() {
+    var total = Object.keys(G.ROOMS).filter(function (id) { return id !== 'm-eagles'; }).length;
+    return Object.keys(visited).length >= total;
+  }
+  function debugVisitAll() {
+    Object.keys(G.ROOMS).forEach(function (id) {
+      if (id !== 'm-eagles') visited[id] = true;
+    });
+  }
+
+  function startParty() {
+    transition = { phase: 'out', t: 0, onMid: startPartyFly };
+  }
+
+  // -- the dramatic fly-over ------------------------------------------------
+  function startPartyFly() {
+    if (!titleBgFly) titleBgFly = buildTitleBg(true, true);
+    partyFly = { t: 0, sparkles: [] };
+    state = 'partyfly';
+    G.Input.clearEdges();
+    G.Audio.playFlight();
+  }
+
+  // Eddie's sky show: burst up from behind the roof, loop a big figure
+  // eight way up high, then dive off toward the gym
+  function partyFlyPos(t) {
+    if (t < 1) {
+      var e = 1 - (1 - t) * (1 - t);
+      return { x: 200 - 40 * e, y: 122 - 67 * e };
+    }
+    if (t < 4.5) {
+      var c = t - 1;
+      return { x: 160 + 95 * Math.sin(c * 1.3), y: 55 + 28 * Math.sin(c * 2.6) };
+    }
+    var d = t - 4.5;
+    return { x: 66 + d * d * 150, y: 64 + d * d * 95 };
+  }
+
+  function updatePartyFly(dt) {
+    var f = partyFly;
+    f.t += dt;
+    if (f.t > 0.5 && G.Input.consumeAction()) { endPartyFly(); return; }
+    var ep = partyFlyPos(f.t);
+    if (f.t < 6 && Math.floor(f.t * 60) % 2 === 0) {
+      f.sparkles.push({
+        x: ep.x + 14, y: ep.y + 10,
+        vx: (Math.random() - 0.5) * 20, vy: 8 + Math.random() * 16,
+        life: 0.5 + Math.random() * 0.4,
+        c: Math.random() < 0.3 ? '#ffffff' : '#f7d84d'
+      });
+    }
+    f.sparkles = f.sparkles.filter(function (s) {
+      s.life -= dt; s.x += s.vx * dt; s.y += s.vy * dt;
+      return s.life > 0;
+    });
+    if (f.t > 6.2) endPartyFly();
+  }
+
+  function endPartyFly() {
+    if (!partyFly || partyFly.ending) return;
+    partyFly.ending = true;
+    transition = {
+      phase: 'out', t: 0,
+      onMid: function () { partyFly = null; startPartyRoom(); }
+    };
+  }
+
+  function drawPartyFly() {
+    if (!titleBgFly) titleBgFly = buildTitleBg(true, true);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(titleBgFly, 0, 0);
+    // dusk falls over the school: this flight is a big deal
+    ctx.fillStyle = 'rgba(16,10,48,0.35)';
+    ctx.fillRect(0, 0, SW, SH);
+    var f = partyFly;
+    f.sparkles.forEach(function (s) {
+      ctx.globalAlpha = Math.min(1, s.life * 2.5);
+      ctx.fillStyle = s.c;
+      ctx.fillRect(Math.round(s.x), Math.round(s.y), 2, 2);
+    });
+    ctx.globalAlpha = 1;
+    var ep = partyFlyPos(f.t);
+    var vx = partyFlyPos(f.t + 0.05).x - ep.x;
+    var frame = eagleFlyFrames[Math.floor(f.t * 8) % 2];
+    ctx.save();
+    if (vx > 0) {
+      // the flying frames face left: mirror when he swoops rightward
+      ctx.translate(Math.round(ep.x) + 16, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(frame, 0, Math.round(ep.y));
+    } else {
+      ctx.drawImage(frame, Math.round(ep.x) - 16, Math.round(ep.y));
+    }
+    ctx.restore();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = '#f7d84d';
+    if (f.t > 1.6 && f.t < 4.1) {
+      ctx.font = font(9);
+      ctx.fillText('EDDIE HAS ONE MORE SURPRISE...', SW / 2, 200);
+    } else if (f.t >= 4.1 && Math.floor(Date.now() / 300) % 2 === 0) {
+      ctx.font = font(12);
+      ctx.fillText('TO THE GYM!', SW / 2, 196);
+    }
+    ctx.textAlign = 'left';
+  }
+
+  // -- the party itself -------------------------------------------------------
+  function startPartyRoom() {
+    currentMapId = 'basement';
+    var m = map();
+    player.x = 23 * TS;
+    player.y = 21 * TS;
+    player.dir = 'right';
+    player.moving = false;
+    visited['b-gym'] = true;
+    lastTriggerKey = '23,21';
+    party = { t: 0, savedNpcs: m.npcs };
+
+    var dancers = [];
+    // DJ Eddie holds down the decks on the far right
+    dancers.push({ kind: 'eagle', dj: true, x: BOOTH.x0 + 1, y: BOOTH.y - 1, dancing: true });
+
+    // EVERYBODY dances: every teacher, every staff member, Officer Garth
+    var ids = Object.keys(G.TEACHERS).concat(['__officer__']);
+    var slots = [];
+    for (var sy = 12; sy <= 26; sy += 2) {
+      for (var sx = 22; sx <= 44; sx += 2) {
+        if (sx >= BOOTH.x0 - 1 && sy >= BOOTH.y - 2 && sy <= BOOTH.y + 1) continue; // DJ corner
+        if (Math.abs(sx - 23) <= 1 && Math.abs(sy - 21) <= 1) continue;             // player spawn
+        if (m.get(sx, sy) !== 'gymfloor') continue;
+        slots.push([sx, sy]);
+      }
+    }
+    ids.forEach(function (id) {
+      if (!slots.length) return;
+      var h = 5381;
+      for (var k = 0; k < id.length; k++) h = ((h << 5) + h + id.charCodeAt(k)) | 0;
+      h = Math.abs(h);
+      var slot = slots.splice(h % slots.length, 1)[0];
+      var d = {
+        x: slot[0], y: slot[1],
+        px: slot[0] * TS + ((h % 7) - 3),
+        py: slot[1] * TS + ((h >> 3) % 5) - 2,
+        dancing: true,
+        anim: 0,
+        dance: { phase: (h % 100) / 100 * Math.PI * 2, style: h % 3, speed: 5 + (h % 4) }
+      };
+      if (id === '__officer__') d.kind = 'officer';
+      else { d.kind = 'teacher'; d.roomId = id; }
+      dancers.push(d);
+    });
+    m.npcs = dancers;
+
+    state = 'play';
+    G.Quest.setPartyMode(true);
+    G.Audio.playParty();
+    showBanner('SECRET DANCE PARTY!');
+  }
+
+  // three dance styles, doled out by hash: spin, bounce, shuffle
+  function updateDancer(n, dt) {
+    var d = n.dance;
+    var t = party ? party.t : 0;
+    n.anim = (n.anim || 0) + dt * 6;
+    if (d.style === 0) {
+      var dirs = ['down', 'left', 'up', 'right'];
+      n.dir = dirs[Math.floor(t * 2.8 + d.phase) % 4];
+      n.hop = 0;
+    } else if (d.style === 1) {
+      n.dir = n.x < BOOTH.x0 ? 'right' : 'down';
+      n.hop = Math.abs(Math.sin(t * d.speed + d.phase)) * 3;
+    } else {
+      n.dir = Math.floor(t * 2 + d.phase) % 2 ? 'left' : 'right';
+      n.hop = Math.abs(Math.sin(t * d.speed + d.phase)) * 1.5;
+      n.px = n.x * TS + Math.round(Math.sin(t * 3 + d.phase) * 2);
+    }
+  }
+
+  function updateParty(dt) {
+    party.t += dt;
+    var m = map();
+    m.npcs.forEach(function (n) {
+      if (n.dancing && !n.dj) updateDancer(n, dt);
+    });
+  }
+
+  // the DJ booth + kid-safe disco lights, layered over the gym
+  function drawPartyScene(cam) {
+    var t = party.t;
+    ctx.imageSmoothingEnabled = false;
+
+    // DJ booth table (Eddie stands behind it)
+    var bx = BOOTH.x0 * TS - cam.x, by = BOOTH.y * TS - cam.y;
+    ctx.fillStyle = '#1c1c26';
+    ctx.fillRect(bx - 2, by - 2, TS * 3 + 4, TS + 4);
+    ctx.fillStyle = '#2a3450';
+    ctx.fillRect(bx, by, TS * 3, TS);
+    ctx.fillStyle = '#4a5a80';
+    ctx.fillRect(bx, by, TS * 3, 3);
+    G.Tiles.drawTinyText(ctx, 'DJ EDDIE', bx + 8, by + 10, '#f7d84d', 1);
+    // two spinning vinyls
+    [bx + 9, bx + TS * 3 - 9].forEach(function (cxx, i) {
+      var cy = by + 5;
+      ctx.fillStyle = '#0c0c14';
+      ctx.beginPath(); ctx.arc(cxx, cy, 5.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#2a2a3a';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cxx, cy, 3.5, 0, Math.PI * 2); ctx.stroke();
+      var a = t * 6 + i * 1.2;
+      ctx.strokeStyle = '#8a8f96';
+      ctx.beginPath(); ctx.moveTo(cxx, cy); ctx.lineTo(cxx + Math.cos(a) * 5, cy + Math.sin(a) * 5); ctx.stroke();
+      ctx.fillStyle = '#f7d84d';
+      ctx.fillRect(cxx - 1, cy - 1, 2, 2);
+    });
+
+    // gentle dimming pulse (never dark, never strobing)
+    ctx.fillStyle = 'rgba(12,8,44,' + (0.30 + 0.08 * Math.sin(t * 3)).toFixed(3) + ')';
+    ctx.fillRect(0, 0, SW, SH);
+    // three colored spotlights sweep the floor
+    ctx.globalCompositeOperation = 'lighter';
+    var colors = ['#f7d84d', '#5fbd87', '#3a63c4'];
+    for (var i2 = 0; i2 < 3; i2++) {
+      var lx = (33 + 10 * Math.sin(t * (0.9 + i2 * 0.35) + i2 * 2.1)) * TS - cam.x;
+      var ly = (18 + 6 * Math.sin(t * (1.2 + i2 * 0.3) + i2 * 1.4)) * TS - cam.y;
+      var g = ctx.createRadialGradient(lx, ly, 4, lx, ly, 55);
+      g.addColorStop(0, colors[i2]);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = g;
+      ctx.fillRect(lx - 55, ly - 55, 110, 110);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    // disco ball above the stage
+    var dbx = 33 * TS - cam.x, dby = 10 * TS + 4 - cam.y;
+    ctx.strokeStyle = '#8a8f96';
+    ctx.beginPath(); ctx.moveTo(dbx, dby - 8); ctx.lineTo(dbx, dby); ctx.stroke();
+    ctx.fillStyle = '#c9cfd5';
+    ctx.beginPath(); ctx.arc(dbx, dby + 4, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    for (var s3 = 0; s3 < 6; s3++) {
+      var sa = t * 1.5 + s3;
+      ctx.fillRect(Math.round(dbx + Math.cos(sa) * (10 + s3 * 5)), Math.round(dby + 4 + Math.sin(sa) * 5), 2, 2);
+    }
+  }
+
+  function finishParty() {
     transition = {
       phase: 'out', t: 0,
       onMid: function () {
-        state = 'ending';
-        endingTimer = 0;
-        confetti = [];
-        for (var i = 0; i < 120; i++) {
-          confetti.push({
-            x: Math.random() * SW,
-            y: Math.random() * -SH,
-            vy: 30 + Math.random() * 60,
-            vx: (Math.random() - 0.5) * 20,
-            c: ['#f7d84d', '#2e8f57', '#c43a3a', '#3a63c4', '#9a6ee0', '#ffffff'][i % 6],
-            s: 2 + (i % 3)
-          });
+        var m = G.Maps.all.basement;
+        if (party) {
+          m.npcs = party.savedNpcs;
+          party = null;
         }
-        G.Audio.sfx('victory');
+        G.Quest.setPartyMode(false);
+        G.Audio.stopParty();
+        beginEnding();
       }
     };
   }
@@ -1913,17 +2224,33 @@ var G = window.G = window.G || {};
         var nx = Math.round(npx - cam.x), ny = Math.round(npy - cam.y);
         dropShadow(nx + 8, ny + 15.5);
         if (n.kind === 'eagle') {
-          ctx.drawImage(eagleSprite, nx, ny - 4);
+          if (n.dj && party) {
+            // DJ Eddie: bobbing at the decks, occasionally throwing his
+            // wings up, headphones on
+            var djBob = Math.round(Math.sin(party.t * 7) * 2);
+            if (party.t % 2.4 < 0.5) {
+              ctx.drawImage(eagleFlyFrames[Math.floor(party.t * 6) % 2], nx - 8, ny - 6 + djBob);
+            } else {
+              ctx.drawImage(eagleSprite, nx, ny - 4 + djBob);
+              ctx.fillStyle = '#20203a';
+              ctx.fillRect(nx + 4, ny - 4 + djBob, 9, 2);   // headphone band
+              ctx.fillRect(nx + 3, ny - 2 + djBob, 2, 4);   // ear cups
+              ctx.fillRect(nx + 12, ny - 2 + djBob, 2, 4);
+            }
+          } else {
+            ctx.drawImage(eagleSprite, nx, ny - 4);
+          }
         } else {
           var tf = n.kind === 'officer' ? officerFrames : teacherFrames[n.roomId];
-          var frame = (n.tx !== undefined)
+          var frame = (n.tx !== undefined || n.dancing)
             ? tf[n.dir || 'down'][1 + (Math.floor(n.anim) % 2)]
             : tf[n.dir || 'down'][0];
           // grown-ups stand taller than the student (and Mr. Farmer stands
           // taller than everyone) -- feet stay planted on the same tile
           var t2 = n.kind === 'teacher' && G.TEACHERS[n.roomId];
           var ah = t2 && t2.tall ? 29 : 27;
-          ctx.drawImage(frame, 0, 0, 16, 24, nx, ny - (ah - 16), 16, ah);
+          // dancers hop; the shadow stays on the ground
+          ctx.drawImage(frame, 0, 0, 16, 24, nx, ny - (ah - 16) - Math.round(n.hop || 0), 16, ah);
         }
       }
     });
@@ -1949,6 +2276,8 @@ var G = window.G = window.G || {};
     // the golden letters float along behind the player
     drawFollowers(cam);
     if (ceremony) drawCeremony(cam);
+    // DJ booth, spinning vinyls and disco lights over everything
+    if (party) drawPartyScene(cam);
     // the objective arrow rides above everything, even the dark
     drawGuideArrow(cam);
   }
@@ -2084,7 +2413,8 @@ var G = window.G = window.G || {};
     // off briefly every couple of seconds so the eye keeps coming back to it
     if (Date.now() % 2400 > 450) {
       var focus = m.isHall ? (inGymArea() ? 'b-gym' : null) : currentMapId;
-      var obj = G.Quest.objective(focus);
+      var curFloor = m.isHall ? currentMapId : (G.ROOMS[currentMapId] ? G.ROOMS[currentMapId].floor : 'middle');
+      var obj = G.Quest.objective(focus, curFloor);
       ctx.fillStyle = obj.color;
       var objLines = wrapSide(obj.text);
       var OBJ_YS = { 1: [203], 2: [199, 210], 3: [197, 206, 215] };
@@ -2542,6 +2872,8 @@ var G = window.G = window.G || {};
       drawCharSelect();
     } else if (state === 'titlefly') {
       drawTitleFly();
+    } else if (state === 'partyfly') {
+      drawPartyFly();
     } else if (state === 'ending') {
       drawEnding();
     } else if (state === 'battle') {
@@ -2562,6 +2894,10 @@ var G = window.G = window.G || {};
 
   G.Game = {
     startEnding: startEnding,
+    startParty: startParty,
+    finishParty: finishParty,
+    allRoomsVisited: allRoomsVisited,
+    debugVisitAll: debugVisitAll,
     battleVictory: battleVictory,
     deliverLetters: deliverLetters,
     // debug helpers (used for testing; harmless to leave in)

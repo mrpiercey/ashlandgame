@@ -65,8 +65,9 @@ var G = window.G = window.G || {};
 
   // what the blinking sidebar prompt should say right now.
   // focusRoomId is the room the player is standing in (null in a hallway).
-  function objective(focusRoomId) {
+  function objective(focusRoomId, curFloor) {
     // (only the win state gets an exclamation point -- the rest stay calm)
+    if (partyMode) return { text: 'DANCE! DJ EDDIE ENDS THE PARTY', color: '#f7d84d' };
     if (allDelivered()) return { text: 'READY TO SOAR!', color: '#f7d84d' };
     if (allFound()) return { text: 'SEE MRS. WALKER', color: '#ff5a4a' };
     if (hunt) {
@@ -84,6 +85,16 @@ var G = window.G = window.G || {};
       // classrooms need the number: there are two Mrs. Smiths!
       return { text: 'GO FIND ' + who + (num ? ' (ROOM ' + num + ')' : ''), color: '#9fd4e8' };
     }
+    // Mrs. Walker pointed the student at a specific teacher
+    if (walkerTip && G.TEACHERS[walkerTip] && G.ROOMS[walkerTip]) {
+      var tw = G.TEACHERS[walkerTip].name.toUpperCase();
+      var ORDER = { basement: 0, middle: 1, top: 2 };
+      var tFloor = G.ROOMS[walkerTip].floor;
+      var stairs = curFloor === undefined || tFloor === curFloor ? ''
+        : ORDER[tFloor] > ORDER[curFloor] ? 'GO UPSTAIRS AND ' : 'GO DOWNSTAIRS AND ';
+      var tn = roomNum(walkerTip);
+      return { text: stairs + 'TALK TO ' + tw + (!stairs && tn ? ' (ROOM ' + tn + ')' : ''), color: '#9fd4e8' };
+    }
     // quest on-ramp: Eddie's story, then Mrs. Walker -- but if the player
     // dives straight into chatting with the staff, that step is skipped
     if (!metEddie) return { text: 'TALK TO EDDIE THE EAGLE', color: '#9fd4e8' };
@@ -99,10 +110,12 @@ var G = window.G = window.G || {};
   // what the GTA-style guide arrow should point at right now (semantic
   // target -- main.js resolves it to pixels on the current map)
   function guide() {
+    if (partyMode) return null; // free play: just dance
     if (allDelivered()) return null;
     if (hunt) return { kind: 'hunt', roomId: hunt.roomId, spot: hunt.spot };
     if (allFound()) return { kind: 'walker' };
     if (pendingHint && !found[pendingHint.letter]) return { kind: 'room', roomId: pendingHint.roomId };
+    if (walkerTip && G.ROOMS[walkerTip]) return { kind: 'room', roomId: walkerTip };
     if (!metEddie) return { kind: 'eddie' };
     if (!metWalker && !chattedWithStaff()) return { kind: 'walker' };
     return null;
@@ -198,6 +211,9 @@ var G = window.G = window.G || {};
       walkerDialogue(onClose);
       return;
     }
+
+    // reached the teacher Mrs. Walker suggested? mission accomplished
+    if (roomId === walkerTip) walkerTip = null;
 
     var n = talkCount[roomId] || 0;
     talkCount[roomId] = n + 1;
@@ -510,14 +526,16 @@ var G = window.G = window.G || {};
 
     // the whole banner is back up: time to celebrate
     if (allDelivered()) {
+      var doneChoices = [
+        { label: "We're ready to SOAR!", cb: function () { G.Game.startEnding(); } },
+        { label: 'Just visiting!', cb: onClose }
+      ];
+      if (secretParty) {
+        doneChoices.unshift({ label: "Let's CELEBRATE!", cb: function () { G.Game.startParty(); } });
+      }
       G.Dialogue.start([
         { name: name, text: 'Just LOOK at that banner shine! S! O! A! R! Ashland is whole again, and it is all thanks to YOU!' }
-      ], {
-        choices: [
-          { label: "We're ready to SOAR!", cb: function () { G.Game.startEnding(); } },
-          { label: 'Just visiting!', cb: onClose }
-        ]
-      });
+      ], { choices: doneChoices });
       return;
     }
 
@@ -581,11 +599,14 @@ var G = window.G = window.G || {};
 
   // Mrs. Walker sends the student to a random teacher somewhere in the
   // building: "Go see Mr. Piercey in Room 217, up on the top floor!"
+  // The pick becomes the live objective (sidebar text + guide arrow).
+  var walkerTip = null;
   function suggestTeacher() {
     var ids = Object.keys(G.TEACHERS).filter(function (id) {
       return id !== 'm-walker' && !G.TEACHERS[id].noLetter && !G.TEACHERS[id].roomOf && G.ROOMS[id];
     });
     var id = ids[Math.floor(Math.random() * ids.length)];
+    walkerTip = id;
     var r = G.ROOMS[id];
     var who = G.TEACHERS[id].name;
     var num = roomNum(id);
@@ -601,14 +622,23 @@ var G = window.G = window.G || {};
     var name = 'MRS. WALKER';
     var left = 4 - countDelivered();
     if (left === 0) {
-      G.Dialogue.start([
+      var pages = [
         { name: name, text: 'S! O! A! R! The banner is COMPLETE! Every Eagle in this school is going to SOAR this year because of YOU!' }
-      ], {
-        choices: [
-          { label: "We're ready to SOAR!", cb: function () { G.Game.startEnding(); } },
-          { label: 'Let me look around!', cb: onClose }
-        ]
-      });
+      ];
+      var choices = [
+        { label: "We're ready to SOAR!", cb: function () { G.Game.startEnding(); } },
+        { label: 'Let me look around!', cb: onClose }
+      ];
+      // SECRET ENDING: they explored EVERY room before finishing the quest
+      if (G.Game && G.Game.allRoomsVisited && G.Game.allRoomsVisited()) {
+        secretParty = true;
+        pages.push({
+          name: name,
+          text: 'Wait a minute... YOU FOUND ALL OF THE LETTERS AND VISITED EVERY CLASSROOM! We love to celebrate effort here the Ashland Way... so let\'s CELEBRATE!'
+        });
+        choices.unshift({ label: "Let's CELEBRATE!", cb: function () { G.Game.startParty(); } });
+      }
+      G.Dialogue.start(pages, { choices: choices });
       return;
     }
     var cheer = left === 1
@@ -620,6 +650,97 @@ var G = window.G = window.G || {};
       { name: name, text: 'Just look at it sparkle up there! Perfect!' },
       { name: name, text: cheer }
     ], { onDone: onClose });
+  }
+
+  // ---- the secret dance party -----------------------------------------------
+  var secretParty = false; // earned by visiting every room before finishing
+  var partyMode = false;   // the party is happening right now
+  var partyTalk = {};      // who the student has thanked-back so far
+
+  function setPartyMode(on) { partyMode = on; }
+
+  // everyone at the party thanks the student -- each guest cycles their own
+  // personal 3-4 line set drawn from this pool
+  var PARTY_LINES = [
+    'Thank you for bringing our letters home!',
+    'You found every letter AND visited every room. INCREDIBLE!',
+    'This is the best back-to-school party EVER!',
+    'Nice moves! You have earned this dance!',
+    'S-O-A-R! S-O-A-R! Sing it with me!',
+    'The banner looks PERFECT thanks to you!',
+    'You are a true Ashland Eagle!',
+    'I told everyone about the student who saved our motto!',
+    'Best. Scavenger. Hunt. EVER!',
+    'You explored the WHOLE school. Even I have not done that!',
+    'When I heard the news, I cheered out loud!',
+    'The 26/27 school year is going to be AMAZING because of you!',
+    'DJ Eddie is playing my favorite song!',
+    'Look at that banner shine! You did that!',
+    'Three cheers for our letter finder! Hip hip HOORAY!',
+    'You never gave up. That is the Ashland Way!',
+    'I saved you a spot on the dance floor!',
+    'Somebody get this Eagle a trophy!',
+    'You worked hard and it PAID OFF!',
+    'Our hero is HERE! Everybody dance!',
+    'I am dancing because of YOU!',
+    'The whole school is proud of you tonight!',
+    'Safety, On task, Accountable, Respect -- and YOU showed all four!',
+    'I could not stop smiling when the last letter went up!',
+    'This party has your name all over it!',
+    'Eddie has not stopped squawking about you!',
+    'What a school year this is going to be!',
+    'You made back-to-school feel like a celebration!'
+  ];
+
+  // a few guests get lines written just for them
+  var PARTY_SPECIAL = {
+    '__officer__': [
+      'Even my HIGH FIVES are dancing tonight!',
+      'Great job, buddy! Stay safe out there on the dance floor!',
+      'S is for SAFETY... and SUPERSTAR! That is you!'
+    ],
+    'm-walker': [
+      'THIS is what celebrating effort looks like! The Ashland Way!',
+      'You found the letters AND visited every classroom. Remarkable!',
+      'I could not be prouder of an Ashland Eagle!',
+      'Enjoy every minute -- you EARNED this party!'
+    ],
+    'b-gym': [
+      'MY gym has never looked better!',
+      'Save some energy for PE class!',
+      'Look at those moves -- ever thought about the basketball team?'
+    ]
+  };
+
+  function partyDialogue(npc, onClose) {
+    var id = npc.kind === 'officer' ? '__officer__' : npc.roomId;
+    var name = npc.kind === 'officer' ? 'OFFICER GARTH'
+      : (G.TEACHERS[id] ? G.TEACHERS[id].name.toUpperCase() : '???');
+    var lines = PARTY_SPECIAL[id];
+    if (!lines) {
+      var base = chash(id + 'party');
+      var count = 3 + (base % 2);            // 3 or 4 lines each
+      lines = [];
+      [0, 5, 9, 13].slice(0, count).forEach(function (off) {
+        lines.push(PARTY_LINES[(base + off) % PARTY_LINES.length]);
+      });
+    }
+    var k = partyTalk[id] || 0;
+    partyTalk[id] = k + 1;
+    G.Dialogue.start([{ name: name, text: lines[k % lines.length] }], { onDone: onClose });
+  }
+
+  function djDialogue(onClose) {
+    var name = 'DJ EDDIE';
+    G.Dialogue.start([
+      { name: name, text: 'SQUAWK-SQUAWK! DJ EDDIE ON THE ONES AND TWOS! This party is all for YOU, letter-finder!' },
+      { name: name, text: 'Dance as long as you want! When you are ready to wrap up the celebration, just say the word.' }
+    ], {
+      choices: [
+        { label: 'Keep dancing!', cb: function () { if (onClose) onClose(); } },
+        { label: 'Time to SOAR!', cb: function () { G.Game.finishParty(); } }
+      ]
+    });
   }
 
   function eagleDialogue(onClose) {
@@ -704,6 +825,9 @@ var G = window.G = window.G || {};
     isSpotType: function (t) { return !!SPOT_LABELS[t]; },
     battleAsk: battleAsk,
     objective: objective,
-    guide: guide
+    guide: guide,
+    partyDialogue: partyDialogue,
+    djDialogue: djDialogue,
+    setPartyMode: setPartyMode
   };
 })();
