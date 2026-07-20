@@ -1,0 +1,1944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ashland Room Editor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128736;</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #0a1430;
+    color: #f4f4f4;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    padding: 10px 16px;
+    background: #10204a;
+    border-bottom: 2px solid #2a3a7a;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  header h1 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 13px;
+    color: #f7d84d;
+    margin: 0;
+  }
+  header .hint { color: #9fd4e8; font-size: 12px; }
+  #layout {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  /* room list */
+  #rooms {
+    width: 210px;
+    overflow-y: auto;
+    background: #0d1838;
+    border-right: 2px solid #2a3a7a;
+    padding: 8px;
+  }
+  #rooms h3 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: #9fd4e8;
+    margin: 12px 4px 6px;
+  }
+  .roombtn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: #14224e;
+    color: #f4f4f4;
+    border: 1px solid #2a3a7a;
+    border-radius: 4px;
+    padding: 5px 8px;
+    margin-bottom: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    position: relative;
+  }
+  .roombtn small { color: #8aa; display: block; font-size: 10px; }
+  .roombtn.active { background: #1f7a4d; border-color: #6fe08a; }
+  .roombtn .dot {
+    position: absolute; right: 6px; top: 7px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #f7d84d;
+  }
+  /* center */
+  #center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  #canvaswrap {
+    flex: 1;
+    overflow: scroll;
+    display: flex;
+    align-items: flex-start;
+    padding: 16px;
+  }
+  #canvaswrap::-webkit-scrollbar { width: 14px; height: 14px; }
+  #canvaswrap::-webkit-scrollbar-track { background: #0d1838; border-radius: 7px; }
+  #canvaswrap::-webkit-scrollbar-thumb {
+    background: #2e8f57; border-radius: 7px; border: 3px solid #0d1838;
+  }
+  #canvaswrap::-webkit-scrollbar-thumb:hover { background: #3aa96a; }
+  #canvaswrap::-webkit-scrollbar-corner { background: #0d1838; }
+  #grid-canvas {
+    image-rendering: pixelated;
+    background: #000;
+    border: 3px solid #2a3a7a;
+    border-radius: 4px;
+    cursor: crosshair;
+    margin: 0 auto;   /* centers small rooms; big maps scroll properly */
+    flex: none;
+  }
+  /* tools row */
+  #toolsrow {
+    background: #0d1838;
+    border-top: 2px solid #2a3a7a;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  #toolsrow .tbtn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    padding: 8px 10px;
+    background: #14224e;
+    color: #fff;
+    border: 2px solid #2a3a7a;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #toolsrow .tbtn.selected { border-color: #f7d84d; background: #3a3410; }
+  #toolsrow .tsep { width: 2px; height: 24px; background: #2a3a7a; margin: 0 4px; }
+  /* palette */
+  #palette {
+    background: #0d1838;
+    border-top: 2px solid #2a3a7a;
+    max-height: 210px;
+    overflow-y: auto;
+  }
+  #paltabs { display: flex; gap: 2px; padding: 6px 12px 0; }
+  #paltabs button {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    padding: 8px 12px;
+    border: 2px solid transparent;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    color: #fff;
+    cursor: pointer;
+    opacity: 0.65;
+  }
+  #paltabs button.active { opacity: 1; border-color: rgba(255,255,255,0.35); }
+  #paltabs .tab-floors { background: #1f7a4d; }
+  #paltabs .tab-walls { background: #2a5a9a; }
+  #paltabs .tab-furniture { background: #b45a1e; }
+  #paltabs .tab-special { background: #8a6d1a; }
+  #palbody { padding: 8px 12px; }
+  .palbtn {
+    width: 46px; height: 46px;
+    padding: 2px;
+    background: #14224e;
+    border: 2px solid #2a3a7a;
+    border-radius: 4px;
+    cursor: pointer;
+    vertical-align: middle;
+    margin: 2px;
+    position: relative;
+  }
+  .palbtn canvas { image-rendering: pixelated; width: 38px; height: 38px; display: block; }
+  .palbtn.selected { border-color: #f7d84d; background: #3a3410; }
+  .palbtn:hover .pop { display: block; }
+  .palbtn .pop {
+    display: none;
+    position: absolute;
+    bottom: 52px; left: 50%;
+    transform: translateX(-50%);
+    background: #10204a;
+    border: 2px solid #f7d84d;
+    border-radius: 6px;
+    padding: 6px 8px;
+    z-index: 30;
+    pointer-events: none;
+    white-space: nowrap;
+    text-align: center;
+  }
+  .palbtn .pop canvas { width: 64px; height: 64px; margin: 0 auto 4px; }
+  .palbtn .pop span { font-size: 11px; color: #f7d84d; display: block; }
+  /* room header strip */
+  #roomheader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 16px;
+    border-bottom: 2px solid #2a3a7a;
+    background: #0d1838;
+  }
+  #roomheader canvas { image-rendering: pixelated; }
+  #roomheader .rh-name { font-family: 'Press Start 2P', monospace; font-size: 11px; color: #fff; }
+  #roomheader .rh-chip {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 10px;
+  }
+  .chip-middle { background: #1f7a4d; }
+  .chip-top { background: #2a5a9a; }
+  .chip-basement { background: #b45a1e; }
+  /* right panel */
+  #actions {
+    width: 230px;
+    background: #0d1838;
+    border-left: 2px solid #2a3a7a;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+  .applabel {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: #9fd4e8;
+    margin: 4px 0 2px;
+  }
+  #preview-wrap { text-align: center; }
+  #sprite-preview { image-rendering: pixelated; }
+  .swatchrow button {
+    width: 19px; height: 19px;
+    border: 2px solid #2a3a7a;
+    border-radius: 3px;
+    cursor: pointer;
+    margin: 1px;
+    padding: 0;
+  }
+  .swatchrow button.selected { border-color: #f7d84d; }
+  .stylerow button {
+    width: 20px; height: 30px;
+    background: #14224e;
+    border: 2px solid #2a3a7a;
+    border-radius: 3px;
+    cursor: pointer;
+    margin: 1px;
+    padding: 0;
+  }
+  .stylerow button canvas { image-rendering: pixelated; display: block; margin: 0 auto; }
+  .stylerow button.selected { border-color: #f7d84d; background: #3a3410; }
+  #glassesrow { font-size: 12px; color: #cdd6ea; }
+  #actions button {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    padding: 12px 8px;
+    border-radius: 4px;
+    border: 2px solid #e8e8f4;
+    cursor: pointer;
+    color: #fff;
+  }
+  #savebtn { background: #1f7a4d; font-size: 13px; padding: 16px 8px; }
+  #savebtn:hover { background: #2a9a63; }
+  #savebtn.dirty { animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { border-color: #f7d84d; } }
+  #revertbtn { background: #6e5a1c; }
+  #revertallbtn { background: #6e1c1c; }
+  #actions .spacer { flex: 1; }
+  #status { font-size: 12px; color: #9fd4e8; line-height: 1.5; }
+  #status.ok { color: #6fe08a; }
+  #status.warn { color: #ffb84d; }
+  #doorwarn {
+    display: none;
+    background: #6e1c1c;
+    border: 2px solid #ff5a4a;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 12px;
+  }
+  #sizer { font-size: 12px; color: #cdd6ea; }
+  #sizer button {
+    font-family: inherit; font-size: 14px; padding: 2px 8px;
+    background: #14224e; border: 1px solid #2a3a7a;
+  }
+  .toolrow { font-size: 11px; color: #8aa; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ROOM EDITOR</h1>
+  <span class="hint">Pick a room, pick a tile, paint. Right-click = eyedropper.
+    Changes appear <b>live</b> in the game tab. SAVE writes them into the code.</span>
+</header>
+<div id="layout">
+  <div id="rooms"></div>
+  <div id="center">
+    <div id="roomheader">
+      <canvas id="rh-sprite" width="16" height="24" style="width:32px;height:48px;"></canvas>
+      <span class="rh-name" id="rh-name"></span>
+      <span class="rh-chip" id="rh-chip"></span>
+    </div>
+    <div id="canvaswrap"><canvas id="grid-canvas"></canvas></div>
+    <div id="toolsrow">
+      <button class="tbtn selected" id="tool-brush" title="Brush (B)">✏ BRUSH</button>
+      <button class="tbtn" id="tool-fill" title="Fill an area (F)">▨ FILL</button>
+      <button class="tbtn" id="tool-rect" title="Drag a rectangle (R)">▭ RECT</button>
+      <button class="tbtn" id="tool-door" title="Click a door to change where it leads (D)">🚪 LINK DOOR</button>
+      <button class="tbtn" id="tool-signs" title="Move, flip and create hallway signs (S)">🪧 SIGNS</button>
+      <span class="tsep"></span>
+      <button class="tbtn selected" id="size-1">1×</button>
+      <button class="tbtn" id="size-2">2×</button>
+      <button class="tbtn" id="size-3">3×</button>
+      <span class="tsep"></span>
+      <button class="tbtn" id="undobtn" title="Undo (Ctrl+Z)">↩ UNDO</button>
+      <button class="tbtn" id="redobtn" title="Redo (Ctrl+Shift+Z)">↪ REDO</button>
+      <span class="tsep"></span>
+      <select id="copyfrom" style="font-size:11px;padding:6px;border-radius:4px;background:#eaf6ee;color:#143;border:1px solid #2a3a7a;">
+      </select>
+      <button class="tbtn" id="copybtn2">COPY LAYOUT</button>
+    </div>
+    <div id="signbar" style="display:none;gap:8px;align-items:center;padding:6px 0;flex-wrap:wrap;">
+      <input id="signtext" type="text" placeholder="new sign text..." maxlength="24"
+        style="padding:7px;border-radius:4px;border:1px solid #2a3a7a;background:#eaf6ee;color:#143;font-size:12px;width:180px;">
+      <button class="tbtn" id="sign-add">+ ADD SIGN</button>
+      <button class="tbtn" id="sign-rename" disabled>APPLY TEXT</button>
+      <button class="tbtn" id="sign-rotate" disabled>ROTATE (R)</button>
+      <button class="tbtn" id="sign-flip" disabled>FLIP (F)</button>
+      <button class="tbtn" id="sign-reset" disabled>RESET</button>
+      <button class="tbtn" id="sign-delete" disabled>HIDE</button>
+      <button class="tbtn" id="sign-unhide" style="display:none;">UNHIDE ALL</button>
+      <span style="font-size:11px;color:#9fd4e8;">Drag signs right on the map. Select any sign, type new words, APPLY TEXT. RESET restores the automatic name/spot. Custom signs: RESET deletes them.</span>
+    </div>
+    <div id="palette">
+      <div id="paltabs"></div>
+      <div id="palbody"></div>
+    </div>
+  </div>
+  <div id="actions">
+    <button id="savebtn">SAVE</button>
+    <div>
+      <label for="teachername" style="font-family:'Press Start 2P',monospace;font-size:8px;color:#9fd4e8;">TEACHER NAME</label>
+      <input id="teachername" type="text" placeholder="teacher name"
+        style="width:100%;margin-top:4px;padding:6px;border-radius:4px;border:1px solid #2a3a7a;background:#eaf6ee;color:#143;font-size:13px;box-sizing:border-box;">
+    </div>
+    <div>
+      <div class="applabel">DOOR LEADS TO</div>
+      <select id="door-dest" style="width:100%;padding:5px;border-radius:4px;border:1px solid #2a3a7a;background:#eaf6ee;color:#143;font-size:12px;">
+      </select>
+      <div style="font-size:10px;color:#8aa;margin-top:2px;">applies to Door / Exit tiles you paint next</div>
+    </div>
+    <div id="designer">
+      <div id="preview-wrap"><canvas id="sprite-preview" width="16" height="24" style="width:64px;height:96px;"></canvas></div>
+      <div class="applabel">HAIR STYLE</div>
+      <div class="stylerow" id="hair-styles"></div>
+      <div class="applabel">HAIR COLOR</div>
+      <div class="swatchrow" id="hair-colors"></div>
+      <div class="applabel">SKIN</div>
+      <div class="swatchrow" id="skin-colors"></div>
+      <div class="applabel">OUTFIT</div>
+      <div class="stylerow" id="outfits"></div>
+      <div class="applabel">OUTFIT COLOR</div>
+      <div class="swatchrow" id="shirt-colors"></div>
+      <div class="applabel">PANTS COLOR</div>
+      <div class="swatchrow" id="pants-colors"></div>
+      <div id="glassesrow"><label><input type="checkbox" id="glasses-check"> Glasses</label></div>
+    </div>
+    <button id="allspritesbtn" style="background:#4a2a6e;" title="Open the TEACHER LOOKS gallery: every teacher's sprite on one page, all editable">&#128064; ALL TEACHER SPRITES</button>
+    <div id="status">No changes yet.</div>
+    <div id="doorwarn">&#9888; This room has NO door! Students would be trapped. Paint a Door/Exit tile.</div>
+    <div id="sizer">
+      Size:
+      <button id="w-minus">-</button> <span id="w-label"></span> <button id="w-plus">+</button> wide<br>
+      <button id="h-minus">-</button> <span id="h-label"></span> <button id="h-plus">+</button> tall
+    </div>
+    <div class="toolrow" id="toolinfo"></div>
+    <div class="spacer"></div>
+    <button id="deleteroombtn" style="background:#6e1c4a;display:none;">DELETE THIS ROOM</button>
+    <button id="backupbtn" style="background:#1c4a6e;">DOWNLOAD BACKUP</button>
+    <button id="revertbtn">REVERT THIS ROOM</button>
+    <button id="revertallbtn">REVERT ALL ROOMS</button>
+  </div>
+</div>
+
+<script src="js/tiles.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/room-overrides.js"></script>
+<script src="js/sign-overrides.js"></script>
+<script src="js/teachers.js"></script>
+<script src="js/rooms.js"></script>
+<script src="js/maps.js"></script>
+<script src="js/signs.js"></script>
+<script>
+(function () {
+  var SCALE = 32;               // 2x tiles
+  var STORE_KEY = 'ashland-room-overrides';
+
+  G.buildMaps();
+
+  // working set: localStorage merged over the baked file
+  var working = {};
+  (function () {
+    var baked = G.ROOM_OVERRIDES || {};
+    Object.keys(baked).forEach(function (k) { working[k] = JSON.parse(JSON.stringify(baked[k])); });
+    try {
+      var local = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+      Object.keys(local).forEach(function (k) { working[k] = local[k]; });
+    } catch (e) {}
+  })();
+
+  var currentId = null;
+  var grid = null, W = 0, H = 0, npcPos = null;
+  var doorDests = {}; // "x,y" -> destination room/hall id for painted doors
+  var SIGNS_KEY = 'ashland-sign-overrides';
+  var workingSigns = {};
+  try { workingSigns = JSON.parse(localStorage.getItem(SIGNS_KEY) || '{}'); } catch (e) {}
+  Object.keys(G.SIGN_OVERRIDES || {}).forEach(function (mapId) {
+    workingSigns[mapId] = workingSigns[mapId] || {};
+    Object.keys(G.SIGN_OVERRIDES[mapId]).forEach(function (rid) {
+      if (workingSigns[mapId][rid] === undefined) workingSigns[mapId][rid] = G.SIGN_OVERRIDES[mapId][rid];
+    });
+  });
+  var signSel = null, signDrag = null, signRects = [];
+  var doorDrag = null;   // dragging a door tile in SIGNS mode
+  function isHallCur() { return G.Maps.all[currentId] && G.Maps.all[currentId].isHall; }
+  function signFactor() { return SCALE / 16; }
+  function commitSigns() {
+    localStorage.setItem(SIGNS_KEY, JSON.stringify(workingSigns));
+    G.Signs.invalidate();
+    unsaved = true;
+    document.getElementById('savebtn').classList.add('dirty');
+  }
+  function refreshSignRects() {
+    if (!isHallCur()) { signRects = []; return; }
+    localStorage.setItem(SIGNS_KEY, JSON.stringify(workingSigns));
+    G.Signs.invalidate();
+    signRects = G.Signs.layout(G.Maps.all[currentId]);
+  }
+  function signCur() {
+    return (workingSigns[currentId] || {})[signSel];
+  }
+  function signRect() {
+    return signRects.filter(function (r) { return (r.key || r.roomId) === signSel; })[0];
+  }
+  function signOrientOf(r, cur) {
+    return cur && cur.orient ? cur.orient : (r.w >= r.h ? 'h' : 'v');
+  }
+  function setSignOrient(next) {
+    var r = signRect();
+    if (!r) return;
+    workingSigns[currentId] = workingSigns[currentId] || {};
+    var cur = workingSigns[currentId][signSel];
+    var entry = {
+      x: cur ? cur.x : r.x, y: cur ? cur.y : r.y,
+      orient: next(signOrientOf(r, cur))
+    };
+    if (cur && cur.text) entry.text = cur.text;
+    workingSigns[currentId][signSel] = entry;
+    commitSigns(); render();
+  }
+  function rotateSign() {
+    setSignOrient(function (o) { return o === 'h' ? 'v' : o === 'hf' ? 'vf' : o === 'v' ? 'h' : 'hf'; });
+  }
+  function flipSign() {
+    setSignOrient(function (o) { return o === 'h' ? 'hf' : o === 'hf' ? 'h' : o === 'v' ? 'vf' : 'v'; });
+  }
+  function updateSignButtons() {
+    var isCustom = signSel && signSel.indexOf('sign-') === 0;
+    document.getElementById('sign-rotate').disabled = !signSel;
+    document.getElementById('sign-flip').disabled = !signSel;
+    document.getElementById('sign-rename').disabled = !signSel;
+    document.getElementById('sign-reset').disabled = !signSel;
+    document.getElementById('sign-delete').disabled = !signSel;
+    var anyHidden = Object.values(workingSigns[currentId] || {})
+      .some(function (o) { return o && o.hidden; });
+    document.getElementById('sign-unhide').style.display = anyHidden ? '' : 'none';
+    if (signSel) {
+      var cur = (workingSigns[currentId] || {})[signSel];
+      var label = cur && cur.text ? cur.text
+        : (signSel.indexOf('sign-') === 0 ? '' : (G.Signs.label(signSel.split('#')[0]) || ''));
+      document.getElementById('signtext').value = label;
+    }
+  }
+  var tool = { kind: 'tile', tile: 'wall' };
+  var unsaved = false;
+  var mode = 'brush';        // brush | fill | rect
+  var brushSize = 1;
+  var undoStack = {}, redoStack = {};
+  var rectStart = null, rectHover = null;
+  var strokeNewRoom = null;  // '_new' creates ONE room per stroke
+  var NAMES_KEY = 'ashland-teacher-names';
+  var workingNames = {};
+  try { workingNames = JSON.parse(localStorage.getItem(NAMES_KEY) || '{}'); } catch (e) {}
+  var SPRITES_KEY = 'ashland-teacher-sprites';
+  var workingSprites = {};
+  try { workingSprites = JSON.parse(localStorage.getItem(SPRITES_KEY) || '{}'); } catch (e) {}
+  var CUSTOM_KEY = 'ashland-custom-rooms';
+  var workingCustoms = {};
+  (function () {
+    Object.keys(G.CUSTOM_ROOMS || {}).forEach(function (k) { workingCustoms[k] = G.CUSTOM_ROOMS[k]; });
+    try {
+      var local = JSON.parse(localStorage.getItem(CUSTOM_KEY) || '{}');
+      Object.keys(local).forEach(function (k) { if (local[k]) workingCustoms[k] = local[k]; });
+    } catch (e) {}
+  })();
+  var canvas = document.getElementById('grid-canvas');
+  var ctx = canvas.getContext('2d');
+  var hover = null;
+  var spriteCache = {};
+
+  function tileCanvas(type) {
+    return G.Tiles.get(type.indexOf('banner:') === 0 ? type + ':1' : type);
+  }
+
+  // ---- room list ----------------------------------------------------------
+  var FLOOR_LABELS = { top: 'TOP FLOOR', middle: 'GROUND FLOOR', basement: 'LOWER FLOOR' };
+  var HALLS = [
+    { id: 'middle', label: 'Middle Floor' },
+    { id: 'top', label: 'Top Floor' },
+    { id: 'basement', label: 'Lower Floor + Gym' }
+  ];
+  function buildRoomList() {
+    var wrap = document.getElementById('rooms');
+    wrap.innerHTML = '';
+
+    var addBtn = document.createElement('button');
+    addBtn.className = 'roombtn';
+    addBtn.style.cssText = 'border:2px dashed #6fe08a;color:#6fe08a;text-align:center;font-weight:bold;';
+    addBtn.textContent = '+ ADD NEW ROOM';
+    addBtn.addEventListener('click', function () {
+      var id = createCustomRoom();
+      selectRoom(id);
+      setStatus('New room created on the ' + FLOOR_LABELS[currentFloorId()] +
+        '. Name the teacher, design it, then use LINK DOOR in a hallway to give it a door.', 'ok');
+    });
+    wrap.appendChild(addBtn);
+
+    var hh = document.createElement('h3');
+    hh.textContent = 'HALLWAYS';
+    wrap.appendChild(hh);
+    HALLS.forEach(function (hall) {
+      var b = document.createElement('button');
+      b.className = 'roombtn' + (hall.id === currentId ? ' active' : '');
+      b.innerHTML = '<b>' + hall.label + '</b><small>hallway map</small>' +
+        (working[hall.id] ? '<span class="dot" title="edited"></span>' : '');
+      b.addEventListener('click', function () { selectRoom(hall.id); });
+      wrap.appendChild(b);
+    });
+    ['middle', 'top', 'basement'].forEach(function (floor) {
+      var h = document.createElement('h3');
+      h.textContent = FLOOR_LABELS[floor];
+      wrap.appendChild(h);
+      Object.keys(G.ROOMS).forEach(function (id) {
+        var room = G.ROOMS[id];
+        if (room.floor !== floor || room.noInterior) return;
+        var t = G.TEACHERS[id];
+        var b = document.createElement('button');
+        b.className = 'roombtn' + (id === currentId ? ' active' : '');
+        b.innerHTML = '<b>' + (t ? t.name : '(no teacher)') + '</b><small>' + room.name + '</small>' +
+          (working[id] ? '<span class="dot" title="edited"></span>' : '');
+        b.addEventListener('click', function () { selectRoom(id); });
+        wrap.appendChild(b);
+      });
+    });
+  }
+
+  // ---- selection ----------------------------------------------------------
+  function templateGrid(id) {
+    // rebuild fresh so reverts show the true template
+    var m = G.Maps.all[id];
+    return {
+      w: m.w, h: m.h,
+      grid: m.grid.map(function (r) { return r.slice(); }),
+      npc: m.npcs.length ? { x: m.npcs[0].x, y: m.npcs[0].y } : null
+    };
+  }
+
+  function selectRoom(id) {
+    currentId = id;
+    var src = working[id] || templateGrid(id);
+    W = src.w; H = src.h;
+    grid = src.grid.map(function (r) { return r.slice(); });
+    npcPos = src.npc ? { x: src.npc.x, y: src.npc.y } : null;
+    if (!G.TEACHERS[id]) npcPos = null;
+    doorDests = src.doorTargets ? JSON.parse(JSON.stringify(src.doorTargets)) : {};
+    var nameInput = document.getElementById('teachername');
+    if (G.TEACHERS[id]) {
+      nameInput.disabled = false;
+      nameInput.value = G.TEACHERS[id].name;
+    } else {
+      nameInput.disabled = true;
+      nameInput.value = '(no teacher in this room)';
+    }
+    buildDesigner();
+    buildRoomList();
+    updateRoomHeader();
+    buildCopyFrom();
+    render();
+    updatePanels();
+  }
+
+  function updateRoomHeader() {
+    var isHall = G.Maps.all[currentId] && G.Maps.all[currentId].isHall;
+    var name = isHall
+      ? FLOOR_LABELS[currentId] + ' HALLWAY'
+      : (G.ROOMS[currentId] ? G.ROOMS[currentId].name : currentId);
+    var t = G.TEACHERS[currentId];
+    if (t && !isHall) name = t.name + '  —  ' + name;
+    document.getElementById('rh-name').textContent = name;
+    var floor = isHall ? currentId : (G.ROOMS[currentId] ? G.ROOMS[currentId].floor : 'middle');
+    var chip = document.getElementById('rh-chip');
+    chip.textContent = FLOOR_LABELS[floor];
+    chip.className = 'rh-chip chip-' + floor;
+    var pc = document.getElementById('rh-sprite').getContext('2d');
+    pc.clearRect(0, 0, 16, 24);
+    var spr = !isHall && teacherSprite(currentId);
+    if (spr) pc.drawImage(spr, 0, 0);
+  }
+
+  function buildCopyFrom() {
+    var sel = document.getElementById('copyfrom');
+    sel.innerHTML = '';
+    var o0 = document.createElement('option');
+    o0.value = '';
+    o0.textContent = 'Copy layout from…';
+    sel.appendChild(o0);
+    Object.keys(G.ROOMS).forEach(function (id) {
+      if (G.ROOMS[id].noInterior || id === currentId) return;
+      var o = document.createElement('option');
+      o.value = id;
+      o.textContent = destLabel(id);
+      sel.appendChild(o);
+    });
+  }
+
+  document.getElementById('copybtn2').addEventListener('click', function () {
+    var src = document.getElementById('copyfrom').value;
+    if (!src || !currentId) return;
+    if (G.Maps.all[currentId] && G.Maps.all[currentId].isHall) {
+      setStatus('Hallways cannot copy layouts (fixed size).', 'warn');
+      return;
+    }
+    pushUndo();
+    var tmpl = working[src] || templateGrid(src);
+    W = tmpl.w; H = tmpl.h;
+    grid = tmpl.grid.map(function (r) { return r.slice(); });
+    doorDests = tmpl.doorTargets ? JSON.parse(JSON.stringify(tmpl.doorTargets)) : {};
+    commit();
+    render();
+    updatePanels();
+    setStatus('Copied layout from ' + destLabel(src) + '.', 'ok');
+  });
+
+  // ---- sprite designer ----------------------------------------------------
+  function currentOv() {
+    if (!currentId || !G.TEACHERS[currentId]) return null;
+    if (workingSprites[currentId]) return workingSprites[currentId];
+    var base = G.TEACHERS[currentId].spriteOv || { style: 0, skin: 0, hairColor: 0, outfit: 0, glasses: false };
+    return { style: base.style, skin: base.skin, hairColor: base.hairColor, outfit: base.outfit, glasses: !!base.glasses };
+  }
+
+  function setOv(patch) {
+    var ov = currentOv();
+    if (!ov) return;
+    Object.keys(patch).forEach(function (k) { ov[k] = patch[k]; });
+    workingSprites[currentId] = ov;
+    localStorage.setItem(SPRITES_KEY, JSON.stringify(workingSprites));
+    G.TEACHERS[currentId].spriteOv = ov;
+    G.TEACHERS[currentId].sprite = G.Sprites.cfgFrom(ov);
+    spriteCache = {};
+    unsaved = true;
+    buildDesigner();
+    render();
+    updatePanels();
+  }
+
+  // where does the door/stair at this position take you?
+  function shortDest(id) {
+    if (id === 'middle') return 'MID HALL';
+    if (id === 'top') return 'TOP HALL';
+    if (id === 'basement') return 'BSMT HALL';
+    var t = G.TEACHERS[id];
+    if (t) return t.name.toUpperCase();
+    var r = G.ROOMS[id];
+    if (!r) return id;
+    return r.name.split(' - ')[0].split(' / ')[0].slice(0, 14);
+  }
+
+  function doorLabelText(key, tileType) {
+    if (doorDests[key] === '_back') return '→BACK';
+    if (doorDests[key]) return '→' + shortDest(doorDests[key]);
+    var m2 = G.Maps.all[currentId];
+    if (!m2) return '';
+    if (m2.doors && m2.doors[key]) {
+      var d = m2.doors[key];
+      // rooms with several doors: show which numbered pair this one is
+      var idxs = {};
+      Object.keys(m2.doors).forEach(function (k2) {
+        if (m2.doors[k2].roomId === d.roomId) idxs[m2.doors[k2].exitIndex] = 1;
+      });
+      var tag = Object.keys(idxs).length > 1 ? ' #' + (d.exitIndex + 1) : '';
+      return '→' + shortDest(d.roomId) + tag;
+    }
+    var st = m2.stairs && m2.stairs[key];
+    if (st) {
+      if (st.goRoom) return '→' + shortDest(st.goRoom);
+      if (st.exit) {
+        var exits = Object.keys(m2.stairs).filter(function (k3) { return m2.stairs[k3].exit; });
+        var dist = {};
+        exits.forEach(function (k3) { dist[m2.stairs[k3].exitIndex] = 1; });
+        return Object.keys(dist).length > 1 ? '→HALLWAY #' + (st.exitIndex + 1) : '→HALLWAY';
+      }
+      if (st.options) return '→STAIRS';
+    }
+    if (tileType === 'mat') return '→HALLWAY';
+    return '';
+  }
+
+  function miniSprite(ov, w, h) {
+    var c = document.createElement('canvas');
+    c.width = 16; c.height = 24;
+    c.style.width = (w || 16) + 'px';
+    c.style.height = (h || 24) + 'px';
+    var frames = G.Sprites.make(G.Sprites.cfgFrom(ov));
+    c.getContext('2d').drawImage(frames.down[0], 0, 0);
+    return c;
+  }
+
+  function buildDesigner() {
+    var box = document.getElementById('designer');
+    var ov = currentOv();
+    box.style.display = ov ? 'block' : 'none';
+    if (!ov) return;
+
+    // big preview
+    var prev = document.getElementById('sprite-preview');
+    var pc = prev.getContext('2d');
+    pc.clearRect(0, 0, 16, 24);
+    pc.drawImage(G.Sprites.make(G.Sprites.cfgFrom(ov)).down[0], 0, 0);
+
+    // hair styles (mini sprite per style)
+    var hs = document.getElementById('hair-styles');
+    hs.innerHTML = '';
+    G.Sprites.STYLES.forEach(function (s, i) {
+      var b = document.createElement('button');
+      b.title = s.name;
+      b.className = i === ov.style ? 'selected' : '';
+      var mini = miniSprite({ style: i, skin: ov.skin, hairColor: ov.hairColor, outfit: ov.outfit }, 16, 24);
+      b.appendChild(mini);
+      b.addEventListener('click', function () { setOv({ style: i }); });
+      hs.appendChild(b);
+    });
+
+    // hair colors
+    var hc = document.getElementById('hair-colors');
+    hc.innerHTML = '';
+    G.Sprites.HAIRCOLORS.forEach(function (col, i) {
+      var b = document.createElement('button');
+      b.style.background = col;
+      b.title = 'Hair color ' + (i + 1);
+      b.className = i === ov.hairColor ? 'selected' : '';
+      b.addEventListener('click', function () { setOv({ hairColor: i }); });
+      hc.appendChild(b);
+    });
+
+    // skin tones
+    var sk = document.getElementById('skin-colors');
+    sk.innerHTML = '';
+    G.Sprites.SKINS.forEach(function (col, i) {
+      var b = document.createElement('button');
+      b.style.background = col;
+      b.title = 'Skin tone ' + (i + 1);
+      b.className = i === ov.skin ? 'selected' : '';
+      b.addEventListener('click', function () { setOv({ skin: i }); });
+      sk.appendChild(b);
+    });
+
+    // outfits (mini sprite per outfit)
+    var of = document.getElementById('outfits');
+    of.innerHTML = '';
+    G.Sprites.OUTFITS.forEach(function (o, i) {
+      var b = document.createElement('button');
+      b.title = o.name;
+      b.className = i === ov.outfit ? 'selected' : '';
+      var mini = miniSprite({ style: ov.style, skin: ov.skin, hairColor: ov.hairColor, outfit: i }, 16, 24);
+      b.appendChild(mini);
+      b.addEventListener('click', function () { setOv({ outfit: i }); });
+      of.appendChild(b);
+    });
+
+    // outfit colors (re-dye the clothing; click the selected one to reset)
+    var sc = document.getElementById('shirt-colors');
+    sc.innerHTML = '';
+    G.Sprites.SHIRTCOLORS.forEach(function (col, i) {
+      var b = document.createElement('button');
+      b.style.background = col;
+      b.title = 'Outfit color ' + (i + 1) + ' (click again to reset)';
+      b.className = i === ov.shirtColor ? 'selected' : '';
+      b.addEventListener('click', function () {
+        setOv({ shirtColor: ov.shirtColor === i ? null : i });
+      });
+      sc.appendChild(b);
+    });
+
+    // pants colors (click the selected one to reset)
+    var pc = document.getElementById('pants-colors');
+    pc.innerHTML = '';
+    G.Sprites.PANTSCOLORS.forEach(function (col, i) {
+      var b = document.createElement('button');
+      b.style.background = col;
+      b.title = 'Pants color ' + (i + 1) + ' (click again to reset)';
+      b.className = i === ov.pantsColor ? 'selected' : '';
+      b.addEventListener('click', function () {
+        setOv({ pantsColor: ov.pantsColor === i ? null : i });
+      });
+      pc.appendChild(b);
+    });
+
+    var gl = document.getElementById('glasses-check');
+    gl.checked = !!ov.glasses;
+    gl.onchange = function () { setOv({ glasses: gl.checked }); };
+  }
+
+  document.getElementById('teachername').addEventListener('input', function () {
+    if (!currentId || !G.TEACHERS[currentId]) return;
+    var name = this.value.trim();
+    if (name) {
+      workingNames[currentId] = name;
+      G.TEACHERS[currentId].name = name;
+    } else {
+      delete workingNames[currentId];
+    }
+    // custom rooms take their display name from the teacher
+    if (workingCustoms[currentId] && name) {
+      workingCustoms[currentId].teacherName = name;
+      workingCustoms[currentId].name = name.toUpperCase() + "'S ROOM";
+      G.ROOMS[currentId].name = workingCustoms[currentId].name;
+      localStorage.setItem(CUSTOM_KEY, JSON.stringify(workingCustoms));
+      buildDestSelect();
+    }
+    localStorage.setItem(NAMES_KEY, JSON.stringify(workingNames));
+    spriteCache = {}; // not strictly needed, but keeps things consistent
+    unsaved = true;
+    updatePanels();
+    buildRoomList();
+    render();
+  });
+
+  // ---- rendering ----------------------------------------------------------
+  function teacherSprite(id) {
+    if (!spriteCache[id] && G.TEACHERS[id]) {
+      spriteCache[id] = G.Sprites.make(G.TEACHERS[id].sprite).down[0];
+    }
+    return spriteCache[id];
+  }
+
+  function render() {
+    canvas.width = W * SCALE;
+    canvas.height = H * SCALE;
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        var t = grid[y][x];
+        if (t === 'void') {
+          // checkerboard = erased/solid, so black never looks like a mistake
+          ctx.fillStyle = (x + y) % 2 === 0 ? '#101420' : '#181e30';
+          ctx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+          continue;
+        }
+        if (t === 'table') {
+          // same auto-joining the game does
+          var tUp = y > 0 && grid[y - 1][x] === 'table';
+          var tDn = y < H - 1 && grid[y + 1][x] === 'table';
+          t = tUp && tDn ? 'tableMid' : tUp ? 'tableBot' : tDn ? 'tableTop' : 'table';
+        } else if (t === 'kidney') {
+          var kL = x > 0 && grid[y][x - 1] === 'kidney';
+          var kR = x < W - 1 && grid[y][x + 1] === 'kidney';
+          t = kL && kR ? 'kidneyM' : kL ? 'kidneyR' : kR ? 'kidneyL' : 'kidney';
+        } else if (t === 'welcome') {
+          t = (x > 0 && grid[y][x - 1] === 'welcome') ? 'welcomeR' : 'welcomeL';
+        }
+        ctx.drawImage(tileCanvas(t), x * SCALE, y * SCALE, SCALE, SCALE);
+      }
+    }
+    // grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    for (var gx = 0; gx <= W; gx++) {
+      ctx.beginPath(); ctx.moveTo(gx * SCALE + 0.5, 0); ctx.lineTo(gx * SCALE + 0.5, H * SCALE); ctx.stroke();
+    }
+    for (var gy = 0; gy <= H; gy++) {
+      ctx.beginPath(); ctx.moveTo(0, gy * SCALE + 0.5); ctx.lineTo(W * SCALE, gy * SCALE + 0.5); ctx.stroke();
+    }
+    // the gym's basketball court (same renderer the game uses)
+    if (currentId === 'basement') {
+      ctx.save();
+      G.drawCourtLines(ctx, SCALE);
+      ctx.restore();
+    }
+
+    // label every door / stairwell with where it leads
+    for (var ly = 0; ly < H; ly++) {
+      for (var lx = 0; lx < W; lx++) {
+        var lt = grid[ly][lx];
+        if (lt !== 'mat' && lt !== 'door' && lt !== 'stairU' && lt !== 'stairD') continue;
+        var text = doorLabelText(lx + ',' + ly, lt);
+        if (!text) continue;
+        ctx.font = 'bold 9px monospace';
+        var tw = ctx.measureText(text).width;
+        var bx = Math.max(1, Math.min(W * SCALE - tw - 5, lx * SCALE + SCALE / 2 - tw / 2 - 2));
+        var by = ly === 0 ? ly * SCALE + SCALE : ly * SCALE - 11;
+        if (by < 0) by = ly * SCALE + SCALE;
+        ctx.fillStyle = 'rgba(10, 12, 20, 0.85)';
+        ctx.fillRect(bx, by, tw + 5, 11);
+        ctx.fillStyle = '#f7d84d';
+        ctx.textBaseline = 'top';
+        ctx.fillText(text, bx + 2, by + 1);
+      }
+    }
+
+    // teacher
+    if (npcPos) {
+      if (draggingNpc) {
+        ctx.fillStyle = 'rgba(247, 216, 77, 0.35)';
+        ctx.fillRect(npcPos.x * SCALE, npcPos.y * SCALE, SCALE, SCALE);
+      }
+      var spr = teacherSprite(currentId);
+      if (spr) ctx.drawImage(spr, npcPos.x * SCALE, npcPos.y * SCALE - 16, 32, 48);
+    }
+    // rect-tool preview
+    if (rectStart && rectHover) {
+      var rx0 = Math.min(rectStart.x, rectHover.x) * SCALE;
+      var ry0 = Math.min(rectStart.y, rectHover.y) * SCALE;
+      var rw = (Math.abs(rectHover.x - rectStart.x) + 1) * SCALE;
+      var rh = (Math.abs(rectHover.y - rectStart.y) + 1) * SCALE;
+      ctx.fillStyle = 'rgba(247, 216, 77, 0.25)';
+      ctx.fillRect(rx0, ry0, rw, rh);
+      ctx.strokeStyle = '#f7d84d';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(rx0 + 1, ry0 + 1, rw - 2, rh - 2);
+      ctx.lineWidth = 1;
+    }
+    // hover (sized to the brush)
+    if (hover) {
+      var hoff = Math.floor((brushSize - 1) / 2);
+      ctx.strokeStyle = '#f7d84d';
+      ctx.lineWidth = 2;
+      ctx.strokeRect((hover.x - hoff) * SCALE + 1, (hover.y - hoff) * SCALE + 1,
+        SCALE * (tool.kind === 'tile' ? brushSize : 1) - 2, SCALE * (tool.kind === 'tile' ? brushSize : 1) - 2);
+      ctx.lineWidth = 1;
+    }
+  
+    // sign overlay (SIGNS tool, hallways only)
+    if (mode === 'signs' && isHallCur()) {
+      refreshSignRects();
+      var sf = signFactor();
+      signRects.forEach(function (r) {
+        ctx.drawImage(r.sign, r.x * sf, r.y * sf, r.w * sf, r.h * sf);
+        if (signSel === (r.key || r.roomId)) {
+          ctx.strokeStyle = '#f7d84d';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(r.x * sf - 2, r.y * sf - 2, r.w * sf + 4, r.h * sf + 4);
+        }
+      });
+      if (doorDrag) {
+        ctx.globalAlpha = 0.6;
+        ctx.drawImage(G.Tiles.get(doorDrag.tile), doorDrag.hx * SCALE, doorDrag.hy * SCALE, SCALE, SCALE);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = doorDrag.valid ? '#6fe08a' : '#ff5a4a';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(doorDrag.hx * SCALE + 1, doorDrag.hy * SCALE + 1, SCALE - 2, SCALE - 2);
+      }
+    }
+  }
+
+  // ---- painting -----------------------------------------------------------
+  var commitTimer = null;
+  function commit() {
+    if (!currentId) return;
+    working[currentId] = {
+      w: W, h: H,
+      grid: grid.map(function (r) { return r.slice(); }),
+      npc: npcPos ? { x: npcPos.x, y: npcPos.y } : null,
+      doorTargets: doorDests
+    };
+    clearTimeout(commitTimer);
+    commitTimer = setTimeout(function () {
+      localStorage.setItem(STORE_KEY, JSON.stringify(working));
+      G.buildMaps();   // refresh door wiring so the labels stay accurate
+      render();
+    }, 150);
+    unsaved = true;
+    updatePanels();
+    buildRoomList();
+  }
+
+  // ---- undo / redo --------------------------------------------------------
+  function snap() {
+    return JSON.stringify({ w: W, h: H, grid: grid, npc: npcPos, dts: doorDests });
+  }
+  function restoreSnap(s) {
+    var o = JSON.parse(s);
+    W = o.w; H = o.h; grid = o.grid; npcPos = o.npc; doorDests = o.dts || {};
+    commit(); render(); updatePanels();
+  }
+  function pushUndo() {
+    if (!currentId) return;
+    var st = undoStack[currentId] = undoStack[currentId] || [];
+    st.push(snap());
+    if (st.length > 50) st.shift();
+    redoStack[currentId] = [];
+  }
+  function doUndo() {
+    var st = undoStack[currentId] || [];
+    if (!st.length) return;
+    (redoStack[currentId] = redoStack[currentId] || []).push(snap());
+    restoreSnap(st.pop());
+  }
+  function doRedo() {
+    var st = redoStack[currentId] || [];
+    if (!st.length) return;
+    (undoStack[currentId] = undoStack[currentId] || []).push(snap());
+    restoreSnap(st.pop());
+  }
+  document.getElementById('undobtn').addEventListener('click', doUndo);
+  document.getElementById('redobtn').addEventListener('click', doRedo);
+
+  // ---- painting -----------------------------------------------------------
+  function applyPaint(x, y, type) {
+    if (x < 0 || x >= W || y < 0 || y >= H) return;
+    var key = x + ',' + y;
+    if (type === 'mat' || type === 'door') {
+      var dest = document.getElementById('door-dest').value;
+      if (dest === '_new') {
+        if (!strokeNewRoom) strokeNewRoom = createCustomRoom();
+        dest = strokeNewRoom;
+      }
+      if (dest) doorDests[key] = dest;
+      else delete doorDests[key];
+    } else {
+      delete doorDests[key];
+    }
+    grid[y][x] = type;
+  }
+
+  function brushPaint(x, y) {
+    var type = tool.tile;
+    var off = Math.floor((brushSize - 1) / 2);
+    for (var dy = 0; dy < brushSize; dy++) {
+      for (var dx = 0; dx < brushSize; dx++) {
+        applyPaint(x - off + dx, y - off + dy, type);
+      }
+    }
+    commit();
+    render();
+  }
+
+  function floodFill(x, y) {
+    var target = grid[y][x];
+    var type = tool.tile;
+    if (target === type) return;
+    var queue = [[x, y]];
+    var seen = {};
+    var count = 0;
+    while (queue.length && count < 4000) {
+      var c = queue.pop();
+      var cx = c[0], cy = c[1];
+      if (cx < 0 || cx >= W || cy < 0 || cy >= H) continue;
+      var k = cx + ',' + cy;
+      if (seen[k] || grid[cy][cx] !== target) continue;
+      seen[k] = 1;
+      applyPaint(cx, cy, type);
+      count++;
+      queue.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+    }
+    commit();
+    render();
+  }
+
+  function stampPaint(x, y) {
+    var s = tool.stamp;
+    for (var dy = 0; dy < s.tiles.length; dy++) {
+      for (var dx = 0; dx < s.tiles[dy].length; dx++) {
+        applyPaint(x + dx, y + dy, s.tiles[dy][dx]);
+      }
+    }
+    commit();
+    render();
+  }
+
+  // ---- click-a-door destination picker ------------------------------------
+  var doorPicker = null;
+  function closeDoorPicker() {
+    if (doorPicker) { doorPicker.remove(); doorPicker = null; }
+  }
+  function isDoorTile(t) { return t === 'mat' || t === 'door'; }
+
+  function openDoorPicker(x, y, clientX, clientY) {
+    closeDoorPicker();
+    var key = x + ',' + y;
+    var div = document.createElement('div');
+    div.style.cssText = 'position:fixed;z-index:60;background:#10204a;border:2px solid #f7d84d;' +
+      'border-radius:6px;padding:8px;left:' + Math.min(clientX, window.innerWidth - 280) + 'px;top:' +
+      Math.min(clientY, window.innerHeight - 110) + 'px;';
+    var lab = document.createElement('div');
+    lab.style.cssText = "font-family:'Press Start 2P',monospace;font-size:8px;color:#9fd4e8;margin-bottom:6px;";
+    lab.textContent = 'THIS DOOR LEADS TO:';
+    div.appendChild(lab);
+    var sel = document.createElement('select');
+    sel.style.cssText = 'width:250px;padding:5px;border-radius:4px;background:#eaf6ee;color:#143;font-size:12px;';
+    function add(value, label) {
+      var o = document.createElement('option');
+      o.value = value; o.textContent = label;
+      sel.appendChild(o);
+    }
+    add('', 'Hallway (normal door)');
+    add('_back', '← Back where you came from');
+    ['middle', 'top', 'basement'].forEach(function (h) { add(h, '→ ' + FLOOR_LABELS[h] + ' HALLWAY'); });
+    Object.keys(G.ROOMS).forEach(function (id) {
+      if (G.ROOMS[id].noInterior) return;
+      add(id, '→ ' + destLabel(id));
+    });
+    sel.value = doorDests[key] || '';
+    sel.addEventListener('change', function () {
+      pushUndo();
+      if (sel.value) doorDests[key] = sel.value;
+      else delete doorDests[key];
+      commit();
+      render();
+      closeDoorPicker();
+      setStatus('Door now leads to ' + (sel.options[sel.selectedIndex].textContent) + '.', 'ok');
+    });
+    div.appendChild(sel);
+    document.body.appendChild(div);
+    doorPicker = div;
+    sel.focus();
+  }
+  window.addEventListener('mousedown', function (e) {
+    if (doorPicker && !doorPicker.contains(e.target)) closeDoorPicker();
+  }, true);
+
+  var painting = false;
+  var draggingNpc = false;
+
+  function overTeacher(ox, oy) {
+    if (!npcPos) return false;
+    var sx = npcPos.x * SCALE, sy = npcPos.y * SCALE - 16;
+    return ox >= sx && ox < sx + SCALE && oy >= sy && oy < sy + SCALE + 16;
+  }
+
+  canvas.addEventListener('mousedown', function (e) {
+    if (e.button === 2 || !grid) return;
+    if (mode === 'signs') {
+      if (!isHallCur()) return;
+      var f = signFactor();
+      var mx = e.offsetX / f, my = e.offsetY / f;
+      refreshSignRects();
+      var hit = null;
+      for (var si = signRects.length - 1; si >= 0; si--) {
+        var sr = signRects[si];
+        if (mx >= sr.x && mx < sr.x + sr.w && my >= sr.y && my < sr.y + sr.h) { hit = sr; break; }
+      }
+      signSel = hit ? (hit.key || hit.roomId) : null;
+      updateSignButtons();
+      if (hit) {
+        signDrag = { id: hit.key || hit.roomId, dx: mx - hit.x, dy: my - hit.y };
+        setStatus(hit.custom ? 'Custom sign' : (G.TEACHERS[hit.roomId] ? G.TEACHERS[hit.roomId].name : hit.roomId), 'ok');
+      } else {
+        // no sign here - maybe they grabbed a door
+        var dtx = Math.floor(e.offsetX / SCALE), dty = Math.floor(e.offsetY / SCALE);
+        if (dtx >= 0 && dtx < W && dty >= 0 && dty < H) {
+          var dtile = grid[dty][dtx];
+          if (dtile === 'door' || dtile === 'stairU' || dtile === 'stairD') {
+            var mm = G.Maps.all[currentId];
+            var wiring = (mm.doors && mm.doors[dtx + ',' + dty]) ||
+                         (mm.stairs && mm.stairs[dtx + ',' + dty]) || null;
+            doorDrag = {
+              fx: dtx, fy: dty, tile: dtile, hx: dtx, hy: dty, valid: false,
+              target: wiring ? (wiring.roomId || wiring.goRoom || null) : null
+            };
+            setStatus('Moving door -- drop it on a wall tile.', 'ok');
+          }
+        }
+      }
+      render();
+      return;
+    }
+    var x = Math.floor(e.offsetX / SCALE), y = Math.floor(e.offsetY / SCALE);
+    if (x < 0 || x >= W || y < 0 || y >= H) return;
+    // clicking the teacher picks them up - drop them anywhere
+    if (overTeacher(e.offsetX, e.offsetY)) {
+      pushUndo();
+      draggingNpc = true;
+      canvas.style.cursor = 'grabbing';
+      render();
+      return;
+    }
+    if (mode === 'doorlink') {
+      if (isDoorTile(grid[y][x])) openDoorPicker(x, y, e.clientX, e.clientY);
+      else setStatus('Click a door tile to change where it leads.', 'warn');
+      return;
+    }
+    if (tool.kind === 'npc') {
+      pushUndo();
+      if (npcPos) { npcPos.x = x; npcPos.y = y; commit(); render(); }
+      return;
+    }
+    pushUndo();
+    strokeNewRoom = null;
+    if (tool.kind === 'stamp') { stampPaint(x, y); return; }
+    if (mode === 'fill') { floodFill(x, y); return; }
+    if (mode === 'rect') { rectStart = { x: x, y: y }; rectHover = { x: x, y: y }; render(); return; }
+    painting = true;
+    brushPaint(x, y);
+  });
+  canvas.addEventListener('dblclick', function (e) {
+    // double-clicking any door also opens the picker, whatever tool is active
+    var x = Math.floor(e.offsetX / SCALE), y = Math.floor(e.offsetY / SCALE);
+    if (grid && x >= 0 && x < W && y >= 0 && y < H && isDoorTile(grid[y][x])) {
+      openDoorPicker(x, y, e.clientX, e.clientY);
+    }
+  });
+  canvas.addEventListener('mousemove', function (e) {
+    if (mode === 'signs') {
+      if (doorDrag) {
+        doorDrag.hx = Math.floor(e.offsetX / SCALE);
+        doorDrag.hy = Math.floor(e.offsetY / SCALE);
+        doorDrag.valid = doorDrag.hx >= 0 && doorDrag.hx < W && doorDrag.hy >= 0 && doorDrag.hy < H &&
+          grid[doorDrag.hy][doorDrag.hx] === 'wall';
+        render();
+        return;
+      }
+      if (signDrag) {
+        var f2 = signFactor();
+        var mx2 = e.offsetX / f2, my2 = e.offsetY / f2;
+        workingSigns[currentId] = workingSigns[currentId] || {};
+        var curS = workingSigns[currentId][signDrag.id];
+        var r2 = signRects.filter(function (q) { return (q.key || q.roomId) === signDrag.id; })[0];
+        var entry = {
+          x: Math.round(mx2 - signDrag.dx), y: Math.round(my2 - signDrag.dy),
+          orient: (curS && curS.orient) || (r2 && r2.w < r2.h ? 'v' : 'h')
+        };
+        if (curS && curS.text) entry.text = curS.text;
+        else if (r2 && r2.custom) entry.text = 'SIGN';
+        workingSigns[currentId][signDrag.id] = entry;
+        localStorage.setItem(SIGNS_KEY, JSON.stringify(workingSigns));
+        G.Signs.invalidate();
+        render();
+      }
+      return;
+    }
+    hover = { x: Math.floor(e.offsetX / SCALE), y: Math.floor(e.offsetY / SCALE) };
+    var hk = hover.x + ',' + hover.y;
+    canvas.title = doorDests[hk] ? ('Door to: ' + destLabel(doorDests[hk])) : '';
+    if (draggingNpc) {
+      if (hover.x >= 0 && hover.x < W && hover.y >= 0 && hover.y < H) {
+        npcPos.x = hover.x;
+        npcPos.y = hover.y;
+      }
+      render();
+      return;
+    }
+    canvas.style.cursor = overTeacher(e.offsetX, e.offsetY) ? 'grab' : 'crosshair';
+    if (rectStart) { rectHover = { x: hover.x, y: hover.y }; render(); return; }
+    if (painting && tool.kind === 'tile') brushPaint(hover.x, hover.y);
+    else render();
+  });
+  function endStroke() {
+    if (doorDrag) {
+      var dd = doorDrag;
+      doorDrag = null;
+      if (dd.valid && (dd.hx !== dd.fx || dd.hy !== dd.fy)) {
+        pushUndo();
+        // freeze EVERY door's current destination first, so nothing on the
+        // floor can swap targets when the wiring is recomputed
+        var mm = G.Maps.all[currentId];
+        Object.keys(mm.doors || {}).forEach(function (k) {
+          if (!doorDests[k]) doorDests[k] = mm.doors[k].roomId;
+        });
+        Object.keys(mm.stairs || {}).forEach(function (k) {
+          if (mm.stairs[k].goRoom && !doorDests[k]) doorDests[k] = mm.stairs[k].goRoom;
+        });
+        grid[dd.fy][dd.fx] = 'wall';
+        grid[dd.hy][dd.hx] = dd.tile;
+        var fromKey = dd.fx + ',' + dd.fy, toKey = dd.hx + ',' + dd.hy;
+        if (doorDests[fromKey]) {
+          doorDests[toKey] = doorDests[fromKey];
+          delete doorDests[fromKey];
+        } else if (dd.target) {
+          doorDests[toKey] = dd.target;
+        }
+        commit();
+        setStatus('Door moved! (still leads to ' + (destLabel ? destLabel(dd.target || doorDests[toKey]) : dd.target) + ')', 'ok');
+      }
+      render();
+      return;
+    }
+    if (signDrag) {
+      signDrag = null;
+      commitSigns();
+      render();
+      return;
+    }
+    if (draggingNpc) {
+      draggingNpc = false;
+      canvas.style.cursor = 'crosshair';
+      commit();
+      render();
+      setStatus('Teacher starting spot moved.', 'ok');
+      return;
+    }
+    if (rectStart && rectHover && tool.kind === 'tile') {
+      var x0 = Math.max(0, Math.min(rectStart.x, rectHover.x));
+      var x1 = Math.min(W - 1, Math.max(rectStart.x, rectHover.x));
+      var y0 = Math.max(0, Math.min(rectStart.y, rectHover.y));
+      var y1 = Math.min(H - 1, Math.max(rectStart.y, rectHover.y));
+      for (var y = y0; y <= y1; y++) {
+        for (var x = x0; x <= x1; x++) applyPaint(x, y, tool.tile);
+      }
+      commit();
+    }
+    rectStart = null; rectHover = null;
+    painting = false;
+    render();
+  }
+  canvas.addEventListener('mouseleave', function () { hover = null; endStroke(); });
+  window.addEventListener('mouseup', endStroke);
+
+  // ---- tool buttons & shortcuts -------------------------------------------
+  function setMode(m2) {
+    if (m2 === 'signs' && !isHallCur()) {
+      setStatus('Signs hang in the hallways -- pick a hallway on the left first!', 'warn');
+      return;
+    }
+    mode = m2;
+    ['brush', 'fill', 'rect', 'door', 'signs'].forEach(function (id) {
+      document.getElementById('tool-' + id).classList.toggle('selected',
+        mode === (id === 'door' ? 'doorlink' : id));
+    });
+    document.getElementById('signbar').style.display = mode === 'signs' ? 'flex' : 'none';
+    if (mode !== 'signs') { signSel = null; signDrag = null; updateSignButtons(); }
+  }
+  function setBrush(n) {
+    brushSize = n;
+    [1, 2, 3].forEach(function (i) {
+      document.getElementById('size-' + i).classList.toggle('selected', brushSize === i);
+    });
+  }
+  document.getElementById('tool-brush').addEventListener('click', function () { setMode('brush'); });
+  document.getElementById('tool-fill').addEventListener('click', function () { setMode('fill'); });
+  document.getElementById('tool-rect').addEventListener('click', function () { setMode('rect'); });
+  document.getElementById('tool-door').addEventListener('click', function () { setMode('doorlink'); });
+  document.getElementById('size-1').addEventListener('click', function () { setBrush(1); });
+  document.getElementById('size-2').addEventListener('click', function () { setBrush(2); });
+  document.getElementById('size-3').addEventListener('click', function () { setBrush(3); });
+
+  window.addEventListener('keydown', function (e) {
+    var tag = (document.activeElement && document.activeElement.tagName) || '';
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if ((e.metaKey || e.ctrlKey) && e.code === 'KeyZ') {
+      e.preventDefault();
+      if (e.shiftKey) doRedo(); else doUndo();
+      return;
+    }
+    if (mode === 'signs' && signSel) {
+      if (e.code === 'KeyR') { rotateSign(); return; }
+      if (e.code === 'KeyF') { flipSign(); return; }
+    }
+    if (e.code === 'KeyB') setMode('brush');
+    if (e.code === 'KeyF') setMode('fill');
+    if (e.code === 'KeyR') setMode('rect');
+    if (e.code === 'KeyD') setMode('doorlink');
+    if (e.code === 'KeyS') setMode('signs');
+    if (e.code === 'KeyE') { tool = { kind: 'tile', tile: 'void' }; buildPalette(); updatePanels(); }
+    if (e.code === 'Digit1') setBrush(1);
+    if (e.code === 'Digit2') setBrush(2);
+    if (e.code === 'Digit3') setBrush(3);
+  });
+  canvas.addEventListener('contextmenu', function (e) {
+    // right-click: eyedropper
+    e.preventDefault();
+    var x = Math.floor(e.offsetX / SCALE), y = Math.floor(e.offsetY / SCALE);
+    if (x >= 0 && x < W && y >= 0 && y < H) {
+      tool = { kind: 'tile', tile: grid[y][x] };
+      buildPalette();
+      updatePanels();
+    }
+  });
+
+  // ---- resizing -----------------------------------------------------------
+  function resize(dw, dh) {
+    if (G.Maps.all[currentId] && G.Maps.all[currentId].isHall) return; // halls keep their size
+    var nw = Math.max(6, Math.min(30, W + dw));
+    var nh = Math.max(6, Math.min(30, H + dh));
+    if (nw === W && nh === H) return;
+    pushUndo();
+    var ng = [];
+    for (var y = 0; y < nh; y++) {
+      var row = [];
+      for (var x = 0; x < nw; x++) {
+        row.push((y < H && x < W) ? grid[y][x] : 'wall');
+      }
+      ng.push(row);
+    }
+    W = nw; H = nh; grid = ng;
+    if (npcPos) { npcPos.x = Math.min(npcPos.x, W - 2); npcPos.y = Math.min(npcPos.y, H - 2); }
+    commit();
+    render();
+    updatePanels();
+  }
+  document.getElementById('w-plus').addEventListener('click', function () { resize(1, 0); });
+  document.getElementById('w-minus').addEventListener('click', function () { resize(-1, 0); });
+  document.getElementById('h-plus').addEventListener('click', function () { resize(0, 1); });
+  document.getElementById('h-minus').addEventListener('click', function () { resize(0, -1); });
+
+  // ---- palette ------------------------------------------------------------
+  var PALETTE = [
+    { label: 'FLOORS', cls: 'tab-floors', tiles: ['floor', 'wood', 'carpet', 'carpetRed', 'carpetGreen', 'carpetGray', 'darkblue', 'rug', 'starrug', 'maprug', 'shaperug', 'checker', 'green', 'blue', 'hopscotch', 'foursquare', 'gymfloor', 'gymlineH', 'gymlineV', 'gymkey', 'gymcirTL', 'gymcirTR', 'gymcirBL', 'gymcirBR'] },
+    { label: 'WALLS', cls: 'tab-walls', tiles: ['wall', 'whiteboard', 'chalkboard', 'smarttv', 'window', 'curtainwin', 'lockers', 'cubbiesTall', 'trophycase', 'bulletinP', 'bulletinC', 'poster1', 'poster2', 'mapposter', 'pencilposter', 'abc', 'numberline', 'clock', 'flag', 'calendar', 'extinguisher', 'lightswitch', 'welcome', 'pennants', 'curtain', 'stage', 'purple', 'hoop', 'fountain', 'exit', 'banner:S', 'banner:O', 'banner:A', 'banner:R'] },
+    { label: 'FURNITURE', cls: 'tab-furniture', tiles: ['deskTL', 'deskTR', 'deskTLV', 'deskTRV', 'deskS', 'bigchair', 'kidney', 'kidneyLV', 'kidneyMV', 'kidneyRV', 'table', 'gtable', 'counter', 'shelf', 'shelfLow', 'cabinet', 'cubbies', 'cubbiesBlue', 'tvcart', 'chair', 'stool', 'rocker', 'beanbag', 'couchL', 'couchR', 'couchLV', 'couchRV', 'tent', 'computer', 'lamp', 'toybin', 'pianoL', 'pianoR', 'pianoLV', 'pianoRV', 'musicstand', 'drum', 'plant', 'plant2', 'fishtank', 'globe', 'easel', 'sink', 'trash'] },
+    { label: 'SPECIAL', cls: 'tab-special', tiles: ['mat', 'door', 'stairU', 'stairD', 'void'] }
+  ];
+
+  // one-click multi-tile objects
+  var STAMPS = [
+    { name: 'Teacher desk', tiles: [['deskTL', 'deskTR']] },
+    { name: 'Rainbow table', tiles: [['kidney', 'kidney', 'kidney']] },
+    { name: 'Piano', tiles: [['pianoL', 'pianoR']] },
+    { name: 'Couch', tiles: [['couchL', 'couchR']] },
+    { name: 'Long table', tiles: [['table'], ['table'], ['table']] },
+    { name: 'Reading corner', tiles: [['rug', 'rug'], ['rug', 'rug']] },
+    { name: 'WELCOME banner', tiles: [['welcome', 'welcome']] }
+  ];
+  var TILE_NAMES = {
+    mat: 'Door / Exit', 'void': 'Erase (solid)', deskTL: 'Teacher desk L', deskTR: 'Teacher desk R',
+    deskS: 'Student desk', stairU: 'Stairwell doors', stairD: 'Stairwell doors', purple: 'Glass doors (locked)',
+    gymcirTL: 'Circle TL', gymcirTR: 'Circle TR', gymcirBL: 'Circle BL', gymcirBR: 'Circle BR',
+    smarttv: 'Smart TV', bigchair: "Teacher's chair", poster1: 'Star poster', poster2: 'Rainbow poster',
+    abc: 'ABC strip', rug: 'Classroom rug', cabinet: 'Blue cabinet', plant2: 'Tall plant',
+    table: 'Wood table (joins)', shelf: 'Bookshelf', counter: 'Serving counter',
+    numberline: '123 strip', clock: 'Clock', flag: 'Flag', calendar: 'Calendar',
+    extinguisher: 'Fire extinguisher', beanbag: 'Beanbag', cubbies: 'Backpack cubbies',
+    cubbiesBlue: 'Blue cubbies', cubbiesTall: 'Tall blue cubbies', tvcart: 'TV on a cart (smart board)',
+    fishtank: 'Fish tank', globe: 'Globe', easel: 'Art easel', sink: 'Sink', trash: 'Trash can',
+    carpetRed: 'Red carpet', carpetGreen: 'Green carpet', carpetGray: 'Gray carpet', checker: 'Checker floor',
+    door: 'Hallway door',
+    kidney: 'Rainbow table (joins)', couchL: 'Couch left', couchR: 'Couch right', rocker: 'Rocking chair',
+    computer: 'Computer station', lamp: 'Lamp', toybin: 'Toy bin', stool: 'Stool', shelfLow: 'Low bookshelf',
+    musicstand: 'Music stand', drum: 'Drum', tent: 'Reading tent', lockers: 'Lockers',
+    chalkboard: 'Chalkboard', trophycase: 'Trophy case', mapposter: 'World map', pencilposter: 'Pencil poster',
+    welcome: 'WELCOME banner (joins)', pennants: 'Pennant string', curtainwin: 'Window w/ curtains',
+    wood: 'Wood floor', darkblue: 'Dark blue floor', starrug: 'Star rug', hopscotch: 'Hopscotch',
+    maprug: 'World map rug', shaperug: 'Shape rug', gtable: 'Green table (joins)',
+    lightswitch: 'Light switch (enter = lights out!)',
+    couchLV: 'Couch top (vertical)', couchRV: 'Couch bottom (vertical)',
+    kidneyLV: 'Rainbow table top (vertical)', kidneyMV: 'Rainbow table middle (vertical)', kidneyRV: 'Rainbow table bottom (vertical)',
+    pianoLV: 'Piano top (vertical)', pianoRV: 'Piano bottom (vertical)',
+    deskTLV: 'Teacher desk top (vertical)', deskTRV: 'Teacher desk bottom (vertical)',
+    foursquare: 'Four square'
+  };
+
+  var activeTab = 'FLOORS';
+
+  function tileButtonCanvas(t, size) {
+    var c = document.createElement('canvas');
+    c.width = 16; c.height = 16;
+    var cc = c.getContext('2d');
+    if (t === 'void') {
+      cc.fillStyle = '#000'; cc.fillRect(0, 0, 16, 16);
+      cc.strokeStyle = '#ff5a4a'; cc.beginPath();
+      cc.moveTo(3, 3); cc.lineTo(13, 13); cc.moveTo(13, 3); cc.lineTo(3, 13); cc.stroke();
+    } else {
+      cc.drawImage(tileCanvas(t), 0, 0);
+    }
+    return c;
+  }
+
+  function addPop(btn, t, name) {
+    var pop = document.createElement('div');
+    pop.className = 'pop';
+    pop.appendChild(tileButtonCanvas(t));
+    var sp = document.createElement('span');
+    sp.textContent = name;
+    pop.appendChild(sp);
+    btn.appendChild(pop);
+  }
+
+  function buildPalette() {
+    var tabs = document.getElementById('paltabs');
+    tabs.innerHTML = '';
+    PALETTE.forEach(function (group) {
+      var tb = document.createElement('button');
+      tb.className = group.cls + (group.label === activeTab ? ' active' : '');
+      tb.textContent = group.label;
+      tb.addEventListener('click', function () { activeTab = group.label; buildPalette(); });
+      tabs.appendChild(tb);
+    });
+
+    var body = document.getElementById('palbody');
+    body.innerHTML = '';
+    var group = PALETTE.filter(function (g) { return g.label === activeTab; })[0];
+    group.tiles.forEach(function (t) {
+      var b = document.createElement('button');
+      b.className = 'palbtn' + (tool.kind === 'tile' && tool.tile === t ? ' selected' : '');
+      b.appendChild(tileButtonCanvas(t));
+      addPop(b, t, TILE_NAMES[t] || t);
+      b.addEventListener('click', function () {
+        tool = { kind: 'tile', tile: t };
+        buildPalette();
+        updatePanels();
+      });
+      body.appendChild(b);
+    });
+
+    if (activeTab === 'FURNITURE') {
+      STAMPS.forEach(function (s) {
+        var b = document.createElement('button');
+        b.className = 'palbtn' + (tool.kind === 'stamp' && tool.stamp === s ? ' selected' : '');
+        b.style.borderStyle = 'dashed';
+        var c = document.createElement('canvas');
+        c.width = 16 * s.tiles[0].length; c.height = 16 * s.tiles.length;
+        var cc = c.getContext('2d');
+        s.tiles.forEach(function (row, ry) {
+          row.forEach(function (t, rx) { cc.drawImage(tileCanvas(t === 'welcome' ? (rx ? 'welcomeR' : 'welcomeL') : t), rx * 16, ry * 16); });
+        });
+        c.style.width = '38px'; c.style.height = '38px';
+        b.appendChild(c);
+        addPop(b, s.tiles[0][0], s.name + ' (stamp)');
+        b.addEventListener('click', function () {
+          tool = { kind: 'stamp', stamp: s };
+          buildPalette();
+          updatePanels();
+        });
+        body.appendChild(b);
+      });
+    }
+
+    if (activeTab === 'SPECIAL') {
+      var tb2 = document.createElement('button');
+      tb2.className = 'palbtn' + (tool.kind === 'npc' ? ' selected' : '');
+      var tc = document.createElement('canvas');
+      tc.width = 16; tc.height = 16;
+      var tctx = tc.getContext('2d');
+      var spr = currentId && teacherSprite(currentId);
+      if (spr) tctx.drawImage(spr, 0, 0, 16, 24, 0, -2, 12, 18);
+      tb2.appendChild(tc);
+      var pop2 = document.createElement('div');
+      pop2.className = 'pop';
+      var sp2 = document.createElement('span');
+      sp2.textContent = 'Move the teacher';
+      pop2.appendChild(sp2);
+      tb2.appendChild(pop2);
+      tb2.addEventListener('click', function () {
+        tool = { kind: 'npc' };
+        buildPalette();
+        updatePanels();
+      });
+      body.appendChild(tb2);
+    }
+  }
+
+  // ---- panels / status ----------------------------------------------------
+  function setStatus(msg, cls) {
+    var el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = cls || '';
+  }
+
+  function checkReachability() {
+    // flood from the first door; everything important should be reachable
+    if (!grid) return true;
+    var start = null;
+    var doors = [];
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        var t = grid[y][x];
+        if (t === 'mat' || t === 'door' || t === 'stairU' || t === 'stairD') {
+          doors.push({ x: x, y: y });
+          if (!start) start = { x: x, y: y };
+        }
+      }
+    }
+    if (!start) return true; // the no-door warning covers this case
+    var seen = {};
+    var queue = [start];
+    while (queue.length) {
+      var c = queue.pop();
+      if (c.x < 0 || c.x >= W || c.y < 0 || c.y >= H) continue;
+      var k = c.x + ',' + c.y;
+      if (seen[k]) continue;
+      var tt = grid[c.y][c.x];
+      if (!G.Tiles.isWalkable(tt)) continue;
+      seen[k] = 1;
+      queue.push({ x: c.x + 1, y: c.y }, { x: c.x - 1, y: c.y }, { x: c.x, y: c.y + 1 }, { x: c.x, y: c.y - 1 });
+    }
+    var ok = doors.every(function (d) { return seen[d.x + ',' + d.y]; });
+    if (ok && npcPos) {
+      // the teacher can be behind a desk - within 2 tiles of reachable space counts
+      var near = false;
+      for (var dy = -2; dy <= 2 && !near; dy++) {
+        for (var dx = -2; dx <= 2; dx++) {
+          if (seen[(npcPos.x + dx) + ',' + (npcPos.y + dy)]) { near = true; break; }
+        }
+      }
+      ok = near;
+    }
+    return ok;
+  }
+
+  function updatePanels() {
+    document.getElementById('w-label').textContent = W;
+    document.getElementById('h-label').textContent = H;
+    document.getElementById('deleteroombtn').style.display =
+      (currentId && currentId.indexOf('custom-') === 0) ? 'block' : 'none';
+    document.getElementById('toolinfo').textContent = mode === 'doorlink'
+      ? 'Tool: click any door to change where it leads'
+      : tool.kind === 'npc'
+        ? 'Tool: move teacher'
+        : tool.kind === 'stamp'
+          ? 'Tool: ' + tool.stamp.name + ' (stamp)'
+          : 'Tool: ' + (TILE_NAMES[tool.tile] || tool.tile);
+    var hasDoor = false;
+    if (grid) {
+      for (var y = 0; y < H && !hasDoor; y++) {
+        for (var x = 0; x < W; x++) {
+          var gt = grid[y][x];
+          if (gt === 'mat' || gt === 'door' || gt === 'stairU' || gt === 'stairD') { hasDoor = true; break; }
+        }
+      }
+    }
+    var blocked = hasDoor && !checkReachability();
+    var warnEl = document.getElementById('doorwarn');
+    if (grid && !hasDoor) {
+      warnEl.innerHTML = '&#9888; This room has NO door! Students would be trapped. Paint a Door / Exit tile.';
+      warnEl.style.display = 'block';
+    } else if (blocked) {
+      warnEl.innerHTML = '&#9888; Something is walled off! Make sure students can reach every door and the teacher.';
+      warnEl.style.display = 'block';
+    } else {
+      warnEl.style.display = 'none';
+    }
+    document.getElementById('savebtn').classList.toggle('dirty', unsaved);
+    if (unsaved) setStatus('Unsaved changes (live in the game tab).', 'warn');
+  }
+
+  // ---- save / revert ------------------------------------------------------
+  function stripNulls(obj) {
+    var out = {};
+    Object.keys(obj).forEach(function (k) { if (obj[k]) out[k] = obj[k]; });
+    return out;
+  }
+  function strippedWorking() {
+    // drop revert tombstones (nulls) before writing the code file
+    return stripNulls(working);
+  }
+
+  document.getElementById('savebtn').addEventListener('click', function () {
+    // bake hand-placed + custom signs (tombstones stripped)
+    var cleanSigns = {};
+    Object.keys(workingSigns).forEach(function (mapId) {
+      Object.keys(workingSigns[mapId] || {}).forEach(function (rid) {
+        if (workingSigns[mapId][rid]) {
+          cleanSigns[mapId] = cleanSigns[mapId] || {};
+          cleanSigns[mapId][rid] = workingSigns[mapId][rid];
+        }
+      });
+    });
+    fetch('/api/save-signs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cleanSigns)
+    }).catch(function () {});
+
+    localStorage.setItem(STORE_KEY, JSON.stringify(working));
+    localStorage.setItem(NAMES_KEY, JSON.stringify(workingNames));
+    localStorage.setItem(SPRITES_KEY, JSON.stringify(workingSprites));
+    var payload = strippedWorking();
+    fetch('/api/save-rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rooms: payload, teacherNames: workingNames, teacherSprites: workingSprites, customRooms: stripNulls(workingCustoms) })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('server said ' + r.status);
+      // baked file now matches - tombstones no longer needed
+      working = payload;
+      localStorage.setItem(STORE_KEY, JSON.stringify(working));
+      unsaved = false;
+      setStatus('Saved! Rooms + teacher names written into js/room-overrides.js ✓', 'ok');
+      updatePanels();
+      buildRoomList();
+    }).catch(function () {
+      // no dev server - download the file instead
+      var content = '/* Auto-generated by roomeditor.html - do not edit by hand. */\n' +
+        'var G = window.G = window.G || {};\n' +
+        'G.ROOM_OVERRIDES = ' + JSON.stringify(payload) + ';\n' +
+        'G.TEACHER_NAME_OVERRIDES = ' + JSON.stringify(workingNames) + ';\n' +
+        'G.TEACHER_SPRITE_OVERRIDES = ' + JSON.stringify(workingSprites) + ';\n' +
+        'G.CUSTOM_ROOMS = ' + JSON.stringify(workingCustoms) + ';\n';
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([content], { type: 'text/javascript' }));
+      a.download = 'room-overrides.js';
+      a.click();
+      setStatus('Server not running - downloaded room-overrides.js. Move it into the js/ folder. (Run: python3 serve.py)', 'warn');
+    });
+  });
+
+  document.getElementById('tool-signs').addEventListener('click', function () { setMode('signs'); });
+  document.getElementById('sign-rotate').addEventListener('click', rotateSign);
+  document.getElementById('sign-flip').addEventListener('click', flipSign);
+  document.getElementById('sign-add').addEventListener('click', function () {
+    if (!isHallCur()) return;
+    var text = document.getElementById('signtext').value.trim() || 'SIGN';
+    var id = 'sign-' + Date.now();
+    var sc = G.Signs.makeText(text, 'h');
+    var m = G.Maps.all[currentId];
+    var wrap = document.getElementById('canvaswrap');
+    var f = signFactor();
+    var cx = Math.round((wrap.scrollLeft + wrap.clientWidth / 2) / f - sc.width / 2);
+    var cy = Math.round((wrap.scrollTop + Math.min(wrap.clientHeight, canvas.height) / 2) / f - sc.height / 2);
+    cx = Math.max(0, Math.min(cx, m.w * 16 - sc.width));
+    cy = Math.max(0, Math.min(cy, m.h * 16 - sc.height));
+    workingSigns[currentId] = workingSigns[currentId] || {};
+    workingSigns[currentId][id] = { x: cx, y: cy, orient: 'h', text: text };
+    signSel = id;
+    updateSignButtons();
+    commitSigns();
+    render();
+    setStatus('Sign created! Drag it where it belongs.', 'ok');
+    document.getElementById('signtext').value = '';
+  });
+  document.getElementById('sign-rename').addEventListener('click', function () {
+    if (!signSel) return;
+    var text = document.getElementById('signtext').value.trim();
+    var r = signRect();
+    workingSigns[currentId] = workingSigns[currentId] || {};
+    var cur = workingSigns[currentId][signSel];
+    var entry = {
+      x: cur ? cur.x : (r ? r.x : 0),
+      y: cur ? cur.y : (r ? r.y : 0),
+      orient: (cur && cur.orient) || (r && r.w < r.h ? 'v' : 'h')
+    };
+    if (signSel.indexOf('sign-') === 0) {
+      entry.text = text || 'SIGN';           // custom signs always need words
+    } else if (text && text !== (G.Signs.label(signSel.split('#')[0]) || '').trim()) {
+      entry.text = text;                     // renamed door sign
+    }                                        // (empty = back to the auto name)
+    workingSigns[currentId][signSel] = entry;
+    commitSigns();
+    render();
+    setStatus(entry.text ? 'Sign now says: ' + entry.text : 'Back to the automatic name.', 'ok');
+  });
+
+  document.getElementById('sign-reset').addEventListener('click', function () {
+    if (!signSel) return;
+    workingSigns[currentId] = workingSigns[currentId] || {};
+    if (signSel.indexOf('sign-') === 0) {
+      workingSigns[currentId][signSel] = null;   // tombstone kills baked copies too
+      setStatus('Sign deleted.', 'ok');
+    } else {
+      workingSigns[currentId][signSel] = null;   // room sign: back to automatic
+      setStatus('Back to automatic placement.', 'ok');
+    }
+    signSel = null;
+    updateSignButtons();
+    commitSigns();
+    render();
+  });
+  document.getElementById('sign-delete').addEventListener('click', function () {
+    if (!signSel) return;
+    workingSigns[currentId] = workingSigns[currentId] || {};
+    if (signSel.indexOf('sign-') === 0) {
+      workingSigns[currentId][signSel] = null;       // custom: gone (tombstone)
+    } else {
+      workingSigns[currentId][signSel] = { hidden: true };  // door sign: hidden
+    }
+    signSel = null;
+    updateSignButtons();
+    commitSigns();
+    render();
+    setStatus('Sign hidden. (UNHIDE ALL brings door signs back.)', 'ok');
+  });
+  document.getElementById('sign-unhide').addEventListener('click', function () {
+    var w = workingSigns[currentId] || {};
+    Object.keys(w).forEach(function (k) {
+      if (w[k] && w[k].hidden) w[k] = null;
+    });
+    updateSignButtons();
+    commitSigns();
+    render();
+    setStatus('All hidden signs restored.', 'ok');
+  });
+
+  document.getElementById('deleteroombtn').addEventListener('click', function () {
+    if (!currentId || currentId.indexOf('custom-') !== 0) return;
+    if (!confirm('Delete ' + destLabel(currentId) + ' entirely? Doors pointing at it will stop working.')) return;
+    workingCustoms[currentId] = null; // tombstone (also hides any baked copy)
+    working[currentId] = null;
+    delete workingNames[currentId];
+    delete workingSprites[currentId];
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(workingCustoms));
+    localStorage.setItem(STORE_KEY, JSON.stringify(working));
+    localStorage.setItem(NAMES_KEY, JSON.stringify(workingNames));
+    localStorage.setItem(SPRITES_KEY, JSON.stringify(workingSprites));
+    delete G.ROOMS[currentId];
+    delete G.TEACHERS[currentId];
+    G.buildMaps();
+    unsaved = true;
+    buildDestSelect();
+    selectRoom('t-218');
+    setStatus('Room deleted. SAVE to make it permanent.', 'warn');
+  });
+
+  // the TEACHER LOOKS gallery: every teacher's sprite on one page, editable
+  document.getElementById('allspritesbtn').addEventListener('click', function () {
+    window.open('spriteeditor.html', '_blank');
+  });
+
+  document.getElementById('backupbtn').addEventListener('click', function () {
+    var backup = {
+      rooms: working,
+      teacherNames: workingNames,
+      teacherSprites: workingSprites,
+      customRooms: workingCustoms,
+      savedAt: new Date().toISOString()
+    };
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(backup)], { type: 'application/json' }));
+    a.download = 'ashland-editor-backup.json';
+    a.click();
+    setStatus('Backup downloaded. Drag it onto this page any time to restore.', 'ok');
+  });
+
+  // drag-drop a backup file to restore everything
+  window.addEventListener('dragover', function (e) { e.preventDefault(); });
+  window.addEventListener('drop', function (e) {
+    e.preventDefault();
+    var f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var b = JSON.parse(reader.result);
+        if (!confirm('Restore backup from ' + (b.savedAt || 'unknown date') + '? This replaces your current working edits.')) return;
+        working = b.rooms || {};
+        workingNames = b.teacherNames || {};
+        workingSprites = b.teacherSprites || {};
+        workingCustoms = b.customRooms || {};
+        localStorage.setItem(STORE_KEY, JSON.stringify(working));
+        localStorage.setItem(NAMES_KEY, JSON.stringify(workingNames));
+        localStorage.setItem(SPRITES_KEY, JSON.stringify(workingSprites));
+        localStorage.setItem(CUSTOM_KEY, JSON.stringify(workingCustoms));
+        location.reload();
+      } catch (err) {
+        setStatus('That file is not a valid backup.', 'warn');
+      }
+    };
+    reader.readAsText(f);
+  });
+
+  document.getElementById('revertbtn').addEventListener('click', function () {
+    if (!currentId) return;
+    if (!confirm('Reset this room back to its original layout?')) return;
+    working[currentId] = null; // tombstone (also hides any baked copy)
+    localStorage.setItem(STORE_KEY, JSON.stringify(working));
+    G.buildMaps();
+    unsaved = true;
+    selectRoom(currentId);
+  });
+
+  document.getElementById('revertallbtn').addEventListener('click', function () {
+    if (!confirm('Reset EVERY room back to its original layout?')) return;
+    Object.keys(working).forEach(function (k) { working[k] = null; });
+    Object.keys(G.ROOM_OVERRIDES || {}).forEach(function (k) { working[k] = null; });
+    localStorage.setItem(STORE_KEY, JSON.stringify(working));
+    G.buildMaps();
+    unsaved = true;
+    if (currentId) selectRoom(currentId);
+  });
+
+  // ---- creating brand-new rooms -------------------------------------------
+  function currentFloorId() {
+    if (currentId === 'middle' || currentId === 'top' || currentId === 'basement') return currentId;
+    return (G.ROOMS[currentId] && G.ROOMS[currentId].floor) || 'middle';
+  }
+
+  function createCustomRoom() {
+    var n = 1;
+    while (workingCustoms['custom-' + n] || G.ROOMS['custom-' + n]) n++;
+    var id = 'custom-' + n;
+    workingCustoms[id] = { name: 'NEW ROOM ' + n, floor: currentFloorId(), teacherName: 'New Teacher' };
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(workingCustoms));
+    G.buildMaps(); // registers the room + teacher and builds its template
+    // seed its layout: classroom template whose exit door leads BACK to where you entered from
+    var tmpl = templateGrid(id);
+    var dts = {};
+    for (var y = 0; y < tmpl.h; y++) {
+      for (var x = 0; x < tmpl.w; x++) {
+        if (tmpl.grid[y][x] === 'mat') dts[x + ',' + y] = '_back';
+      }
+    }
+    working[id] = { w: tmpl.w, h: tmpl.h, grid: tmpl.grid, npc: tmpl.npc, doorTargets: dts };
+    localStorage.setItem(STORE_KEY, JSON.stringify(working));
+    G.buildMaps();
+    unsaved = true;
+    buildDestSelect();
+    buildRoomList();
+    setStatus('New room created! Click it in the list to name the teacher and design the room.', 'ok');
+    return id;
+  }
+
+  // ---- door destination dropdown ------------------------------------------
+  function destLabel(id) {
+    if (id === 'middle' || id === 'top' || id === 'basement') {
+      return FLOOR_LABELS[id] + ' HALLWAY';
+    }
+    var t = G.TEACHERS[id];
+    return (t ? t.name + ' - ' : '') + (G.ROOMS[id] ? G.ROOMS[id].name : id);
+  }
+
+  function buildDestSelect() {
+    var sel = document.getElementById('door-dest');
+    var prev = sel.value;
+    sel.innerHTML = '';
+    function add(value, label) {
+      var o = document.createElement('option');
+      o.value = value;
+      o.textContent = label;
+      sel.appendChild(o);
+    }
+    add('', 'Hallway (normal door)');
+    add('_new', '+ NEW ROOM (with a new teacher)');
+    add('_back', '← Back where you came from');
+    ['middle', 'top', 'basement'].forEach(function (h) {
+      add(h, '→ ' + FLOOR_LABELS[h] + ' HALLWAY');
+    });
+    Object.keys(G.ROOMS).forEach(function (id) {
+      if (G.ROOMS[id].noInterior) return;
+      add(id, '→ ' + destLabel(id));
+    });
+    if (prev && prev !== '_new') sel.value = prev;
+  }
+  buildDestSelect();
+
+  // ---- boot ---------------------------------------------------------------
+  buildRoomList();
+  buildPalette();
+  selectRoom('t-218');
+})();
+</script>
+</body>
+</html>

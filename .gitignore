@@ -1,0 +1,16 @@
+.DS_Store
+.claude/
+*.bak
+# reference images used while building the maps -- not needed by the game
+2.jpg
+2ndfloor.jpg
+basement.jpg
+basement.png
+ff3 desert.jpg
+final-fantasy-1-gba-screen-shot-2016-08-25-6.51-am-2.webp
+lowerfloor.jpg
+middlefloor.png
+topfloor.png
+Screenshot*.png
+# unreferenced audio
+victorysound.mp3

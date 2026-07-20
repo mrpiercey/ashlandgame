@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ashland Teacher Looks</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128100;</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0a1430; color: #f4f4f4; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header {
+    position: sticky; top: 0; z-index: 10; background: #10204a;
+    border-bottom: 2px solid #2a3a7a; padding: 12px 20px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  header h1 { font-family: 'Press Start 2P', monospace; font-size: 14px; color: #f7d84d; margin: 0; }
+  header .hint { color: #9fd4e8; font-size: 13px; flex: 1; min-width: 240px; }
+  #savebtn {
+    font-family: 'Press Start 2P', monospace; font-size: 12px; padding: 14px 22px;
+    background: #1f7a4d; color: #fff; border: 2px solid #e8e8f4; border-radius: 6px; cursor: pointer;
+  }
+  #savebtn:hover { background: #2a9a63; }
+  #status { font-size: 13px; color: #9fd4e8; min-width: 150px; }
+  #status.ok { color: #6fe08a; } #status.warn { color: #ffb84d; }
+  main { max-width: 1400px; margin: 0 auto; padding: 16px; display: grid;
+         grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+  h2 { grid-column: 1 / -1; font-family: 'Press Start 2P', monospace; font-size: 11px;
+       color: #9fd4e8; margin: 14px 0 2px; border-bottom: 1px solid #2a3a7a; padding-bottom: 6px; }
+  .card { background: #0d1838; border: 1px solid #1c2a5e; border-radius: 8px; padding: 10px; display: flex; gap: 10px; }
+  .card .preview { flex: 0 0 72px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .card canvas { width: 64px; height: 96px; image-rendering: pixelated; background: #16224e; border-radius: 6px; }
+  .card .dice { font-size: 18px; background: #1c2a5e; border: 1px solid #2a3a7a; border-radius: 6px;
+                cursor: pointer; padding: 2px 8px; }
+  .card .who b { font-size: 13px; display: block; }
+  .card .who small { color: #8aa; font-size: 10px; display: block; margin-bottom: 4px; }
+  .card .controls { flex: 1; min-width: 0; }
+  .row { display: flex; align-items: center; gap: 4px; margin-bottom: 3px; }
+  .row label { font-size: 9px; color: #8aa; width: 38px; flex: none; text-transform: uppercase; }
+  .row select { flex: 1; min-width: 0; font-size: 11px; background: #16224e; color: #fff;
+                border: 1px solid #2a3a7a; border-radius: 4px; padding: 2px; }
+  .row input[type=checkbox] { transform: scale(1.1); }
+  .swatches { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; min-width: 0; }
+  .sw { width: 17px; height: 17px; border-radius: 3px; border: 1px solid #2a3a7a;
+        cursor: pointer; padding: 0; flex: none; }
+  .sw:hover { border-color: #9fd4e8; }
+  .sw.sel { outline: 2px solid #f7d84d; outline-offset: 1px; }
+  .sw.default { background: #16224e; color: #9fd4e8; font-size: 10px; line-height: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>TEACHER LOOKS</h1>
+  <span class="hint">Change any teacher's hair, skin, outfit and colors -- the game updates live
+    as you click. Press <b>SAVE ALL LOOKS</b> when you're happy. (Tip: the dice button rolls a random look!)</span>
+  <span id="status">No changes yet.</span>
+  <button id="savebtn">SAVE ALL LOOKS</button>
+</header>
+<main id="grid"></main>
+
+<script src="js/tiles.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/room-overrides.js"></script>
+<script src="js/teacher-info.js"></script>
+<script src="js/teachers.js"></script>
+<script src="js/rooms.js"></script>
+<script src="js/maps.js"></script>
+<script>
+(function () {
+  var KEY = 'ashland-teacher-sprites';
+  G.buildMaps(); // registers custom rooms' teachers too
+
+  var S = G.Sprites;
+  // working set: every teacher's current look (baked/localStorage/auto default)
+  var working = {};
+  try {
+    var local = JSON.parse(localStorage.getItem(KEY) || '{}');
+  } catch (e) { local = {}; }
+  Object.keys(G.TEACHERS).forEach(function (id) {
+    var base = local[id] || (G.TEACHER_SPRITE_OVERRIDES || {})[id] || G.TEACHERS[id].spriteOv || {};
+    working[id] = {
+      style: base.style || 0, skin: base.skin || 0, hairColor: base.hairColor || 0,
+      outfit: base.outfit || 0,
+      shirtColor: (base.shirtColor === undefined ? null : base.shirtColor),
+      pantsColor: (base.pantsColor === undefined ? null : base.pantsColor),
+      glasses: !!base.glasses
+    };
+  });
+
+  function setStatus(msg, cls) {
+    var el = document.getElementById('status');
+    el.textContent = msg; el.className = cls || '';
+  }
+
+  function store() {
+    var out = {};
+    Object.keys(working).forEach(function (id) {
+      var w = working[id];
+      out[id] = {
+        style: w.style, skin: w.skin, hairColor: w.hairColor, outfit: w.outfit,
+        glasses: w.glasses
+      };
+      if (w.shirtColor !== null) out[id].shirtColor = w.shirtColor;
+      if (w.pantsColor !== null) out[id].pantsColor = w.pantsColor;
+    });
+    localStorage.setItem(KEY, JSON.stringify(out));
+    setStatus('Unsaved changes...', 'warn');
+    return out;
+  }
+
+  function drawPreview(id, canvas) {
+    var frames = S.make(S.cfgFrom(working[id]));
+    var x = canvas.getContext('2d');
+    x.clearRect(0, 0, canvas.width, canvas.height);
+    x.imageSmoothingEnabled = false;
+    x.drawImage(frames.down[0], 0, 0, S.W, S.H, 0, 0, canvas.width, canvas.height);
+  }
+
+  function sel(options, value, onchange) {
+    var s = document.createElement('select');
+    options.forEach(function (o, i) {
+      var op = document.createElement('option');
+      op.value = o.value !== undefined ? o.value : i;
+      op.textContent = o.label !== undefined ? o.label : o;
+      if (o.color) { op.style.background = o.color; op.style.color = '#fff'; }
+      s.appendChild(op);
+    });
+    s.value = String(value);
+    s.addEventListener('change', function () { onchange(s.value); });
+    return s;
+  }
+
+  // a row of REAL color swatches (click to pick); withDefault adds an
+  // "outfit default" tile at the front
+  function swatchRow(colors, withDefault, get, set) {
+    var wrap = document.createElement('div');
+    wrap.className = 'swatches';
+    function build() {
+      wrap.innerHTML = '';
+      if (withDefault) {
+        var d = document.createElement('button');
+        d.className = 'sw default' + (get() === null ? ' sel' : '');
+        d.title = 'Outfit default';
+        d.textContent = '×';
+        d.addEventListener('click', function () { set(null); build(); });
+        wrap.appendChild(d);
+      }
+      colors.forEach(function (c, i) {
+        var b = document.createElement('button');
+        b.className = 'sw' + (get() === i ? ' sel' : '');
+        b.style.background = c;
+        b.title = c;
+        b.addEventListener('click', function () { set(i); build(); });
+        wrap.appendChild(b);
+      });
+    }
+    build();
+    wrap.rebuild = build;
+    return wrap;
+  }
+
+  var FLOOR_LABELS = { middle: 'GROUND FLOOR', top: 'TOP FLOOR', basement: 'LOWER FLOOR' };
+  var grid = document.getElementById('grid');
+
+  ['middle', 'top', 'basement'].forEach(function (floor) {
+    var h = document.createElement('h2');
+    h.textContent = FLOOR_LABELS[floor];
+    grid.appendChild(h);
+
+    Object.keys(G.ROOMS).forEach(function (rid) {
+      if (G.ROOMS[rid].floor !== floor || !G.TEACHERS[rid]) return;
+      // co-teachers (like Mrs. Songstad in 233) get their own card too
+      var ids = [rid].concat(Object.keys(G.TEACHERS).filter(function (k) { return G.TEACHERS[k].roomOf === rid; }));
+      ids.forEach(function (id) {
+      var t = G.TEACHERS[id];
+      var card = document.createElement('div');
+      card.className = 'card';
+
+      var prev = document.createElement('div');
+      prev.className = 'preview';
+      var canvas = document.createElement('canvas');
+      canvas.width = S.W; canvas.height = S.H;
+      prev.appendChild(canvas);
+      var dice = document.createElement('button');
+      dice.className = 'dice'; dice.textContent = '🎲'; dice.title = 'Random look';
+      prev.appendChild(dice);
+      card.appendChild(prev);
+
+      var ctrl = document.createElement('div');
+      ctrl.className = 'controls';
+      var who = document.createElement('div');
+      who.className = 'who';
+      who.innerHTML = '<b>' + t.name + '</b><small>' + G.ROOMS[rid].name + '</small>';
+      ctrl.appendChild(who);
+
+      function refresh() { drawPreview(id, canvas); store(); }
+      function row(label, el) {
+        var r = document.createElement('div');
+        r.className = 'row';
+        var l = document.createElement('label');
+        l.textContent = label;
+        r.appendChild(l); r.appendChild(el);
+        ctrl.appendChild(r);
+        return el;
+      }
+      var w = working[id];
+      var selStyle = row('Hair', sel(S.STYLES.map(function (s) { return { label: s.name }; }), w.style,
+        function (v) { w.style = +v; refresh(); }));
+      var swHairC = row('Color', swatchRow(S.HAIRCOLORS, false,
+        function () { return w.hairColor; }, function (v) { w.hairColor = v; refresh(); }));
+      var swSkin = row('Skin', swatchRow(S.SKINS, false,
+        function () { return w.skin; }, function (v) { w.skin = v; refresh(); }));
+      var selOutfit = row('Outfit', sel(S.OUTFITS.map(function (o) { return { label: o.name }; }), w.outfit,
+        function (v) { w.outfit = +v; refresh(); }));
+      var swShirt = row('Top', swatchRow(S.SHIRTCOLORS, true,
+        function () { return w.shirtColor; }, function (v) { w.shirtColor = v; refresh(); }));
+      var swPants = row('Pants', swatchRow(S.PANTSCOLORS, true,
+        function () { return w.pantsColor; }, function (v) { w.pantsColor = v; refresh(); }));
+      var glasses = document.createElement('input');
+      glasses.type = 'checkbox'; glasses.checked = w.glasses;
+      glasses.addEventListener('change', function () { w.glasses = glasses.checked; refresh(); });
+      row('Specs', glasses);
+
+      dice.addEventListener('click', function () {
+        w.style = Math.floor(Math.random() * S.STYLES.length);
+        w.hairColor = Math.floor(Math.random() * S.HAIRCOLORS.length);
+        w.skin = Math.floor(Math.random() * S.SKINS.length);
+        w.outfit = Math.floor(Math.random() * S.OUTFITS.length);
+        w.shirtColor = Math.random() < 0.5 ? null : Math.floor(Math.random() * S.SHIRTCOLORS.length);
+        w.pantsColor = Math.random() < 0.5 ? null : Math.floor(Math.random() * S.PANTSCOLORS.length);
+        w.glasses = Math.random() < 0.3;
+        selStyle.value = String(w.style);
+        selOutfit.value = String(w.outfit);
+        swHairC.rebuild(); swSkin.rebuild(); swShirt.rebuild(); swPants.rebuild();
+        glasses.checked = w.glasses;
+        refresh();
+      });
+
+      card.appendChild(ctrl);
+      grid.appendChild(card);
+      drawPreview(id, canvas);
+      });
+    });
+  });
+
+  document.getElementById('savebtn').addEventListener('click', function () {
+    var out = store();
+    fetch('/api/save-sprites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sprites: out })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('server said ' + r.status);
+      setStatus('Saved into the game code! ✓', 'ok');
+    }).catch(function () {
+      setStatus('Server not running - looks are saved in this browser only. (Run: python3 serve.py)', 'warn');
+    });
+  });
+})();
+</script>
+</body>
+</html>

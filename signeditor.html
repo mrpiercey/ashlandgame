@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ashland Sign Editor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129517;</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0a1430; color: #f4f4f4; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header {
+    position: sticky; top: 0; z-index: 10; background: #10204a;
+    border-bottom: 2px solid #2a3a7a; padding: 10px 16px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  h1 { font-family: 'Press Start 2P', monospace; font-size: 13px; color: #f7d84d; margin: 0; }
+  .hint { color: #9fd4e8; font-size: 12px; flex: 1; min-width: 260px; }
+  .floors button, #rotate, #reset, #savebtn {
+    font-family: 'Press Start 2P', monospace; font-size: 9px; padding: 9px 12px;
+    background: #1c2a5e; color: #fff; border: 2px solid #2a3a7a; border-radius: 6px; cursor: pointer;
+  }
+  .floors button.active { background: #2e8f57; border-color: #e8e8f4; }
+  #rotate, #reset, #flip { background: #6b3fa0; }
+  #rotate:disabled, #reset:disabled, #flip:disabled { opacity: 0.35; cursor: default; }
+  #savebtn { background: #1f7a4d; border-color: #e8e8f4; font-size: 11px; padding: 12px 18px; }
+  #status { font-size: 12px; color: #9fd4e8; min-width: 130px; }
+  #status.ok { color: #6fe08a; } #status.warn { color: #ffb84d; }
+  #wrap { overflow: auto; padding: 12px; }
+  #board { image-rendering: pixelated; cursor: grab; background: #000; }
+  #board.dragging { cursor: grabbing; }
+  #game { display: none; }  /* the game engine boots against this hidden canvas */
+  #mute-btn { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SIGN EDITOR</h1>
+  <span class="hint"><b>Drag</b> a sign to where it belongs. Click one and press <b>ROTATE</b> (R key) to switch
+    horizontal/vertical, <b>FLIP</b> (F key) to mirror it, <b>RESET</b> for automatic. <b>Doors are draggable too!</b></span>
+  <span class="floors">
+    <button data-floor="middle" class="active">GROUND</button>
+    <button data-floor="top">TOP</button>
+    <button data-floor="basement">LOWER</button>
+  </span>
+  <button id="rotate" disabled>ROTATE</button>
+  <button id="flip" disabled>FLIP</button>
+  <button id="reset" disabled>RESET</button>
+  <span id="status">Pick up a sign!</span>
+  <button id="savebtn">SAVE SIGNS</button>
+</header>
+<div id="wrap"><canvas id="board"></canvas></div>
+
+<canvas id="game" width="432" height="240"></canvas>
+<button id="mute-btn"></button>
+
+<script src="js/tiles.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/room-overrides.js"></script>
+<script src="js/sign-overrides.js"></script>
+<script src="js/teacher-info.js"></script>
+<script src="js/teachers.js"></script>
+<script src="js/rooms.js"></script>
+<script src="js/maps.js"></script>
+<script src="js/dialogue.js"></script>
+<script src="js/quest.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/signs.js"></script>
+<script src="js/input.js"></script>
+<script src="js/main.js"></script>
+<script>
+(function () {
+  var KEY = 'ashland-sign-overrides';
+  var SCALE = 2;
+  var TS = 16;
+  var board = document.getElementById('board');
+  var bctx = board.getContext('2d');
+  var floor = 'middle';
+  var overrides = {};
+  try { overrides = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+  // start from the baked file for anything the browser doesn't know yet
+  Object.keys(G.SIGN_OVERRIDES || {}).forEach(function (mapId) {
+    overrides[mapId] = overrides[mapId] || {};
+    Object.keys(G.SIGN_OVERRIDES[mapId]).forEach(function (roomId) {
+      if (overrides[mapId][roomId] === undefined) overrides[mapId][roomId] = G.SIGN_OVERRIDES[mapId][roomId];
+    });
+  });
+
+  var rects = [];      // current floor's sign rects (live from the game engine)
+  var selected = null; // roomId of the selected sign
+  var drag = null;
+
+  function setStatus(msg, cls) {
+    var el = document.getElementById('status');
+    el.textContent = msg; el.className = cls || '';
+  }
+
+  function commit() {
+    localStorage.setItem(KEY, JSON.stringify(overrides));
+    setStatus('Unsaved changes...', 'warn');
+  }
+
+  function layout() {
+    // feed our working overrides to the game engine, then ask it to lay out
+    localStorage.setItem(KEY, JSON.stringify(overrides));
+    Object.keys(G.Maps.all).forEach(function (id) { delete G.Maps.all[id]._signLayout; });
+    rects = G.Game.signLayoutFor(floor);
+  }
+
+  function render() {
+    layout();
+    var m = G.Maps.all[floor];
+    board.width = m.w * TS * SCALE;
+    board.height = m.h * TS * SCALE;
+    bctx.imageSmoothingEnabled = false;
+    bctx.save();
+    bctx.scale(SCALE, SCALE);
+    for (var y = 0; y < m.h; y++) {
+      for (var x = 0; x < m.w; x++) {
+        var t = m.grid[y][x];
+        if (t === 'void') t = 'voidwall';
+        if (t === 'wall' && !G.Tiles.isWalkable(m.get(x, y + 1))) t = 'wallTop';
+        bctx.drawImage(G.Tiles.get(t), x * TS, y * TS);
+      }
+    }
+    if (floor === 'basement') {
+      G.drawCourtLines(bctx, TS);
+    }
+    rects.forEach(function (r) {
+      bctx.drawImage(r.sign, r.x, r.y);
+      if (selected === r.roomId) {
+        bctx.strokeStyle = '#f7d84d';
+        bctx.lineWidth = 2;
+        bctx.strokeRect(r.x - 1.5, r.y - 1.5, r.w + 3, r.h + 3);
+      }
+    });
+    if (dragDoor) {
+      bctx.globalAlpha = 0.6;
+      bctx.drawImage(G.Tiles.get(dragDoor.tile), dragDoor.hoverX * TS, dragDoor.hoverY * TS);
+      bctx.globalAlpha = 1;
+      bctx.strokeStyle = dragDoor.valid ? '#6fe08a' : '#ff5a4a';
+      bctx.lineWidth = 2;
+      bctx.strokeRect(dragDoor.hoverX * TS + 1, dragDoor.hoverY * TS + 1, TS - 2, TS - 2);
+    }
+    bctx.restore();
+  }
+
+  function rectAt(px, py) {
+    for (var i = rects.length - 1; i >= 0; i--) {
+      var r = rects[i];
+      if (px >= r.x && px < r.x + r.w && py >= r.y && py < r.y + r.h) return r;
+    }
+    return null;
+  }
+
+  function updateButtons() {
+    document.getElementById('rotate').disabled = !selected;
+    document.getElementById('flip').disabled = !selected;
+    document.getElementById('reset').disabled = !selected;
+  }
+
+  var dragDoor = null;   // {fx, fy, tile, hoverX, hoverY, valid}
+
+  board.addEventListener('mousedown', function (e) {
+    var bounds = board.getBoundingClientRect();
+    var px = (e.clientX - bounds.left) / SCALE;
+    var py = (e.clientY - bounds.top) / SCALE;
+    var r = rectAt(px, py);
+    selected = r ? r.roomId : null;
+    updateButtons();
+    if (r) {
+      drag = { roomId: r.roomId, dx: px - r.x, dy: py - r.y };
+      board.classList.add('dragging');
+      setStatus(G.TEACHERS[r.roomId] ? G.TEACHERS[r.roomId].name : r.roomId);
+    } else {
+      // maybe they grabbed a door / stair door
+      var tx = Math.floor(px / TS), ty = Math.floor(py / TS);
+      var m = G.Maps.all[floor];
+      var t = m.get(tx, ty);
+      if (t === 'door' || t === 'stairU' || t === 'stairD') {
+        dragDoor = { fx: tx, fy: ty, tile: t, hoverX: tx, hoverY: ty, valid: false };
+        board.classList.add('dragging');
+        var d = m.doors[tx + ',' + ty];
+        var s = m.stairs[tx + ',' + ty];
+        var what = d ? (G.TEACHERS[d.roomId] ? G.TEACHERS[d.roomId].name + "'s door" : d.roomId)
+          : s && s.goRoom ? (G.TEACHERS[s.goRoom] ? G.TEACHERS[s.goRoom].name + "'s door" : s.goRoom)
+          : 'Stair door';
+        setStatus('Moving: ' + what + ' -- drop it on a wall tile');
+      }
+    }
+    render();
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (dragDoor) {
+      var bounds2 = board.getBoundingClientRect();
+      var tx = Math.floor((e.clientX - bounds2.left) / SCALE / TS);
+      var ty = Math.floor((e.clientY - bounds2.top) / SCALE / TS);
+      var m2 = G.Maps.all[floor];
+      dragDoor.hoverX = tx; dragDoor.hoverY = ty;
+      dragDoor.valid = (tx >= 0 && ty >= 0 && tx < m2.w && ty < m2.h &&
+        m2.grid[ty][tx] === 'wall');
+      render();
+      return;
+    }
+    if (!drag) return;
+    var bounds = board.getBoundingClientRect();
+    var px = (e.clientX - bounds.left) / SCALE;
+    var py = (e.clientY - bounds.top) / SCALE;
+    var r = rects.filter(function (q) { return q.roomId === drag.roomId; })[0];
+    if (!r) return;
+    overrides[floor] = overrides[floor] || {};
+    var cur = overrides[floor][drag.roomId] || {};
+    overrides[floor][drag.roomId] = {
+      x: Math.round(px - drag.dx), y: Math.round(py - drag.dy),
+      orient: cur.orient || (r.w >= r.h ? 'h' : 'v')
+    };
+    render();
+  });
+  window.addEventListener('mouseup', function () {
+    if (drag) { commit(); drag = null; board.classList.remove('dragging'); }
+    if (dragDoor) {
+      if (dragDoor.valid && (dragDoor.hoverX !== dragDoor.fx || dragDoor.hoverY !== dragDoor.fy)) {
+        moveDoor(dragDoor.fx, dragDoor.fy, dragDoor.hoverX, dragDoor.hoverY, dragDoor.tile);
+      }
+      dragDoor = null;
+      board.classList.remove('dragging');
+      render();
+    }
+  });
+
+  var ROOMS_KEY = 'ashland-room-overrides';
+  var roomsDirty = false;
+
+  function moveDoor(fx, fy, tx, ty, tile) {
+    var m = G.Maps.all[floor];
+    var fromKey = fx + ',' + fy, toKey = tx + ',' + ty;
+    var door = m.doors[fromKey];
+    var stair = m.stairs[fromKey];
+    var lr = {};
+    try { lr = JSON.parse(localStorage.getItem(ROOMS_KEY) || '{}'); } catch (e) {}
+    var ov = lr[floor];
+    if (!ov || !ov.grid) {
+      ov = { w: m.w, h: m.h, grid: m.grid.map(function (r) { return r.slice(); }), doorTargets: {} };
+    }
+    ov.doorTargets = ov.doorTargets || {};
+    ov.grid[fy][fx] = 'wall';
+    ov.grid[ty][tx] = tile;
+    if (ov.doorTargets[fromKey]) {
+      ov.doorTargets[toKey] = ov.doorTargets[fromKey];
+      delete ov.doorTargets[fromKey];
+    }
+    lr[floor] = ov;
+    localStorage.setItem(ROOMS_KEY, JSON.stringify(lr));
+    G.buildMaps();
+    // if the proximity rewiring changed where this door leads, pin it
+    var nm = G.Maps.all[floor];
+    var target = door ? door.roomId : (stair && stair.goRoom ? stair.goRoom : null);
+    if (target) {
+      var nd = nm.doors[toKey];
+      var ns = nm.stairs[toKey];
+      var leadsRight = (nd && nd.roomId === target) || (ns && ns.goRoom === target);
+      if (!leadsRight) {
+        ov.doorTargets[toKey] = target;
+        lr[floor] = ov;
+        localStorage.setItem(ROOMS_KEY, JSON.stringify(lr));
+        G.buildMaps();
+      }
+    }
+    roomsDirty = true;
+    setStatus('Door moved! (unsaved)', 'warn');
+  }
+
+  function curOrient(r, cur) {
+    return cur && cur.orient ? cur.orient : (r.w >= r.h ? 'h' : 'v');
+  }
+  function setOrient(next) {
+    var r = rects.filter(function (q) { return q.roomId === selected; })[0];
+    if (!r) return;
+    overrides[floor] = overrides[floor] || {};
+    var cur = overrides[floor][selected];
+    overrides[floor][selected] = {
+      x: cur ? cur.x : r.x, y: cur ? cur.y : r.y,
+      orient: next(curOrient(r, cur))
+    };
+    commit(); render();
+  }
+  function rotateSelected() {
+    if (!selected) return;
+    setOrient(function (o) {
+      // horizontal <-> vertical, keeping the flip
+      return o === 'h' ? 'v' : o === 'hf' ? 'vf' : o === 'v' ? 'h' : 'hf';
+    });
+  }
+  function flipSelected() {
+    if (!selected) return;
+    setOrient(function (o) {
+      // mirror: vertical signs read the other way, horizontal swap badge side
+      return o === 'h' ? 'hf' : o === 'hf' ? 'h' : o === 'v' ? 'vf' : 'v';
+    });
+  }
+  document.getElementById('rotate').addEventListener('click', rotateSelected);
+  document.getElementById('flip').addEventListener('click', flipSelected);
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'r' || e.key === 'R') rotateSelected();
+    if (e.key === 'f' || e.key === 'F') flipSelected();
+  });
+
+  document.getElementById('reset').addEventListener('click', function () {
+    if (!selected) return;
+    if (overrides[floor]) overrides[floor][selected] = null;   // tombstone
+    commit(); render();
+    setStatus('Back to automatic.', 'ok');
+  });
+
+  document.querySelectorAll('.floors button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.floors button').forEach(function (o) { o.classList.remove('active'); });
+      b.classList.add('active');
+      floor = b.dataset.floor;
+      selected = null; updateButtons();
+      render();
+    });
+  });
+
+  document.getElementById('savebtn').addEventListener('click', function () {
+    // strip tombstones before baking into the code
+    var clean = {};
+    Object.keys(overrides).forEach(function (mapId) {
+      Object.keys(overrides[mapId] || {}).forEach(function (roomId) {
+        if (overrides[mapId][roomId]) {
+          clean[mapId] = clean[mapId] || {};
+          clean[mapId][roomId] = overrides[mapId][roomId];
+        }
+      });
+    });
+    var posts = [fetch('/api/save-signs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(clean)
+    })];
+    if (roomsDirty) {
+      // door moves live in the hallway grids - bake those too
+      function lsGet(k) { try { return JSON.parse(localStorage.getItem(k) || '{}'); } catch (e) { return {}; } }
+      function merge(baked, local) {
+        var out = {};
+        Object.keys(baked || {}).forEach(function (k) { out[k] = baked[k]; });
+        Object.keys(local).forEach(function (k) {
+          if (local[k]) out[k] = local[k]; else delete out[k];
+        });
+        return out;
+      }
+      posts.push(fetch('/api/save-rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rooms: merge(G.ROOM_OVERRIDES, lsGet('ashland-room-overrides')),
+          teacherNames: merge(G.TEACHER_NAME_OVERRIDES, lsGet('ashland-teacher-names')),
+          teacherSprites: merge(G.TEACHER_SPRITE_OVERRIDES, lsGet('ashland-teacher-sprites')),
+          customRooms: merge(G.CUSTOM_ROOMS, lsGet('ashland-custom-rooms'))
+        })
+      }));
+    }
+    Promise.all(posts).then(function (rs) {
+      if (rs.some(function (r) { return !r.ok; })) throw new Error('save failed');
+      roomsDirty = false;
+      setStatus('Saved into the game code! ✓', 'ok');
+    }).catch(function () {
+      setStatus('Server not running - saved in this browser only. (Run: python3 serve.py)', 'warn');
+    });
+  });
+
+  // the game engine boots asynchronously (font loading) - wait for it
+  var boot = setInterval(function () {
+    if (G.Game && G.Maps && G.Maps.all && G.Maps.all.middle) {
+      clearInterval(boot);
+      render();
+      setStatus('Ready! Drag a sign.');
+    }
+  }, 200);
+})();
+</script>
+</body>
+</html>

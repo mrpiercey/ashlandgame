@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ashland Map Editor - Teacher Assignments</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128506;</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  body {
+    margin: 0;
+    background: #0a1430;
+    color: #f4f4f4;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    padding: 18px 24px 6px;
+  }
+  h1 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 18px;
+    color: #f7d84d;
+    margin: 0 0 8px;
+  }
+  .hint {
+    color: #9fd4e8;
+    font-size: 14px;
+    max-width: 900px;
+    line-height: 1.5;
+  }
+  .hint b { color: #fff; }
+  #saved {
+    display: inline-block;
+    margin-left: 10px;
+    color: #6fe08a;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .floor {
+    margin: 26px 24px;
+  }
+  .floor h2 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 13px;
+    color: #fff;
+    background: #1c2f6e;
+    border: 2px solid #e8e8f4;
+    border-radius: 4px;
+    display: inline-block;
+    padding: 8px 14px;
+  }
+  .mapwrap {
+    position: relative;
+    display: inline-block;
+    background: #000;
+    border: 3px solid #2a3a7a;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .mapwrap canvas {
+    display: block;
+    image-rendering: pixelated;
+  }
+  .room {
+    position: absolute;
+    background: #158a4b;
+    border: 2px solid #0b3520;
+    border-radius: 3px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    gap: 2px;
+  }
+  .room .rname {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: #fff;
+    text-shadow: 1px 1px 0 #0b3520;
+    text-align: center;
+    line-height: 1.4;
+    overflow: hidden;
+    max-width: 100%;
+  }
+  .room input {
+    width: 92%;
+    box-sizing: border-box;
+    border: 1px solid #0b3520;
+    border-radius: 3px;
+    background: #eaf6ee;
+    color: #143;
+    font-size: 11px;
+    padding: 2px 4px;
+  }
+  .room input:focus {
+    outline: 2px solid #f7d84d;
+    background: #fff;
+  }
+  .room.small .rname { font-size: 7px; }
+  #listpanel {
+    margin: 30px 24px 60px;
+    max-width: 920px;
+  }
+  #listpanel h2 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 13px;
+    color: #f7d84d;
+  }
+  #roomlist {
+    width: 100%;
+    height: 260px;
+    background: #10204a;
+    color: #d8e4f4;
+    border: 2px solid #2a3a7a;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 13px;
+    padding: 10px;
+    box-sizing: border-box;
+  }
+  button {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    background: #1c2f6e;
+    color: #fff;
+    border: 2px solid #e8e8f4;
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin: 10px 10px 0 0;
+    cursor: pointer;
+  }
+  button:hover { background: #2a44a0; }
+  button.danger { background: #6e1c1c; }
+  button.danger:hover { background: #a02a2a; }
+  a.gamelink { color: #f7d84d; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ASHLAND ELEMENTARY &mdash; MAP &amp; TEACHER EDITOR</h1>
+  <div class="hint">
+    Type a teacher's name into any room and it <b>saves automatically in this browser</b> &mdash;
+    <a class="gamelink" href="index.html" target="_blank">open the game</a> from this same address and
+    you'll see your names in the dialogue right away. When you're happy, copy the
+    <b>room list at the bottom</b> and paste it to Claude to make the names permanent for everyone.
+    <span id="saved">&#10003; saved</span>
+  </div>
+</header>
+
+<div id="floors"></div>
+
+<div id="listpanel">
+  <h2>ROOM LIST (copy this and paste it to Claude)</h2>
+  <textarea id="roomlist" readonly></textarea>
+  <br>
+  <button id="copybtn">COPY LIST</button>
+  <button id="resetbtn" class="danger">RESET ALL TO PLACEHOLDERS</button>
+</div>
+
+<script src="js/tiles.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/room-overrides.js"></script>
+<script src="js/teachers.js"></script>
+<script src="js/rooms.js"></script>
+<script src="js/maps.js"></script>
+<script>
+(function () {
+  var TS = 16;
+  var PAD = 5; // tiles of breathing room around each floor so room blocks fit
+  var STORE_KEY = 'ashland-teacher-names';
+
+  G.buildMaps();
+
+  var overrides = {};
+  try { overrides = JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch (e) {}
+
+  // placeholder names as authored in teachers.js are already applied to G.TEACHERS,
+  // including any overrides - so G.TEACHERS[id].name is the current effective name.
+
+  // how far each interior type extends away from its hallway door (schematic)
+  var SIZES = {
+    classroom: { depth: 4, breadth: 5 },
+    office: { depth: 4, breadth: 6 },
+    principal: { depth: 5, breadth: 6 },
+    library: { depth: 4, breadth: 6 },
+    cafeteria: { depth: 6, breadth: 8 },
+    gym: { depth: 8, breadth: 8 },
+    music: { depth: 4, breadth: 6 }
+  };
+
+  var FLOORS = [
+    { id: 'top', title: 'TOP FLOOR' },
+    { id: 'middle', title: 'GROUND FLOOR  (start - Mrs. Walker’s floor)' },
+    { id: 'basement', title: 'LOWER FLOOR' }
+  ];
+
+  function opposite(dir) {
+    return { up: 'down', down: 'up', left: 'right', right: 'left' }[dir];
+  }
+
+  function blockForDoor(door, roomId) {
+    var ret = G.Maps.returns[roomId + ':0'];
+    var roomDir = opposite(ret.dir); // room sits opposite the hallway
+    var size = SIZES[G.ROOMS[roomId].interior] || SIZES.classroom;
+    var d = size.depth, b = size.breadth;
+    var half = Math.floor(b / 2);
+    if (roomDir === 'up') return { x: door.x - half, y: door.y - d, w: b, h: d };
+    if (roomDir === 'down') return { x: door.x - half, y: door.y + 1, w: b, h: d };
+    if (roomDir === 'left') return { x: door.x - d, y: door.y - half, w: d, h: b };
+    return { x: door.x + 1, y: door.y - half, w: d, h: b };
+  }
+
+  function shortLabel(room) {
+    return room.name
+      .replace('LIBRARY / MEDIA ARTS', 'LIBRARY')
+      .replace("MRS. WALKER'S OFFICE", 'PRINCIPAL')
+      .replace("MRS. TODD'S OFFICE", 'MRS. TODD')
+      .replace('BASKETBALL GYM', 'GYM');
+  }
+
+  var inputs = {}; // roomId -> input element
+
+  function buildFloor(floor) {
+    var m = G.Maps.all[floor.id];
+    var section = document.createElement('div');
+    section.className = 'floor';
+    var h2 = document.createElement('h2');
+    h2.textContent = floor.title;
+    section.appendChild(h2);
+    section.appendChild(document.createElement('br'));
+
+    // room blocks first, so the canvas can be cropped to fit everything snugly
+    var blocks = [];
+    var seen = {};
+    Object.keys(m.doors).forEach(function (key) {
+      var d = m.doors[key];
+      if (d.exitIndex !== 0 || seen[d.roomId]) return;
+      seen[d.roomId] = true;
+      var xy = key.split(',');
+      blocks.push({ roomId: d.roomId, rect: blockForDoor({ x: +xy[0], y: +xy[1] }, d.roomId) });
+    });
+    // rooms reached by stairs instead of a hallway door
+    if (floor.id === 'middle') {
+      blocks.push({ roomId: 'b-dance', rect: { x: 32, y: 1, w: 6, h: 4 } });
+    }
+    // the gym is an open area on the basement map itself
+    if (floor.id === 'basement') {
+      blocks.push({ roomId: 'b-gym', rect: { x: 28, y: 14, w: 8, h: 5 } });
+    }
+
+    // content bounding box: every non-void tile plus every room block, + margin
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var y = 0; y < m.h; y++) {
+      for (var x = 0; x < m.w; x++) {
+        if (m.get(x, y) === 'void') continue;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    blocks.forEach(function (b) {
+      minX = Math.min(minX, b.rect.x);
+      minY = Math.min(minY, b.rect.y);
+      maxX = Math.max(maxX, b.rect.x + b.rect.w - 1);
+      maxY = Math.max(maxY, b.rect.y + b.rect.h - 1);
+    });
+    var ox = minX - 1, oy = minY - 1;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'mapwrap';
+    var canvas = document.createElement('canvas');
+    canvas.width = (maxX - minX + 3) * TS;
+    canvas.height = (maxY - minY + 3) * TS;
+    var ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (var ty = 0; ty < m.h; ty++) {
+      for (var tx = 0; tx < m.w; tx++) {
+        var t = m.get(tx, ty);
+        if (t === 'void') continue;
+        var type = t.indexOf('banner:') === 0 ? t + ':1' : t;
+        ctx.drawImage(G.Tiles.get(type), (tx - ox) * TS, (ty - oy) * TS);
+      }
+    }
+    wrap.appendChild(canvas);
+
+    blocks.forEach(function (b) {
+      var block = b.rect;
+      var room = G.ROOMS[b.roomId];
+      var div = document.createElement('div');
+      div.className = 'room' + (block.w < 5 ? ' small' : '');
+      div.style.left = (block.x - ox) * TS + 'px';
+      div.style.top = (block.y - oy) * TS + 'px';
+      div.style.width = block.w * TS + 'px';
+      div.style.height = block.h * TS + 'px';
+
+      var label = document.createElement('div');
+      label.className = 'rname';
+      label.textContent = shortLabel(room);
+      div.appendChild(label);
+
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'teacher name';
+      input.value = G.TEACHERS[b.roomId] ? G.TEACHERS[b.roomId].name : '';
+      input.title = room.name + '  (' + b.roomId + ')';
+      input.addEventListener('input', function () { onEdit(b.roomId, input.value); });
+      div.appendChild(input);
+      inputs[b.roomId] = input;
+
+      wrap.appendChild(div);
+    });
+
+    section.appendChild(wrap);
+    document.getElementById('floors').appendChild(section);
+  }
+
+  var savedTimer = null;
+  function flashSaved() {
+    var el = document.getElementById('saved');
+    el.style.opacity = 1;
+    clearTimeout(savedTimer);
+    savedTimer = setTimeout(function () { el.style.opacity = 0; }, 1200);
+  }
+
+  function onEdit(roomId, value) {
+    value = value.trim();
+    if (value) overrides[roomId] = value;
+    else delete overrides[roomId];
+    localStorage.setItem(STORE_KEY, JSON.stringify(overrides));
+    refreshList();
+    flashSaved();
+  }
+
+  function currentName(roomId) {
+    if (overrides[roomId]) return overrides[roomId];
+    return G.TEACHERS[roomId] ? G.TEACHERS[roomId].name : '';
+  }
+
+  var LIST_ORDER = (function () {
+    var order = [];
+    ['top', 'middle', 'basement'].forEach(function (fid) {
+      Object.keys(G.ROOMS).forEach(function (id) {
+        if (G.ROOMS[id].floor === fid && order.indexOf(id) < 0) order.push(id);
+      });
+    });
+    return order;
+  })();
+
+  function refreshList() {
+    var lines = ['Ashland teacher assignments (room -> teacher):', ''];
+    LIST_ORDER.forEach(function (id) {
+      var mark = overrides[id] ? '  [EDITED]' : '';
+      lines.push(G.ROOMS[id].name + '  (' + id + '): ' + currentName(id) + mark);
+    });
+    document.getElementById('roomlist').value = lines.join('\n');
+  }
+
+  document.getElementById('copybtn').addEventListener('click', function () {
+    var ta = document.getElementById('roomlist');
+    ta.select();
+    var ok = false;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(function () {});
+      ok = true;
+    } else {
+      ok = document.execCommand('copy');
+    }
+    this.textContent = ok ? 'COPIED!' : 'SELECT + CMD-C';
+    var btn = this;
+    setTimeout(function () { btn.textContent = 'COPY LIST'; }, 1500);
+  });
+
+  document.getElementById('resetbtn').addEventListener('click', function () {
+    if (!confirm('Clear every name you typed and go back to the placeholder names?')) return;
+    overrides = {};
+    localStorage.removeItem(STORE_KEY);
+    location.reload();
+  });
+
+  FLOORS.forEach(buildFloor);
+  refreshList();
+})();
+</script>
+</body>
+</html>

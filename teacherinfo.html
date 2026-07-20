@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ashland Teacher Info</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128221;</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #0a1430;
+    color: #f4f4f4;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #10204a;
+    border-bottom: 2px solid #2a3a7a;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px;
+    color: #f7d84d;
+    margin: 0;
+  }
+  header .hint { color: #9fd4e8; font-size: 13px; flex: 1; min-width: 260px; }
+  #savebtn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    padding: 14px 22px;
+    background: #1f7a4d;
+    color: #fff;
+    border: 2px solid #e8e8f4;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  #savebtn:hover { background: #2a9a63; }
+  #status { font-size: 13px; color: #9fd4e8; min-width: 160px; }
+  #status.ok { color: #6fe08a; }
+  #status.warn { color: #ffb84d; }
+  main { max-width: 1000px; margin: 0 auto; padding: 16px 20px 80px; }
+  h2 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    color: #9fd4e8;
+    margin: 26px 0 10px;
+    border-bottom: 1px solid #2a3a7a;
+    padding-bottom: 6px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 220px 1fr 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 7px 10px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    background: #0d1838;
+    border: 1px solid #1c2a5e;
+  }
+  .row .who b { font-size: 14px; }
+  .row .who small { display: block; color: #8aa; font-size: 11px; }
+  .row input {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #2a3a7a;
+    background: #eaf6ee;
+    color: #143;
+    font-size: 13px;
+  }
+  .row input:focus { outline: 2px solid #f7d84d; background: #fff; }
+  .collabel {
+    display: grid;
+    grid-template-columns: 220px 1fr 1fr;
+    gap: 10px;
+    padding: 0 10px 4px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: #8aa;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>TEACHER INFO</h1>
+  <span class="hint">Type what each teacher <b>teaches</b> (grade &amp; subject) and their <b>job</b>.
+    It saves in this browser as you type. When you're done, press <b>SAVE FOR CLAUDE</b> —
+    then tell Claude to take a look, and he'll know how to decorate each classroom.</span>
+  <span id="status">No changes yet.</span>
+  <button id="savebtn">SAVE FOR CLAUDE</button>
+</header>
+<main id="list"></main>
+
+<script src="js/tiles.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/room-overrides.js"></script>
+<script src="js/teacher-info.js"></script>
+<script src="js/teachers.js"></script>
+<script src="js/rooms.js"></script>
+<script src="js/maps.js"></script>
+<script>
+(function () {
+  var KEY = 'ashland-teacher-info';
+  G.buildMaps(); // registers custom rooms too
+
+  var working = {};
+  Object.keys(G.TEACHER_INFO || {}).forEach(function (k) { working[k] = G.TEACHER_INFO[k]; });
+  try {
+    var local = JSON.parse(localStorage.getItem(KEY) || '{}');
+    Object.keys(local).forEach(function (k) { if (local[k]) working[k] = local[k]; });
+  } catch (e) {}
+
+  var FLOOR_LABELS = { middle: 'GROUND FLOOR', top: 'TOP FLOOR', basement: 'LOWER FLOOR' };
+  var unsaved = false;
+
+  function setStatus(msg, cls) {
+    var el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = cls || '';
+  }
+
+  function save(id, field, value) {
+    working[id] = working[id] || { teaches: '', job: '' };
+    working[id][field] = value.trim();
+    localStorage.setItem(KEY, JSON.stringify(working));
+    unsaved = true;
+    setStatus('Unsaved changes...', 'warn');
+  }
+
+  var list = document.getElementById('list');
+  ['middle', 'top', 'basement'].forEach(function (floor) {
+    var h = document.createElement('h2');
+    h.textContent = FLOOR_LABELS[floor];
+    list.appendChild(h);
+    var lab = document.createElement('div');
+    lab.className = 'collabel';
+    lab.innerHTML = '<span>TEACHER</span><span>TEACHES (GRADE / SUBJECT)</span><span>JOB / ROLE</span>';
+    list.appendChild(lab);
+
+    Object.keys(G.ROOMS).forEach(function (id) {
+      var room = G.ROOMS[id];
+      if (room.floor !== floor) return;
+      var t = G.TEACHERS[id];
+      if (!t) return;
+      var info = working[id] || {};
+      var row = document.createElement('div');
+      row.className = 'row';
+      var who = document.createElement('div');
+      who.className = 'who';
+      who.innerHTML = '<b>' + t.name + '</b><small>' + room.name + '</small>';
+      row.appendChild(who);
+      ['teaches', 'job'].forEach(function (field) {
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.placeholder = field === 'teaches' ? 'e.g. 4th grade / Art / PE' : 'e.g. Classroom teacher / Principal / Coach';
+        inp.value = info[field] || '';
+        inp.addEventListener('input', function () { save(id, field, inp.value); });
+        row.appendChild(inp);
+      });
+      list.appendChild(row);
+    });
+  });
+
+  document.getElementById('savebtn').addEventListener('click', function () {
+    localStorage.setItem(KEY, JSON.stringify(working));
+    fetch('/api/save-teacher-info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(working)
+    }).then(function (r) {
+      if (!r.ok) throw new Error('server said ' + r.status);
+      unsaved = false;
+      setStatus('Saved! Claude can read js/teacher-info.js ✓', 'ok');
+    }).catch(function () {
+      var content = '/* Auto-generated by teacherinfo.html - do not edit by hand. */\n' +
+        'var G = window.G = window.G || {};\n' +
+        'G.TEACHER_INFO = ' + JSON.stringify(working) + ';\n';
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([content], { type: 'text/javascript' }));
+      a.download = 'teacher-info.js';
+      a.click();
+      setStatus('Server not running - downloaded teacher-info.js. Move it into js/. (Run: python3 serve.py)', 'warn');
+    });
+  });
+})();
+</script>
+</body>
+</html>
