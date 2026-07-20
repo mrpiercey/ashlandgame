@@ -730,14 +730,168 @@ var G = window.G = window.G || {};
     '...OFO...OFFO...'
   ];
 
+  // ---- adult bodies: teachers get real 16-bit grown-up proportions --------
+  // same 13-row head/hair system on top, but a 16-row body underneath
+  // (H = 29): a neck, squared shoulders, sleeved arms ending in hands,
+  // a belt line, and legs long enough to look like they pay taxes
+  var AH = 29;
+
+  var ADULT_DOWN_STAND = [
+    '.....OsSSsO.....',
+    '..OUTTTTTTTTUO..',
+    '..OtTTTTTTTTtO..',
+    '..OtTTTTTTTTtO..',
+    '..OtTTTTTTTTtO..',
+    '..OTtttttttTTO..',
+    '..OsTTTTTTTTsO..',
+    '...OTTTTTTTTO...',
+    '...OllllllllO...',
+    '....OLLLLLLO....',
+    '....OlLOOLlO....',
+    '....OLO..OLO....',
+    '....OLO..OLO....',
+    '....OlO..OlO....',
+    '....OFO..OFO....',
+    '...OFFO..OFFO...'
+  ];
+
+  var ADULT_DOWN_STEP = [
+    '.....OsSSsO.....',
+    '..OUTTTTTTTTUO..',
+    '..OtTTTTTTTTtO..',
+    '..OtTTTTTTTTtO..',
+    '..OtTTTTTTTTtO..',
+    '..OTtttttttTTO..',
+    '..OsTTTTTTTTsO..',
+    '...OTTTTTTTTO...',
+    '...OllllllllO...',
+    '....OLLLLLLO....',
+    '....OlLOOLlO....',
+    '....OLO..OLO....',
+    '....OLO..OLO....',
+    '....OlO..OFO....',
+    '....OFO..OFO....',
+    '..OFFFO.........'
+  ];
+
+  var ADULT_LEFT_STAND = [
+    '.....OsSsO......',
+    '...OUTTTTTTO....',
+    '...OtTTTTTTO....',
+    '...OTtTTTTTO....',
+    '...OTtTTTTTO....',
+    '...OTtttttTO....',
+    '....OsTTTTO.....',
+    '....OTTTTTO.....',
+    '....OlllllO.....',
+    '....OLLLLLO.....',
+    '....OlLLLlO.....',
+    '.....OLOLO......',
+    '.....OLOLO......',
+    '.....OlOLO......',
+    '.....OFOFO......',
+    '....OFFOFFO.....'
+  ];
+
+  var ADULT_LEFT_STEP = [
+    '.....OsSsO......',
+    '...OUTTTTTTO....',
+    '...OtTTTTTTO....',
+    '...OTtTTTTTO....',
+    '...OTtTTTTTO....',
+    '...OTtttttTO....',
+    '....OsTTTTO.....',
+    '....OTTTTTO.....',
+    '....OlllllO.....',
+    '....OLLLLLO.....',
+    '....OlLLLlO.....',
+    '....OLO.OLO.....',
+    '...OLO...OLO....',
+    '...OlO...OlO....',
+    '...OFO...OFO....',
+    '...OFO...OFFO...'
+  ];
+
+  // adult dress: fitted top, hands at the waist, a longer flared skirt
+  var ADULT_DRESS_DOWN_STAND = [
+    '.....OsSSsO.....',
+    '..OUTTTTTTTTUO..',
+    '..OtTTTTTTTTtO..',
+    '..OtTTTTTTTTtO..',
+    '..OsTTTTTTTTsO..',
+    '...OTTTTTTTTO...',
+    '...OtTTTTTTtO...',
+    '..OTTTTTTTTTTO..',
+    '..OTTTTTTTTTTO..',
+    '..OtTTTTTTTTtO..',
+    '.OTTTTTTTTTTTTO.',
+    '.OOOOOOOOOOOOOO.',
+    '.....OS..SO.....',
+    '.....Os..sO.....',
+    '....OFO..OFO....',
+    '...OFFO..OFFO...'
+  ];
+  var ADULT_DRESS_DOWN_STEP = [
+    '.....OsSSsO.....',
+    '..OUTTTTTTTTUO..',
+    '..OtTTTTTTTTtO..',
+    '..OtTTTTTTTTtO..',
+    '..OsTTTTTTTTsO..',
+    '...OTTTTTTTTO...',
+    '...OtTTTTTTtO...',
+    '..OTTTTTTTTTTO..',
+    '..OTTTTTTTTTTO..',
+    '..OtTTTTTTTTtO..',
+    '.OTTTTTTTTTTTTO.',
+    '.OOOOOOOOOOOOOO.',
+    '.....OS..SO.....',
+    '.....Os..sO.....',
+    '....OFO..OFO....',
+    '..OFFO...OFFO...'
+  ];
+  var ADULT_DRESS_LEFT_STAND = [
+    '.....OsSsO......',
+    '...OUTTTTTTO....',
+    '...OtTTTTTTO....',
+    '...OTtTTTTTO....',
+    '....OsTTTTO.....',
+    '....OTTTTTO.....',
+    '...OtTTTTTTO....',
+    '..OTTTTTTTTO....',
+    '..OTTTTTTTTO....',
+    '..OtTTTTTTtO....',
+    '.OTTTTTTTTTTO...',
+    '.OOOOOOOOOOOO...',
+    '.....OS.SO......',
+    '.....Os.sO......',
+    '.....OFOFO......',
+    '....OFFOFFO.....'
+  ];
+  var ADULT_DRESS_LEFT_STEP = [
+    '.....OsSsO......',
+    '...OUTTTTTTO....',
+    '...OtTTTTTTO....',
+    '...OTtTTTTTO....',
+    '....OsTTTTO.....',
+    '....OTTTTTO.....',
+    '...OtTTTTTTO....',
+    '..OTTTTTTTTO....',
+    '..OTTTTTTTTO....',
+    '..OtTTTTTTtO....',
+    '.OTTTTTTTTTTO...',
+    '.OOOOOOOOOOOO...',
+    '.....OS.SO......',
+    '....OS...SO.....',
+    '....OFO.OFO.....',
+    '...OFFO.OFFO....'
+  ];
+
   function mirrorRows(rows) {
     return rows.map(function (r) { return r.split('').reverse().join(''); });
   }
 
   function composeFrame(head, body) {
-    var rows = head.concat(body);
-    if (rows.length !== H) console.warn('sprite frame height', rows.length);
-    return rows;
+    return head.concat(body);
   }
 
   function applyGlasses(rows, dir) {
@@ -831,7 +985,7 @@ var G = window.G = window.G || {};
 
   function paint(rows, pal) {
     var c = document.createElement('canvas');
-    c.width = W; c.height = H;
+    c.width = W; c.height = rows.length;
     var ctx = c.getContext('2d');
     for (var y = 0; y < rows.length; y++) {
       var row = rows[y];
@@ -859,7 +1013,7 @@ var G = window.G = window.G || {};
    * cfg: { skin, hair, shirt, pants, shoes, glasses, style: 'short'|'long'|'bald' }
    * returns { down:[stand,a,b], up:[...], left:[...], right:[...] } of canvases
    */
-  function make(cfg) {
+  function buildFrames(cfg, bodies) {
     var pal = {
       O: '#1c1c26',
       H: cfg.hair || '#c14a24',
@@ -883,10 +1037,10 @@ var G = window.G = window.G || {};
       return out;
     }
 
-    var dDownStand = cfg.dress ? BODY_DRESS_DOWN_STAND : BODY_DOWN_STAND;
-    var dDownStep = cfg.dress ? BODY_DRESS_DOWN_STEP : BODY_DOWN_STEP;
-    var dLeftStand = cfg.dress ? BODY_DRESS_LEFT_STAND : BODY_LEFT_STAND;
-    var dLeftStep = cfg.dress ? BODY_DRESS_LEFT_STEP : BODY_LEFT_STEP;
+    var dDownStand = bodies.downStand;
+    var dDownStep = bodies.downStep;
+    var dLeftStand = bodies.leftStand;
+    var dLeftStep = bodies.leftStep;
     var downStand = prep(composeFrame(FACE_DOWN, dDownStand), 'down');
     var downStep = prep(composeFrame(FACE_DOWN, dDownStep), 'down');
     var upStand = prep(composeFrame(FACE_UP, dDownStand), 'up');
@@ -905,6 +1059,26 @@ var G = window.G = window.G || {};
       right: [paint(mirrorRows(leftStand), pal), paint(mirrorRows(leftStep), pal), paint(mirrorRows(leftStand), pal)]
     };
     return frames;
+  }
+
+  // kids: the classic chibi 16x24 template
+  function make(cfg) {
+    return buildFrames(cfg, {
+      downStand: cfg.dress ? BODY_DRESS_DOWN_STAND : BODY_DOWN_STAND,
+      downStep: cfg.dress ? BODY_DRESS_DOWN_STEP : BODY_DOWN_STEP,
+      leftStand: cfg.dress ? BODY_DRESS_LEFT_STAND : BODY_LEFT_STAND,
+      leftStep: cfg.dress ? BODY_DRESS_LEFT_STEP : BODY_LEFT_STEP
+    });
+  }
+
+  // grown-ups: same head and hair, taller 16x29 body with human proportions
+  function makeAdult(cfg) {
+    return buildFrames(cfg, {
+      downStand: cfg.dress ? ADULT_DRESS_DOWN_STAND : ADULT_DOWN_STAND,
+      downStep: cfg.dress ? ADULT_DRESS_DOWN_STEP : ADULT_DOWN_STEP,
+      leftStand: cfg.dress ? ADULT_DRESS_LEFT_STAND : ADULT_LEFT_STAND,
+      leftStep: cfg.dress ? ADULT_DRESS_LEFT_STEP : ADULT_LEFT_STEP
+    });
   }
 
   // Eddie the Eagle mascot: one 16x20 frame
@@ -1023,7 +1197,8 @@ var G = window.G = window.G || {};
   }
 
   G.Sprites = {
-    make: make, eagle: eagle, eagleFly: eagleFly, letterIcon: letterIcon, W: W, H: H,
+    make: make, makeAdult: makeAdult, eagle: eagle, eagleFly: eagleFly,
+    letterIcon: letterIcon, W: W, H: H, AH: AH,
     STYLES: STYLES, SKINS: SKINS, HAIRCOLORS: HAIRCOLORS, OUTFITS: OUTFITS,
     SHIRTCOLORS: SHIRTCOLORS, PANTSCOLORS: PANTSCOLORS,
     cfgFrom: cfgFrom

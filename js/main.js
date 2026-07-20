@@ -51,12 +51,12 @@ var G = window.G = window.G || {};
       hair: '#c8451f', skin: '#f2c398', shirt: '#2e8f57', pants: '#3d5c92', shoes: '#e8e8e2', style: 'short'
     });
     Object.keys(G.TEACHERS).forEach(function (id) {
-      teacherFrames[id] = G.Sprites.make(G.TEACHERS[id].sprite);
+      teacherFrames[id] = G.Sprites.makeAdult(G.TEACHERS[id].sprite);
     });
     eagleSprite = G.Sprites.eagle();
     eagleFlyFrames = G.Sprites.eagleFly();
     // Officer Garth: dark navy police blues, friendly buzz cut
-    officerFrames = G.Sprites.make({
+    officerFrames = G.Sprites.makeAdult({
       hair: '#4a3625', skin: '#e8b48c', shirt: '#1c2f52', pants: '#141f38', shoes: '#111118', style: 'buzz'
     });
 
@@ -81,7 +81,7 @@ var G = window.G = window.G || {};
           Object.keys(sprites).forEach(function (id) {
             if (G.TEACHERS[id] && sprites[id]) {
               G.TEACHERS[id].sprite = G.Sprites.cfgFrom(sprites[id]);
-              teacherFrames[id] = G.Sprites.make(G.TEACHERS[id].sprite);
+              teacherFrames[id] = G.Sprites.makeAdult(G.TEACHERS[id].sprite);
             }
           });
         } catch (err) {}
@@ -101,7 +101,7 @@ var G = window.G = window.G || {};
       G.buildMaps();
       // any freshly created teachers need sprites
       Object.keys(G.TEACHERS).forEach(function (id) {
-        if (!teacherFrames[id]) teacherFrames[id] = G.Sprites.make(G.TEACHERS[id].sprite);
+        if (!teacherFrames[id]) teacherFrames[id] = G.Sprites.makeAdult(G.TEACHERS[id].sprite);
       });
       G.Signs.clearCache();
       // if the edit walled the player in, slide them to the nearest open tile
@@ -2329,12 +2329,12 @@ var G = window.G = window.G || {};
           var frame = (n.tx !== undefined || n.dancing)
             ? tf[n.dir || 'down'][1 + (Math.floor(n.anim) % 2)]
             : tf[n.dir || 'down'][0];
-          // grown-ups stand taller than the student (and Mr. Farmer stands
-          // taller than everyone) -- feet stay planted on the same tile
+          // grown-ups use the native 16x29 adult template (and Mr. Farmer
+          // stands taller than everyone) -- feet stay planted on the same tile
           var t2 = n.kind === 'teacher' && G.TEACHERS[n.roomId];
-          var ah = t2 && t2.tall ? 29 : 27;
+          var ah = t2 && t2.tall ? frame.height + 2 : frame.height;
           // dancers hop; the shadow stays on the ground
-          ctx.drawImage(frame, 0, 0, 16, 24, nx, ny - (ah - 16) - Math.round(n.hop || 0), 16, ah);
+          ctx.drawImage(frame, 0, 0, 16, frame.height, nx, ny - (ah - 16) - Math.round(n.hop || 0), 16, ah);
         }
       }
     });

@@ -288,7 +288,7 @@
   <div id="rooms"></div>
   <div id="center">
     <div id="roomheader">
-      <canvas id="rh-sprite" width="16" height="24" style="width:32px;height:48px;"></canvas>
+      <canvas id="rh-sprite" width="16" height="29" style="width:32px;height:58px;"></canvas>
       <span class="rh-name" id="rh-name"></span>
       <span class="rh-chip" id="rh-chip"></span>
     </div>
@@ -342,7 +342,7 @@
       <div style="font-size:10px;color:#8aa;margin-top:2px;">applies to Door / Exit tiles you paint next</div>
     </div>
     <div id="designer">
-      <div id="preview-wrap"><canvas id="sprite-preview" width="16" height="24" style="width:64px;height:96px;"></canvas></div>
+      <div id="preview-wrap"><canvas id="sprite-preview" width="16" height="29" style="width:64px;height:116px;"></canvas></div>
       <div class="applabel">HAIR STYLE</div>
       <div class="stylerow" id="hair-styles"></div>
       <div class="applabel">HAIR COLOR</div>
@@ -604,7 +604,7 @@
     chip.textContent = FLOOR_LABELS[floor];
     chip.className = 'rh-chip chip-' + floor;
     var pc = document.getElementById('rh-sprite').getContext('2d');
-    pc.clearRect(0, 0, 16, 24);
+    pc.clearRect(0, 0, 16, 29);
     var spr = !isHall && teacherSprite(currentId);
     if (spr) pc.drawImage(spr, 0, 0);
   }
@@ -710,10 +710,10 @@
 
   function miniSprite(ov, w, h) {
     var c = document.createElement('canvas');
-    c.width = 16; c.height = 24;
+    c.width = 16; c.height = G.Sprites.AH;
     c.style.width = (w || 16) + 'px';
-    c.style.height = (h || 24) + 'px';
-    var frames = G.Sprites.make(G.Sprites.cfgFrom(ov));
+    c.style.height = (h || G.Sprites.AH) + 'px';
+    var frames = G.Sprites.makeAdult(G.Sprites.cfgFrom(ov));
     c.getContext('2d').drawImage(frames.down[0], 0, 0);
     return c;
   }
@@ -727,8 +727,8 @@
     // big preview
     var prev = document.getElementById('sprite-preview');
     var pc = prev.getContext('2d');
-    pc.clearRect(0, 0, 16, 24);
-    pc.drawImage(G.Sprites.make(G.Sprites.cfgFrom(ov)).down[0], 0, 0);
+    pc.clearRect(0, 0, 16, 29);
+    pc.drawImage(G.Sprites.makeAdult(G.Sprites.cfgFrom(ov)).down[0], 0, 0);
 
     // hair styles (mini sprite per style)
     var hs = document.getElementById('hair-styles');
@@ -737,7 +737,7 @@
       var b = document.createElement('button');
       b.title = s.name;
       b.className = i === ov.style ? 'selected' : '';
-      var mini = miniSprite({ style: i, skin: ov.skin, hairColor: ov.hairColor, outfit: ov.outfit }, 16, 24);
+      var mini = miniSprite({ style: i, skin: ov.skin, hairColor: ov.hairColor, outfit: ov.outfit });
       b.appendChild(mini);
       b.addEventListener('click', function () { setOv({ style: i }); });
       hs.appendChild(b);
@@ -774,7 +774,7 @@
       var b = document.createElement('button');
       b.title = o.name;
       b.className = i === ov.outfit ? 'selected' : '';
-      var mini = miniSprite({ style: ov.style, skin: ov.skin, hairColor: ov.hairColor, outfit: i }, 16, 24);
+      var mini = miniSprite({ style: ov.style, skin: ov.skin, hairColor: ov.hairColor, outfit: i });
       b.appendChild(mini);
       b.addEventListener('click', function () { setOv({ outfit: i }); });
       of.appendChild(b);
@@ -841,7 +841,7 @@
   // ---- rendering ----------------------------------------------------------
   function teacherSprite(id) {
     if (!spriteCache[id] && G.TEACHERS[id]) {
-      spriteCache[id] = G.Sprites.make(G.TEACHERS[id].sprite).down[0];
+      spriteCache[id] = G.Sprites.makeAdult(G.TEACHERS[id].sprite).down[0];
     }
     return spriteCache[id];
   }
@@ -918,7 +918,7 @@
         ctx.fillRect(npcPos.x * SCALE, npcPos.y * SCALE, SCALE, SCALE);
       }
       var spr = teacherSprite(currentId);
-      if (spr) ctx.drawImage(spr, npcPos.x * SCALE, npcPos.y * SCALE - 16, 32, 48);
+      if (spr) ctx.drawImage(spr, npcPos.x * SCALE, npcPos.y * SCALE - 26, 32, 58);
     }
     // rect-tool preview
     if (rectStart && rectHover) {
@@ -1535,7 +1535,7 @@
       tc.width = 16; tc.height = 16;
       var tctx = tc.getContext('2d');
       var spr = currentId && teacherSprite(currentId);
-      if (spr) tctx.drawImage(spr, 0, 0, 16, 24, 0, -2, 12, 18);
+      if (spr) tctx.drawImage(spr, 0, 0, 16, spr.height, 2, -3, 11, 20);
       tb2.appendChild(tc);
       var pop2 = document.createElement('div');
       pop2.className = 'pop';
