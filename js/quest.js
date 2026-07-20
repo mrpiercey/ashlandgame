@@ -570,10 +570,30 @@ var G = window.G = window.G || {};
     }
     // she knows whether Eddie's story has been heard -- no sending kids
     // back to a conversation they already had
-    hello.push(metEddie
-      ? { name: name, text: 'Oh, I see you already talked to Eddie about him losing our golden letters! Go upstairs or downstairs and talk to one of the classroom teachers -- see if they have seen anything!' }
-      : { name: name, text: 'See that empty banner up on my wall? Our four golden letters -- S, O, A, R -- are MISSING! Have you talked to EDDIE THE EAGLE yet? He is waddling around the hallway near the front doors. Go hear his story!' });
+    if (metEddie) {
+      hello.push({ name: name, text: 'Oh, I see you already talked to Eddie about him losing our golden letters!' });
+      hello.push({ name: name, text: suggestTeacher() + ' Maybe they have seen something!' });
+    } else {
+      hello.push({ name: name, text: 'See that empty banner up on my wall? Our four golden letters -- S, O, A, R -- are MISSING! Have you talked to EDDIE THE EAGLE yet? He is waddling around the hallway near the front doors. Go hear his story!' });
+    }
     G.Dialogue.start(hello, { onDone: onClose });
+  }
+
+  // Mrs. Walker sends the student to a random teacher somewhere in the
+  // building: "Go see Mr. Piercey in Room 217, up on the top floor!"
+  function suggestTeacher() {
+    var ids = Object.keys(G.TEACHERS).filter(function (id) {
+      return id !== 'm-walker' && !G.TEACHERS[id].noLetter && !G.TEACHERS[id].roomOf && G.ROOMS[id];
+    });
+    var id = ids[Math.floor(Math.random() * ids.length)];
+    var r = G.ROOMS[id];
+    var who = G.TEACHERS[id].name;
+    var num = roomNum(id);
+    var where = { middle: 'on the ground floor', top: 'up on the top floor', basement: 'down on the lower floor' }[r.floor];
+    if (num) return 'Go see ' + who + ' in Room ' + num + ', ' + where + '!';
+    var title = r.name.toLowerCase().replace(/(^|[\s/])\w/g, function (c) { return c.toUpperCase(); });
+    var place = /^the\b/i.test(r.name) ? title : 'the ' + title;
+    return 'Go see ' + who + ' in ' + place + ', ' + where + '!';
   }
 
   // Mrs. Walker's reaction right after the letters fly onto the wall
