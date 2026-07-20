@@ -104,9 +104,12 @@ var G = window.G = window.G || {};
   }
 
   function fit() {
-    var scale = Math.max(1, Math.floor(Math.min(window.innerWidth / TOTAL_W, window.innerHeight / SH)));
-    canvas.style.width = (TOTAL_W * scale) + 'px';
-    canvas.style.height = (SH * scale) + 'px';
+    var scale = Math.min(window.innerWidth / TOTAL_W, window.innerHeight / SH);
+    // big screens snap to whole-number scaling (crispest pixels); small
+    // screens (phones, tablets) take the exact fit so the game fills them
+    if (scale >= 2) scale = Math.floor(scale);
+    canvas.style.width = Math.floor(TOTAL_W * scale) + 'px';
+    canvas.style.height = Math.floor(SH * scale) + 'px';
   }
 
   // ---- game loop ----------------------------------------------------------
@@ -2482,7 +2485,7 @@ var G = window.G = window.G || {};
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.font = font(8);
-      var start = document.body.classList.contains('touch') ? 'TAP  A  TO START' : 'PRESS ENTER';
+      var start = document.body.classList.contains('touch') ? 'TAP TALK TO START' : 'PRESS ENTER';
       ctx.fillStyle = '#0a1430';
       ctx.fillText(start, SW / 2 + 1, 213);
       ctx.fillStyle = '#ffffff';

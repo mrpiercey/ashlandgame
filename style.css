@@ -22,6 +22,8 @@ html, body {
   image-rendering: crisp-edges;
   background: #000;
   cursor: none; /* keyboard game: no mouse arrow floating over the school */
+  /* sizing is handled by fit() in main.js (fills phones, snaps to crisp
+     whole-number scales on big screens) */
 }
 
 #mute-btn {
@@ -50,43 +52,69 @@ html, body {
 }
 body.touch #touch-controls { display: block; }
 
+/* d-pad on the LEFT thumb (sideways phone grip), clear of notches */
 #dpad {
   position: absolute;
-  left: 14px;
-  bottom: 14px;
-  width: 150px;
-  height: 150px;
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  width: 168px;
+  height: 168px;
 }
 .dbtn {
   position: absolute;
-  width: 50px;
-  height: 50px;
+  width: 56px;
+  height: 56px;
   border: 2px solid rgba(255,255,255,0.7);
-  border-radius: 10px;
-  background: rgba(20, 82, 47, 0.6);
+  border-radius: 12px;
+  background: rgba(20, 82, 47, 0.55);
   color: #fff;
-  font-size: 18px;
+  font-size: 20px;
   pointer-events: auto;
   touch-action: none;
 }
-#d-up    { left: 50px; top: 0; }
-#d-left  { left: 0;    top: 50px; }
-#d-right { left: 100px; top: 50px; }
-#d-down  { left: 50px; top: 100px; }
+#d-up    { left: 56px;  top: 0; }
+#d-left  { left: 0;     top: 56px; }
+#d-right { left: 112px; top: 56px; }
+#d-down  { left: 56px;  top: 112px; }
 
+/* TALK on the RIGHT thumb */
 #a-btn {
   position: absolute;
-  right: 22px;
-  bottom: 40px;
-  width: 72px;
-  height: 72px;
+  right: calc(18px + env(safe-area-inset-right, 0px));
+  bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+  width: 92px;
+  height: 92px;
   border: 3px solid rgba(255,255,255,0.8);
   border-radius: 50%;
   background: rgba(160, 30, 40, 0.6);
   color: #fff;
   font-family: 'Press Start 2P', monospace;
-  font-size: 22px;
+  font-size: 13px;
   pointer-events: auto;
   touch-action: none;
 }
 .dbtn:active, #a-btn:active { filter: brightness(1.6); }
+
+/* friendly nudge to hold the phone sideways (touch + portrait only) */
+#rotate-hint {
+  display: none;
+  position: fixed;
+  top: calc(6px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  padding: 8px 12px;
+  border: 2px solid #f7d84d;
+  border-radius: 8px;
+  background: rgba(10, 20, 48, 0.92);
+  color: #f7d84d;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  text-align: center;
+  line-height: 1.6;
+  max-width: 86vw;
+  pointer-events: none;
+}
+@media (orientation: portrait) {
+  body.touch #rotate-hint { display: block; }
+}
