@@ -69,6 +69,8 @@ var G = window.G = window.G || {};
   T['m-front'] = auto('m-front', 'Mrs. Coleman');
   T['m-eagles'] = auto('m-eagles', 'Mrs. Wang');
   T['m-eagles'].noLetter = true;   // students can't enter her room
+  T['m-eagles'].role = 'Bookkeeper';
+  T['m-eagles'].intro = "Hi! I'm Mrs. Wang, Ashland's bookkeeper. The Eagle's Nest is staff-only, but it's lovely to meet you!";
   T['m-caf'] = auto('m-caf', 'Mrs. Adams');
 
   // Basement / downstairs
@@ -142,23 +144,40 @@ var G = window.G = window.G || {};
     };
     Object.keys(extra || {}).forEach(function (k) { T[id][k] = extra[k]; });
   }
-  // custodians (they wander while they work)
+  // custodians (they wander while they work) -- the whole crew keeps the
+  // top floor shining together
   staff('staff-mellow', 'Mr. Mellow', { style: 8, skin: 8, hairColor: 0, outfit: 8 },
     { intro: "Hi there! I'm Mr. Mellow, one of Ashland's custodians. I keep this whole floor SHINING!" });
-  staff('staff-rampulla', 'Mr. Rampulla', { style: 0, skin: 1, hairColor: 2, outfit: 8 }, { roomOf: 'm-caf' });
-  staff('staff-perry', 'Mrs. Perry', { style: 5, skin: 0, hairColor: 7, outfit: 8 }, { roomOf: 'b-gym' });
+  staff('staff-rampulla', 'Mr. Rampulla', { style: 0, skin: 1, hairColor: 2, outfit: 8 },
+    { intro: "Hello! I'm Mr. Rampulla, one of Ashland's custodians. This floor doesn't clean itself!" });
+  staff('staff-perry', 'Mrs. Perry', { style: 5, skin: 0, hairColor: 7, outfit: 8 },
+    { intro: "Hi! I'm Mrs. Perry, one of Ashland's custodians. We keep every corner of this school sparkling!" });
   // helpers around the building
-  staff('staff-murt', 'Mrs. Murt', { style: 1, skin: 1, hairColor: 3, outfit: 2 }, { roomOf: 't-lib' });
+  staff('staff-hurt', 'Mrs. Hurt', { style: 1, skin: 1, hairColor: 3, outfit: 2 }, { roomOf: 't-lib' });
   staff('staff-farmer', 'Mr. Farmer', { style: 8, skin: 9, hairColor: 0, outfit: 9 },
     { roomOf: 't-234', tall: true });
   staff('staff-jackson', 'Mr. Jackson', { style: 8, skin: 6, hairColor: 1, outfit: 4 }, { roomOf: 'b-gym' });
   staff('staff-elshaarawy', 'Mr. El-Shaarawy', { style: 0, skin: 5, hairColor: 0, outfit: 7 }, { roomOf: 'b-gym' });
-  staff('staff-zimmerman', 'Mrs. Zimmerman', { style: 6, skin: 1, hairColor: 3, outfit: 9 }, { roomOf: 'm-caf' });
+  staff('staff-zimmerman', 'Mrs. Zimmermann', { style: 6, skin: 1, hairColor: 3, outfit: 9 },
+    { intro: "Hi there! I'm Mrs. Zimmermann. You'll see me all around the building helping wherever I'm needed!" });
   staff('staff-marsh', 'Mrs. Marsh', { style: 2, skin: 2, hairColor: 1, outfit: 5 }, { roomOf: 'm-caf' });
-  staff('staff-seivers', 'Mrs. Seivers', { style: 1, skin: 1, hairColor: 1, outfit: 7 }, { roomOf: 't-lib' });
-  staff('staff-shadler', 'Mrs. Shadler', { style: 5, skin: 3, hairColor: 2, outfit: 0 }, { roomOf: 't-lib' });
-  staff('staff-helton', 'Mrs. Helton', { style: 1, skin: 0, hairColor: 6, outfit: 3 }, { roomOf: 'custom-2' });
+  staff('staff-seivers', 'Mrs. Seivers', { style: 1, skin: 1, hairColor: 1, outfit: 7 },
+    { intro: "Hello! I'm Mrs. Seivers. I help students all over this school -- maybe I'll get to help YOU this year!" });
+  staff('staff-shadler', 'Mrs. Shadler', { style: 5, skin: 3, hairColor: 2, outfit: 0 },
+    { intro: "Hi! I'm Mrs. Shadler. I'm always somewhere in the building lending a hand!" });
+  staff('staff-helton', 'Mrs. Helton', { style: 1, skin: 0, hairColor: 6, outfit: 3 },
+    { intro: "Hi there! I'm Mrs. Helton. If you ever need help finding your way, just ask me!" });
   staff('staff-garcia', 'Mrs. Garcia', { style: 1, skin: 5, hairColor: 1, outfit: 6 }, { roomOf: 't-224' });
+  // teacher support, roaming the halls
+  staff('staff-kjackson', 'Ms. Kay Jackson', { style: 6, skin: 6, hairColor: 0, outfit: 3 },
+    { intro: "Hi! I'm Ms. Kay Jackson. I support students and teachers all over Ashland!" });
+  staff('staff-stanfield', 'Mrs. Stanfield', { style: 1, skin: 0, hairColor: 3, outfit: 4 },
+    { intro: "Hello! I'm Mrs. Stanfield. I'm part of the teacher support team -- we help make every classroom great!" });
+  // band and orchestra, by the gym stage
+  staff('staff-baker', 'Mrs. Baker', { style: 5, skin: 1, hairColor: 5, outfit: 2 },
+    { intro: "Hi! I'm Mrs. Baker, the BAND teacher! When you're in 5th grade, you can join band and learn an instrument!" });
+  staff('staff-komprs', 'Mrs. Komprs', { style: 2, skin: 2, hairColor: 1, outfit: 9 },
+    { intro: "Hello! I'm Mrs. Komprs, the ORCHESTRA teacher! You can join orchestra in 4th or 5th grade -- strings are the best!" });
   // cafeteria crew, behind the serving counter
   staff('staff-haskins', 'Mrs. Hoskins', { style: 5, skin: 4, hairColor: 7, outfit: 7 }, { roomOf: 'm-caf' });
   staff('staff-taylor', 'Mrs. Taylor', { style: 4, skin: 8, hairColor: 0, outfit: 3 }, { roomOf: 'm-caf' });

@@ -835,23 +835,31 @@ var G = window.G = window.G || {};
     }
 
     var inGym = function (x, y, t2) { return x >= 23 && t2 === 'gymfloor'; };
-    placeStaff(maps.top, 'staff-mellow');                     // roams the top floor
-    placeStaff(maps['m-caf'], 'staff-rampulla', { x: 4, y: 10 });
-    placeStaff(maps['m-caf'], 'staff-zimmerman', { x: 6, y: 15 });
+    // the custodial crew (plus Ms. Kay Jackson) roams the top floor
+    placeStaff(maps.top, 'staff-mellow');
+    placeStaff(maps.top, 'staff-rampulla');
+    placeStaff(maps.top, 'staff-perry');
+    placeStaff(maps.top, 'staff-kjackson');
+    // support staff wandering the ground-floor hallway
+    placeStaff(maps.middle, 'staff-zimmerman');
+    placeStaff(maps.middle, 'staff-stanfield');
+    placeStaff(maps.middle, 'staff-seivers');
+    // ...and the lower-floor hallway
+    placeStaff(maps.basement, 'staff-shadler');
+    placeStaff(maps.basement, 'staff-helton');
     placeStaff(maps['m-caf'], 'staff-marsh', { x: 2, y: 15 });
     // the kitchen crew works behind the serving counter
     placeStaff(maps['m-caf'], 'staff-haskins', { x: 11, y: 2 });
     placeStaff(maps['m-caf'], 'staff-taylor', { x: 11, y: 4 });
     placeStaff(maps['m-caf'], 'staff-martin', { x: 11, y: 6 });
-    placeStaff(maps.basement, 'staff-perry', { zone: inGym });   // cleaning the gym
     placeStaff(maps.basement, 'staff-jackson', { zone: inGym });
     placeStaff(maps.basement, 'staff-elshaarawy', { zone: inGym });
-    placeStaff(maps['t-lib'], 'staff-murt', { x: 10, y: 10 });
-    placeStaff(maps['t-lib'], 'staff-seivers', { x: 16, y: 10 });
-    placeStaff(maps['t-lib'], 'staff-shadler', { x: 4, y: 9 });
+    // band and orchestra set up by the gym stage
+    placeStaff(maps.basement, 'staff-baker', { zone: inGym });
+    placeStaff(maps.basement, 'staff-komprs', { zone: inGym });
+    placeStaff(maps['t-lib'], 'staff-hurt', { x: 10, y: 10 });
     placeStaff(maps['t-234'], 'staff-farmer', { x: 9, y: 4 });
     placeStaff(maps['t-224'], 'staff-garcia', { x: 9, y: 6 });
-    placeStaff(maps['custom-2'], 'staff-helton', { x: 7, y: 5 });
 
     // if a teacher's start tile is buried under furniture (template says the
     // middle of the room, but edited rooms vary), nudge them to the nearest

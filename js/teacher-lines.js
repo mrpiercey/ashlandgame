@@ -131,21 +131,21 @@ G.TEACHER_LINES = {
     'Every morning this floor gets a fresh shine before you even arrive!',
     'Take care of our school, and it will take care of you.'
   ],
-  'staff-rampulla': [ // custodian, cafeteria
-    'You should see this cafeteria after lunch. I make it sparkle again!',
-    'Trays stacked, tables wiped -- that is teamwork!',
-    'If you clean up your spot, you are my hero.',
+  'staff-rampulla': [ // custodian, top floor
+    'Every locker, every corner, every day -- that is the custodian promise!',
+    'If you clean up after yourself, you are my hero.',
     'This floor gets mopped every single day. EVERY day.',
-    'A clean cafeteria makes lunch taste better. True story.'
+    'You should see this place after a rainy day. I make it sparkle again!',
+    'A clean school makes learning easier. True story.'
   ],
-  'staff-perry': [ // custodian, gym
-    'I keep this gym floor squeaky clean -- literally! Hear those sneakers?',
-    'A shiny court makes for better basketball. That is science.',
-    'Water spills on a gym floor are SLIPPERY. Tell me right away if you see one!',
-    'This gym gets swept before every single class.',
-    'Take care of the gym and it will always be ready to play!'
+  'staff-perry': [ // custodian, top floor
+    'We sweep this whole floor before you even arrive in the morning!',
+    'A tidy hallway is a happy hallway.',
+    'Spills are SLIPPERY. Tell me right away if you see one!',
+    'Three custodians, one shiny school. Teamwork!',
+    'Take care of our school and it will always be ready for you!'
   ],
-  'staff-murt': [ // library helper
+  'staff-hurt': [ // library helper
     'I help students find JUST the right book. What do you like to read?',
     'If a book feels too tricky, bring it to me -- we will figure it out together.',
     'The library is the best room in the whole school. Do not tell the gym.',
@@ -207,5 +207,33 @@ G.TEACHER_LINES = {
     'I am here to help our newest Eagles feel right at home.',
     'Story time is the best part of my day.',
     'We are going to have SO much fun this year!'
+  ],
+  'staff-kjackson': [ // teacher support, top floor hallway
+    'I go wherever I am needed -- and I am needed everywhere!',
+    'Helping students AND teachers? Best job in the building.',
+    'If you ever feel stuck, find a grown-up like me. We will figure it out!',
+    'Every classroom on this floor is getting ready for YOU.',
+    'This year is going to be amazing. I can already tell!'
+  ],
+  'staff-stanfield': [ // teacher support, ground floor hallway
+    'I support our teachers so they can do their very best for you!',
+    'A great school takes a whole team -- and you are on it too!',
+    'Ask me anything. If I do not know, I know who does!',
+    'I love seeing students in the halls. Welcome back!',
+    'Kind words and hard work -- that is the Ashland Way.'
+  ],
+  'staff-baker': [ // band, by the gym stage
+    'BAND! When you are in 5th grade, you can pick an instrument and join us!',
+    'Trumpets, drums, flutes, clarinets... which one sounds like YOU?',
+    'You do not need to know a single note yet. That is what band is for!',
+    'Our first concert always brings the house down. No pressure!',
+    'Practice a little every day and you will amaze yourself.'
+  ],
+  'staff-komprs': [ // orchestra, by the gym stage
+    'ORCHESTRA! You can join in 4th OR 5th grade -- violins, violas, cellos, even big basses!',
+    'String players make the most beautiful sound in the school. I may be biased.',
+    'Never touched a violin? Perfect. I will teach you everything!',
+    'Orchestra friends are friends for life. Come make music with us!',
+    'Wait until you hear the whole orchestra play together. Goosebumps!'
   ]
 };
