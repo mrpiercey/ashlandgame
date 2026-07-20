@@ -2077,15 +2077,18 @@ var G = window.G = window.G || {};
     });
     divider(194);
 
-    // steady arcade prompt: whatever the player should do RIGHT NOW
-    var focus = m.isHall ? (inGymArea() ? 'b-gym' : null) : currentMapId;
-    var obj = G.Quest.objective(focus);
-    ctx.fillStyle = obj.color;
-    var objLines = wrapSide(obj.text);
-    var OBJ_YS = { 1: [203], 2: [199, 210], 3: [197, 206, 215] };
-    objLines.forEach(function (line, i) {
-      ctx.fillText(line, cx, OBJ_YS[objLines.length][i]);
-    });
+    // the arcade prompt: whatever the player should do RIGHT NOW. It blinks
+    // off briefly every couple of seconds so the eye keeps coming back to it
+    if (Date.now() % 2400 > 450) {
+      var focus = m.isHall ? (inGymArea() ? 'b-gym' : null) : currentMapId;
+      var obj = G.Quest.objective(focus);
+      ctx.fillStyle = obj.color;
+      var objLines = wrapSide(obj.text);
+      var OBJ_YS = { 1: [203], 2: [199, 210], 3: [197, 206, 215] };
+      objLines.forEach(function (line, i) {
+        ctx.fillText(line, cx, OBJ_YS[objLines.length][i]);
+      });
+    }
 
     // Eddie keeps watch at the bottom
     ctx.drawImage(eagleSprite, Math.round(cx - 8), SH - 16);
