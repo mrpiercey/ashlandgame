@@ -876,24 +876,43 @@ var G = window.G = window.G || {};
       });
     });
 
-    // Officer Garth, our friendly school resource officer, hangs out in the
-    // front office with Mrs. Coleman. Placed on an open tile so he fits any
-    // edited layout.
+    // Officer Garth, our friendly school resource officer, has his own desk
+    // area on the FAR LEFT of The Office -- he stands by his big chair (the
+    // one with the computers), not next to Mrs. Coleman. Prefers the tile
+    // beside his chair; spirals to the nearest open tile if the room's been
+    // repainted.
     (function (m) {
       if (!m) return;
-      var anchor = m.npcs[0] || { x: Math.floor(m.w / 2), y: Math.floor(m.h / 2) };
-      var spot = null, bd = Infinity;
+      function ok(x, y) {
+        var t = m.get(x, y);
+        if (!T.isWalkable(t) || t === 'mat' || t === 'door' || t === 'stairU' || t === 'stairD') return false;
+        for (var i = 0; i < m.npcs.length; i++) {
+          if (m.npcs[i].x === x && m.npcs[i].y === y) return false;
+        }
+        return true;
+      }
+      // his chair: the leftmost bigchair in the room (fall back to a spot
+      // on the left side of the room)
+      var chair = null;
       for (var y = 1; y < m.h - 1; y++) {
         for (var x = 1; x < m.w - 1; x++) {
-          var t = m.get(x, y);
-          if (!T.isWalkable(t) || t === 'mat' || t === 'door' || t === 'stairU' || t === 'stairD') continue;
-          if (x === anchor.x && y === anchor.y) continue;
-          var d = (x - anchor.x) * (x - anchor.x) + (y - anchor.y) * (y - anchor.y);
-          // at least a couple tiles from Mrs. Coleman so they don't stack
-          if (d >= 4 && d < bd) { bd = d; spot = { x: x, y: y }; }
+          if (m.get(x, y) === 'bigchair' && (!chair || x < chair.x)) chair = { x: x, y: y };
         }
       }
-      if (spot) m.npcs.push({ kind: 'officer', x: spot.x, y: spot.y });
+      var sx = chair ? chair.x - 1 : 2, sy = chair ? chair.y : Math.floor(m.h / 2);
+      if (!ok(sx, sy)) {
+        var found = false;
+        for (var r = 1; r < Math.max(m.w, m.h) && !found; r++) {
+          for (var dy = -r; dy <= r && !found; dy++) {
+            for (var dx = -r; dx <= r && !found; dx++) {
+              if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+              if (ok(sx + dx, sy + dy)) { sx += dx; sy += dy; found = true; }
+            }
+          }
+        }
+        if (!found) return;
+      }
+      m.npcs.push({ kind: 'officer', x: sx, y: sy });
     })(maps['m-front']);
 
     // pair hallway doors with interior exits
