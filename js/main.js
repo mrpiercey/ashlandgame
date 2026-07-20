@@ -140,7 +140,7 @@ var G = window.G = window.G || {};
     if (state === 'title') {
       if (G.Input.consumeAction()) {
         G.Audio.sfx('fanfare');
-        startCharSelect();
+        startTitleFly();
       }
       return;
     }
@@ -2286,7 +2286,7 @@ var G = window.G = window.G || {};
       playerFrames = c.frames[c.i];   // this is who walks the halls
       G.playerName = CHARACTERS[c.i].name;
       G.Audio.sfx('fanfare');
-      startTitleFly();
+      startIntro();
     }
   }
 
@@ -2350,7 +2350,7 @@ var G = window.G = window.G || {};
   var FLY_RISE = 1.2;      // seconds of climb off the sign
   var FLY_SPEED = 52;      // cruise, px/s (a lazy, watchable glide)
 
-  // the show is over: fade to black, then fade into the school hallway
+  // the show is over: fade to black, then fade into character select
   function endTitleFly() {
     if (!titleFly || titleFly.ending) return;
     titleFly.ending = true;
@@ -2358,7 +2358,7 @@ var G = window.G = window.G || {};
       phase: 'out', t: 0,
       onMid: function () {
         titleFly = null;
-        startIntro();
+        startCharSelect();
       }
     };
   }
