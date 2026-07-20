@@ -296,7 +296,6 @@ var G = window.G = window.G || {};
       G.Dialogue.update(ctx);
     } else if (battle.phase === 'victory') {
       if (G.Input.consumeAction()) {
-        G.Audio.stopVictory();
         G.Audio.sfx('blip');
         battle.phase = 'ask';
         battle.t = 0;
@@ -309,6 +308,8 @@ var G = window.G = window.G || {};
         state = 'play';
         battle = null;
         battleSnap = null;
+        // the victory song plays right up until the letter leaves the screen
+        G.Audio.stopVictory();
         G.Audio.stopBattle();
       }
     }

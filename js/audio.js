@@ -197,7 +197,7 @@ var G = window.G = window.G || {};
   }
 
   // victory music: plays from the moment the quiz is answered right until
-  // the player presses enter (victorysound.mp3; chiptune jingle fallback)
+  // the letter leaves the screen (victorysound.mp3; chiptune fallback)
   var victoryTimer = null;
   var victoryEl = null;
   function playVictory() {
