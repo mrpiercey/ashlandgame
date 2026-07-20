@@ -2053,7 +2053,9 @@ var G = window.G = window.G || {};
     divider(102);
 
     // rooms visited
-    var total = Object.keys(G.ROOMS).length;
+    // Mrs. Wang's room is staff-only (students bounce off the door), so it
+    // doesn't count toward the rooms a student can visit
+    var total = Object.keys(G.ROOMS).filter(function (id) { return id !== 'm-eagles'; }).length;
     var seen = Object.keys(visited).length;
     ctx.fillStyle = '#5fbd87';
     ctx.fillText('ROOMS', cx, 108);
