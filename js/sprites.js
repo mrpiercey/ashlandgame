@@ -21,7 +21,7 @@ var G = window.G = window.G || {};
     '..OSWESSSSWESO..',
     '..OSSSSSSSSSSO..',
     '..OSSSSSSSSSSO..',
-    '...OSSSSSSSSO...',
+    '...OSSSssSSSO...',
     '....OSSSSSSO....'
   ];
 
@@ -52,7 +52,7 @@ var G = window.G = window.G || {};
     '..OSSSSSSSSSSO..',
     '..OWESSSSSSSSO..',
     '..OSSSSSSSSSSO..',
-    '..OSSSSSSSSSO...',
+    '..OsSSSSSSSSO...',
     '...OSSSSSSSO....',
     '....OSSSSO......'
   ];
