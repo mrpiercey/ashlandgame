@@ -205,6 +205,7 @@ var G = window.G = window.G || {};
     updateFollowers(dt);
     // the party never stops -- not even while you're chatting
     if (party) updateParty(dt);
+    if (toddParty) updateToddParty(dt);
 
     if (G.Dialogue.isActive()) {
       G.Dialogue.update(ctx);
@@ -790,6 +791,7 @@ var G = window.G = window.G || {};
     var m = map();
     m.npcs.forEach(function (n) {
       if (n.dancing) return; // party dancers groove via updateParty instead
+      if (n.dollyDancing) return; // Mrs. Todd grooves via updateToddParty
       if (n.kind !== 'teacher' && n.kind !== 'eagle' && n.kind !== 'officer') return;
       var eagle = n.kind === 'eagle';   // Eddie is restless: fast, far-ranging
       if (n.hx === undefined) {
@@ -1197,6 +1199,7 @@ var G = window.G = window.G || {};
 
   function warpTo(mapId, tx, ty, dir, bannerText, sfxName) {
     autoWalk = null; // a room change makes any old walking route nonsense
+    if (toddParty) endDollyParty(true); // leaving mid-boogie ends it quietly
     G.Audio.sfx(sfxName);
     transition = {
       phase: 'out', t: 0,
@@ -1893,6 +1896,11 @@ var G = window.G = window.G || {};
         var n = m.npcs[i];
         var hit = (n.x === tx && n.y === ty) || (n.tx === tx && n.ty === ty);
         if (hit) {
+          // mid-boogie, Mrs. Todd has exactly one thing on her mind
+          if (toddParty && n.dollyDancing) {
+            G.Dialogue.start([{ name: 'MRS. TODD', text: 'WOOO! THIS IS MY SONG!!' }]);
+            return;
+          }
           // settle onto a tile and face the player
           if (n.tx !== undefined) {
             n.x = n.tx; n.y = n.ty;
@@ -2014,6 +2022,140 @@ var G = window.G = window.G || {};
 
   function startEnding() {
     transition = { phase: 'out', t: 0, onMid: beginEnding };
+  }
+
+  // ---- EASTER EGG: Mrs. Todd's 9 to 5 dance break --------------------------
+  // 30 seconds of pure Dolly: she boogies all over her office, the lights
+  // sweep and pulse (kid-safe, no hard strobe), confetti falls, and a big
+  // banner unfurls from the back wall: I LOVE DOLLY PARTON!
+  var toddParty = null; // {t, npc}
+
+  function startDollyParty() {
+    var m = map();
+    var n = null;
+    for (var i = 0; i < m.npcs.length; i++) {
+      if (m.npcs[i].roomId === 'm-todd') n = m.npcs[i];
+    }
+    if (!n) return;
+    // settle her onto a tile before the boogie begins
+    if (n.tx !== undefined) { n.x = n.tx; n.y = n.ty; n.tx = undefined; }
+    n.px = n.x * TS; n.py = n.y * TS;
+    n.dollyDancing = true;
+    n.anim = 0;
+    toddParty = { t: 0, npc: n };
+    G.Audio.playDolly();
+    showBanner('DANCE BREAK!');
+  }
+
+  function endDollyParty(silent) {
+    var n = toddParty && toddParty.npc;
+    toddParty = null;
+    if (n) {
+      n.dollyDancing = false;
+      n.hop = 0;
+      n.anim = 0;
+    }
+    G.Audio.stopDolly();
+    if (!silent) {
+      G.Dialogue.start([
+        { name: 'MRS. TODD', text: 'WHEW! That song gets me EVERY single time! Okay, okay... back to setting up my room!' }
+      ]);
+    }
+  }
+
+  function updateToddParty(dt) {
+    var p = toddParty;
+    p.t += dt;
+    if (p.t >= 30) { endDollyParty(); return; }
+    var n = p.npc;
+    var m = map();
+    // dance steps: quick tile-to-tile boogie all over the office, no pauses.
+    // she stays in FRONT of the banner (rows 3+); from further up she may
+    // only boogie downward, out from behind it
+    if (n.tx === undefined) {
+      var dirs = [['down', 0, 1], ['up', 0, -1], ['left', -1, 0], ['right', 1, 0]];
+      var d = dirs[Math.floor(Math.random() * 4)];
+      n.dir = d[0];
+      var nty = n.y + d[2];
+      if ((nty >= 3 || nty > n.y) && npcCanWalk(m, n.x + d[1], nty)) {
+        n.tx = n.x + d[1]; n.ty = nty;
+      }
+    }
+    if (n.tx !== undefined) {
+      var speed = 62 * dt;
+      var dx = n.tx * TS - n.px, dy = n.ty * TS - n.py;
+      n.anim += dt * 9;
+      if (Math.abs(dx) <= speed && Math.abs(dy) <= speed) {
+        n.px = n.tx * TS; n.py = n.ty * TS;
+        n.x = n.tx; n.y = n.ty;
+        n.tx = undefined;
+      } else {
+        n.px += Math.sign(dx) * speed;
+        n.py += Math.sign(dy) * speed;
+      }
+    }
+    // the hop -- and a twirl every few beats
+    n.hop = Math.abs(Math.sin(p.t * 7)) * 3;
+    if (p.t % 3 < 0.6) n.dir = ['down', 'left', 'up', 'right'][Math.floor(p.t * 12) % 4];
+  }
+
+  // the big banner unfurls from the back wall (and rolls back up at the end);
+  // drawn BEFORE the characters so Mrs. Todd always dances in front of it
+  function drawDollyBanner(cam) {
+    var t = toddParty.t;
+    var m = map();
+    var u = Math.min(1, Math.max(0, (t - 0.4) / 1.2));       // unroll
+    u = Math.min(u, Math.max(0, (30 - t) / 1.2));            // ...and roll away
+    if (u <= 0) return;
+    ctx.imageSmoothingEnabled = false;
+    var bw = Math.min(m.w * TS - 12, 176);
+    var bx = Math.round(m.w * TS / 2 - cam.x);
+    var by = Math.round(TS + 2 - cam.y);
+    var bh = Math.round(u * 26);
+    ctx.fillStyle = '#e06a92';                                // Dolly pink
+    ctx.fillRect(bx - bw / 2, by, bw, bh);
+    ctx.fillStyle = '#f7d84d';
+    ctx.fillRect(bx - bw / 2, by, bw, Math.min(2, bh));
+    ctx.fillStyle = '#8a2d4f';                                // rolled hem
+    ctx.fillRect(bx - bw / 2, by + bh - 2, bw, 2);
+    if (u > 0.95) {
+      G.Tiles.drawTinyText(ctx, 'I LOVE', bx - 24, by + 4, '#fdf0a8', 2);
+      G.Tiles.drawTinyText(ctx, 'DOLLY PARTON!', bx - 52, by + 15, '#fdf0a8', 2);
+    }
+  }
+
+  function drawToddParty(cam) {
+    var p = toddParty;
+    var t = p.t;
+    var m = map();
+    ctx.imageSmoothingEnabled = false;
+
+    // confetti rains the whole time (stateless: positions derive from t)
+    var cols = ['#f7d84d', '#e06a92', '#9a6ee0', '#2e8f57', '#3a63c4', '#ffffff'];
+    for (var i = 0; i < 46; i++) {
+      var cx2 = ((i * 53 + Math.floor(i / 6) * 29) % SW + Math.sin(t * 2 + i) * 6 + SW) % SW;
+      var cy2 = ((t * (26 + (i % 5) * 9) + i * 47) % (SH + 10)) - 5;
+      ctx.fillStyle = cols[i % cols.length];
+      ctx.fillRect(Math.round(cx2), Math.round(cy2), 2, 2 + (i % 2));
+    }
+
+    // party lights: a gentle pulse plus three sweeping colored spotlights
+    ctx.fillStyle = 'rgba(30,8,44,' + (0.16 + 0.07 * Math.sin(t * 3)).toFixed(3) + ')';
+    ctx.fillRect(0, 0, SW, SH);
+    ctx.globalCompositeOperation = 'lighter';
+    var lcols = ['#f7d84d', '#e06a92', '#3a63c4'];
+    for (var li = 0; li < 3; li++) {
+      var lx = (m.w / 2 + (m.w / 3) * Math.sin(t * (1.0 + li * 0.3) + li * 2.1)) * TS - cam.x;
+      var ly = (m.h / 2 + (m.h / 4) * Math.sin(t * (1.3 + li * 0.25) + li * 1.4)) * TS - cam.y;
+      var g = ctx.createRadialGradient(lx, ly, 3, lx, ly, 46);
+      g.addColorStop(0, lcols[li]);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = g;
+      ctx.fillRect(lx - 46, ly - 46, 92, 92);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
   }
 
   // ---- SECRET ENDING: the Ashland dance party ------------------------------
@@ -2473,6 +2615,8 @@ var G = window.G = window.G || {};
     // wall-mounted name signs sit behind the characters
     // (except at the party -- the gym goes full decoration, no signage)
     if (!party) drawDoorSigns(cam);
+    // the Dolly banner hangs on the wall BEHIND everybody
+    if (toddParty) drawDollyBanner(cam);
 
     // entities sorted by y
     var ents = [];
@@ -2560,6 +2704,8 @@ var G = window.G = window.G || {};
     if (ceremony) drawCeremony(cam);
     // DJ booth, spinning vinyls and disco lights over everything
     if (party) drawPartyScene(cam);
+    // Mrs. Todd's office turns into a one-woman Dolly concert
+    if (toddParty) drawToddParty(cam);
     // the objective arrow rides above everything, even the dark
     drawGuideArrow(cam);
   }
@@ -3177,6 +3323,7 @@ var G = window.G = window.G || {};
   G.Game = {
     startEnding: startEnding,
     startParty: startParty,
+    startDollyParty: startDollyParty,
     finishParty: finishParty,
     allRoomsVisited: allRoomsVisited,
     debugVisitAll: debugVisitAll,

@@ -206,6 +206,21 @@ var G = window.G = window.G || {};
   var toddTalks = 0;
 
   function dollyDialogue(name, onClose) {
+    // the 11th visit: the FULL Dolly experience (and the streak resets after)
+    if (toddTalks >= 11) {
+      G.Dialogue.start([
+        { name: name, text: 'Do you want to hear my favorite Dolly song?' }
+      ], {
+        choices: [
+          { label: 'YES!', cb: function () {
+            toddTalks = 0; // the party is the grand finale -- streak resets
+            if (G.Game && G.Game.startDollyParty) G.Game.startDollyParty();
+          } },
+          { label: 'Maybe later!', cb: onClose }
+        ]
+      });
+      return;
+    }
     if (toddTalks === 9) {
       G.Dialogue.start([
         { name: name, text: "You know what I've been thinking about? DOLLY PARTON. The Queen of Country! She's my favorite singer in the whole wide world." },
@@ -213,7 +228,7 @@ var G = window.G = window.G || {};
       ], { onDone: onClose });
       return;
     }
-    // the 10th visit (and every visit after -- superfans repeat themselves)
+    // the 10th visit: the full playlist
     var SONGS = [
       { name: name, text: 'YAY!! Okay, here we go -- Mrs. Todd\'s OFFICIAL favorite Dolly Parton songs! Ready? Deep breath...' },
       { name: name, text: 'COAT OF MANY COLORS. Five stars! It\'s about kindness, empathy, and being thankful for what you have.' },

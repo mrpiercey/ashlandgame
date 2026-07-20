@@ -266,6 +266,33 @@ var G = window.G = window.G || {};
     if (partyEl && partyEl !== 'missing') partyEl.pause();
   }
 
+  // ---- Mrs. Todd's 9 to 5 dance break -------------------------------------
+  // wants 9to5.mp3 in the repo root; borrows the gym dance track until then
+  var dollyEl = null;
+  function playDolly() {
+    if (bgmEl) bgmEl.pause();
+    if (!dollyEl) {
+      dollyEl = new Audio('9to5.mp3');
+      dollyEl.loop = true; // the party outlasts a short clip
+      dollyEl.addEventListener('error', function () {
+        dollyEl = new Audio('dancemusic.mp3');
+        dollyEl.loop = true;
+        dollyEl.volume = muted ? 0 : 0.65;
+        var p2 = dollyEl.play();
+        if (p2 && p2.catch) p2.catch(function () {});
+      });
+    }
+    dollyEl.volume = muted ? 0 : 0.65;
+    try { dollyEl.currentTime = 0; } catch (e) {}
+    var p = dollyEl.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+  function stopDolly() {
+    if (dollyEl) { try { dollyEl.pause(); } catch (e) {} }
+    // the floor theme comes right back
+    if (bgmEl && !fellBack) { var p = bgmEl.play(); if (p && p.catch) p.catch(function () {}); }
+  }
+
   // ---- sfx ----------------------------------------------------------------
   var SFX = {
     blip: function (t) { note(midi(84), t, 0.06, 'square', 0.25); },
@@ -322,6 +349,7 @@ var G = window.G = window.G || {};
     if (victoryEl && victoryEl !== 'missing') victoryEl.volume = m ? 0 : 0.55;
     if (flightEl && flightEl !== 'missing') flightEl.volume = m ? 0 : 0.55;
     if (partyEl && partyEl !== 'missing') partyEl.volume = m ? 0 : 0.55;
+    if (dollyEl) dollyEl.volume = m ? 0 : 0.65;
     var btn = document.getElementById('mute-btn');
     if (btn) btn.classList.toggle('muted', m);
   }
@@ -338,6 +366,8 @@ var G = window.G = window.G || {};
     playFlight: playFlight,
     playParty: playParty,
     stopParty: stopParty,
+    playDolly: playDolly,
+    stopDolly: stopDolly,
     playVictory: playVictory,
     stopVictory: stopVictory,
     sfx: sfx,
