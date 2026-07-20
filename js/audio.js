@@ -252,7 +252,7 @@ var G = window.G = window.G || {};
     if (flightEl && flightEl !== 'missing') flightEl.pause();
     if (bgmEl) bgmEl.pause();
     if (!partyEl) {
-      partyEl = new Audio('lettermusic.mp3');
+      partyEl = new Audio('dancemusic.mp3');
       partyEl.loop = true;
       partyEl.addEventListener('error', function () { partyEl = 'missing'; });
     }

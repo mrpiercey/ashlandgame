@@ -2012,12 +2012,73 @@ var G = window.G = window.G || {};
     m.npcs.forEach(function (n) {
       if (n.dancing && !n.dj) updateDancer(n, dt);
     });
+    // confetti rains the whole time
+    if (!party.confetti) {
+      party.confetti = [];
+      for (var i = 0; i < 90; i++) {
+        party.confetti.push({
+          x: Math.random() * SW,
+          y: Math.random() * SH,
+          vy: 22 + Math.random() * 40,
+          vx: (Math.random() - 0.5) * 14,
+          c: ['#f7d84d', '#2e8f57', '#c43a3a', '#3a63c4', '#9a6ee0', '#ffffff', '#e06a92'][i % 7],
+          s: 2 + (i % 2)
+        });
+      }
+    }
+    party.confetti.forEach(function (p) {
+      p.y += p.vy * dt;
+      p.x += p.vx * dt + Math.sin((p.y + p.x) / 16) * 0.5;
+      if (p.y > SH + 4) { p.y = -4; p.x = Math.random() * SW; }
+    });
+  }
+
+  // one bobbing balloon bunch (three balloons + strings)
+  function drawBalloons(x, y, t, seed) {
+    var cols = ['#c43a3a', '#f7d84d', '#3a63c4', '#2e8f57', '#9a6ee0', '#e06a92'];
+    for (var i = 0; i < 3; i++) {
+      var bx = x + (i - 1) * 6 + Math.sin(t * 1.4 + seed + i) * 1.5;
+      var by = y + (i === 1 ? -4 : 0) + Math.sin(t * 1.8 + seed + i * 2) * 2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath(); ctx.moveTo(bx, by + 5); ctx.lineTo(x, y + 16); ctx.stroke();
+      ctx.fillStyle = cols[(seed + i) % cols.length];
+      ctx.beginPath(); ctx.ellipse(bx, by, 3.5, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.fillRect(Math.round(bx) - 2, Math.round(by) - 3, 1, 2);
+    }
   }
 
   // the DJ booth + kid-safe disco lights, layered over the gym
   function drawPartyScene(cam) {
     var t = party.t;
     ctx.imageSmoothingEnabled = false;
+
+    // party banner across the stage curtain
+    var bnx = 33 * TS - cam.x, bny = 9 * TS + 5 - cam.y;
+    ctx.fillStyle = '#f7d84d';
+    ctx.fillRect(bnx - 44, bny - 2, 88, 11);
+    ctx.fillStyle = '#8a6d1a';
+    ctx.fillRect(bnx - 44, bny - 2, 88, 1);
+    ctx.fillRect(bnx - 44, bny + 8, 88, 1);
+    G.Tiles.drawTinyText(ctx, 'GO EAGLES!', bnx - 24, bny + 1, '#14522f', 1);
+
+    // streamers scalloped along the top of the gym
+    var cols2 = ['#c43a3a', '#3a63c4', '#2e8f57', '#9a6ee0', '#e06a92'];
+    for (var st = 0; st < 12; st++) {
+      var sx0 = (22 + st * 2) * TS - cam.x;
+      ctx.strokeStyle = cols2[st % cols2.length];
+      ctx.beginPath();
+      ctx.moveTo(sx0, 9 * TS - cam.y);
+      ctx.quadraticCurveTo(sx0 + TS, 9 * TS + 10 - cam.y, sx0 + TS * 2, 9 * TS - cam.y);
+      ctx.stroke();
+    }
+
+    // balloon bunches around the floor and beside the stage
+    drawBalloons(23 * TS - cam.x, 11 * TS - cam.y, t, 0);
+    drawBalloons(43 * TS - cam.x, 11 * TS - cam.y, t, 2);
+    drawBalloons(22 * TS - cam.x, 25 * TS - cam.y, t, 4);
+    drawBalloons(44 * TS - cam.x, 24 * TS - cam.y, t, 1);
+    drawBalloons(33 * TS - cam.x, 26 * TS - cam.y, t, 3);
 
     // DJ booth table (Eddie stands behind it)
     var bx = BOOTH.x0 * TS - cam.x, by = BOOTH.y * TS - cam.y;
@@ -2071,6 +2132,13 @@ var G = window.G = window.G || {};
     for (var s3 = 0; s3 < 6; s3++) {
       var sa = t * 1.5 + s3;
       ctx.fillRect(Math.round(dbx + Math.cos(sa) * (10 + s3 * 5)), Math.round(dby + 4 + Math.sin(sa) * 5), 2, 2);
+    }
+    // confetti rains over everything, bright above the lights
+    if (party.confetti) {
+      party.confetti.forEach(function (p) {
+        ctx.fillStyle = p.c;
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s);
+      });
     }
   }
 
