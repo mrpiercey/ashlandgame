@@ -200,6 +200,42 @@ var G = window.G = window.G || {};
     return { text: hints[Math.floor(Math.random() * hints.length)] };
   }
 
+  // ---- EASTER EGG: Mrs. Todd loves Dolly Parton ---------------------------
+  // talk to her 9 times IN A ROW (visiting anyone else resets the count) and
+  // she starts thinking about Dolly; a 10th visit unlocks the full playlist
+  var toddTalks = 0;
+
+  function dollyDialogue(name, onClose) {
+    if (toddTalks === 9) {
+      G.Dialogue.start([
+        { name: name, text: "You know what I've been thinking about? DOLLY PARTON. The Queen of Country! She's my favorite singer in the whole wide world." },
+        { name: name, text: "And she isn't just a singer -- she mails FREE books to kids all over the planet! Kindness AND great music. Now THAT's a superstar." }
+      ], { onDone: onClose });
+      return;
+    }
+    // the 10th visit (and every visit after -- superfans repeat themselves)
+    var SONGS = [
+      { name: name, text: 'YAY!! Okay, here we go -- Mrs. Todd\'s OFFICIAL favorite Dolly Parton songs! Ready? Deep breath...' },
+      { name: name, text: 'COAT OF MANY COLORS. Five stars! It\'s about kindness, empathy, and being thankful for what you have.' },
+      { name: name, text: 'I BELIEVE IN YOU -- a whole song about believing in yourself! And IMAGINATION -- it celebrates creativity!' },
+      { name: name, text: 'YOU CAN DO IT -- never, ever give up! And RESPONSIBILITY -- all about making good choices.' },
+      { name: name, text: 'A FRIEND LIKE YOU -- friendship! And I AM A RAINBOW -- loving exactly who you are, every color of you.' },
+      { name: name, text: 'TOGETHER FOREVER -- sticking together! And MAKIN\' FUN AIN\'T FUNNY -- because making fun of someone is NEVER funny.' },
+      { name: name, text: 'BRAVE LITTLE SOLDIER -- staying brave through tough times. And LOVE IS LIKE A BUTTERFLY -- gentle as a garden.' },
+      { name: name, text: 'MY TENNESSEE MOUNTAIN HOME -- family and sweet memories. And APPLEJACK -- the funnest bluegrass sing-along there is!' },
+      { name: name, text: 'And LIGHT OF A CLEAR BLUE MORNING -- a song about hope. Every morning is a brand-new chance to shine!' },
+      { name: name, text: "Whew! That's the whole list! Now you know the secret: be kind, be brave, and SING while you do it. Just like Dolly!" }
+    ];
+    G.Dialogue.start([
+      { name: name, text: 'Do you want to hear about ALL of my favorite Dolly Parton songs?' }
+    ], {
+      choices: [
+        { label: 'YES! Tell me!', cb: function () { G.Dialogue.start(SONGS, { onDone: onClose }); } },
+        { label: 'Maybe later!', cb: onClose }
+      ]
+    });
+  }
+
   function teacherDialogue(roomId, onClose) {
     var t = G.TEACHERS[roomId];
     // co-teachers (t-233b) borrow their shared room's info
@@ -214,6 +250,9 @@ var G = window.G = window.G || {};
 
     // reached the teacher Mrs. Walker suggested? mission accomplished
     if (roomId === walkerTip) walkerTip = null;
+
+    // Dolly Parton watch: only an unbroken streak of Mrs. Todd visits counts
+    toddTalks = roomId === 'm-todd' ? toddTalks + 1 : 0;
 
     var n = talkCount[roomId] || 0;
     talkCount[roomId] = n + 1;
@@ -256,6 +295,12 @@ var G = window.G = window.G || {};
         pages.push({ name: name, text: spotText });
       }
       G.Dialogue.start(pages, { onDone: onClose });
+      return;
+    }
+
+    // the 9th straight visit tips Mrs. Todd into Dolly Parton territory
+    if (roomId === 'm-todd' && toddTalks >= 9) {
+      dollyDialogue(name, onClose);
       return;
     }
 
