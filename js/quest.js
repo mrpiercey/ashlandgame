@@ -216,6 +216,7 @@ var G = window.G = window.G || {};
 
     var letter = letterHeldBy(roomId);
     if (letter) {
+      dryStreak = 0; // this teacher has real letter news
       // a polite hello first (on the first visit), THEN the letter news
       if (n === 0) pages.push(introFirst);
       if (hunt && hunt.roomId === roomId) {
@@ -249,11 +250,19 @@ var G = window.G = window.G || {};
       return;
     }
 
+    // pity timer: never let a kid hit three clueless teachers in a row.
+    // After two info-less NEW teachers, the next new teacher a student
+    // meets is quietly promoted to hinter (staff never get promoted).
+    if (!t.noLetter && !hinters[roomId] && n === 0 && dryStreak >= 2) {
+      hinters[roomId] = true;
+    }
+
     // hinter teachers share their letter tip EVERY chat until that letter
     // is found -- introduction first, then the clue
     if (hinters[roomId]) {
       var hp = hintPage(roomId);
       if (hp) {
+        dryStreak = 0;
         pages = n === 0
           ? [introFirst, { name: name, text: hp.text }]
           : [{ name: name, text: hp.text }];
@@ -263,6 +272,7 @@ var G = window.G = window.G || {};
     }
 
     // no menus: everyone else just chats, saying something new each visit
+    if (!t.noLetter && n === 0) dryStreak++;
     var lines = personalLines(roomId, t);
     var line = lines[n % lines.length];
     if (n === 0) {
@@ -270,8 +280,18 @@ var G = window.G = window.G || {};
     } else {
       pages = [{ name: name, text: line }];   // no re-introductions
     }
+    // ...and admit they haven't seen the letters, pointing the kid onward
+    pages.push({ name: name, text: SHRUGS[chash(roomId + 'shrug') % SHRUGS.length] });
     G.Dialogue.start(pages, { onDone: onClose });
   }
+
+  // what a teacher with no letter news says to keep the quest moving
+  var SHRUGS = [
+    "Hmmm... I haven't seen any of those golden SOAR letters in here. Maybe another teacher has -- go ask around!",
+    'No golden letters in MY room, sorry! Try asking another teacher -- somebody must have spotted one.',
+    "I haven't spotted a single SOAR letter... but keep asking teachers! One of them is bound to know something."
+  ];
+  var dryStreak = 0;    // new teachers met since the last real clue
 
   var talkCount = {};   // roomId -> how many chats so far
   var metEddie = false;  // has the player heard Eddie's story yet?
