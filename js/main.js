@@ -1898,7 +1898,10 @@ var G = window.G = window.G || {};
         if (hit) {
           // mid-boogie, Mrs. Todd has exactly one thing on her mind
           if (toddParty && n.dollyDancing) {
-            G.Dialogue.start([{ name: 'MRS. TODD', text: 'WOOO! THIS IS MY SONG!!' }]);
+            G.Dialogue.start([{
+              name: 'MRS. TODD',
+              text: toddParty.phase === 'dance' ? 'WOOO! THIS IS MY SONG!!' : 'Watch THIS!'
+            }]);
             return;
           }
           // settle onto a tile and face the player
@@ -2025,10 +2028,43 @@ var G = window.G = window.G || {};
   }
 
   // ---- EASTER EGG: Mrs. Todd's 9 to 5 dance break --------------------------
-  // 30 seconds of pure Dolly: she boogies all over her office, the lights
-  // sweep and pulse (kid-safe, no hard strobe), confetti falls, and a big
-  // banner unfurls from the back wall: I LOVE DOLLY PARTON!
-  var toddParty = null; // {t, npc}
+  // she walks out to the front of her office, says "Hit it!", and THEN: 30
+  // seconds of pure Dolly. She boogies around the open floor (never up by
+  // the banner), the lights sweep and pulse (kid-safe, no hard strobe),
+  // confetti falls, and a big I LOVE DOLLY PARTON! banner unfurls from the
+  // back wall.
+  var toddParty = null; // {phase:'walk'|'hitit'|'dance', t, npc, path, i}
+
+  // BFS an NPC route to the open floor at the FRONT of the room
+  function toddPathToFront(m, n) {
+    var q = [[n.x, n.y]];
+    var from = {};
+    from[n.x + ',' + n.y] = null;
+    var best = null;
+    while (q.length) {
+      var cur = q.shift();
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
+        var nx = cur[0] + d[0], ny = cur[1] + d[1];
+        var key = nx + ',' + ny;
+        if (from[key] !== undefined || !npcCanWalk(m, nx, ny)) return;
+        from[key] = cur;
+        q.push([nx, ny]);
+        // front of the room: as far DOWN as possible, then near the middle
+        if (ny >= 4) {
+          var score = ny * 100 - Math.abs(nx - m.w / 2);
+          if (!best || score > best.score) best = { x: nx, y: ny, score: score };
+        }
+      });
+    }
+    if (!best) return null;
+    var path = [];
+    var b = [best.x, best.y];
+    while (b && from[b[0] + ',' + b[1]] !== null) {
+      path.unshift(b);
+      b = from[b[0] + ',' + b[1]];
+    }
+    return path;
+  }
 
   function startDollyParty() {
     var m = map();
@@ -2037,14 +2073,29 @@ var G = window.G = window.G || {};
       if (m.npcs[i].roomId === 'm-todd') n = m.npcs[i];
     }
     if (!n) return;
-    // settle her onto a tile before the boogie begins
+    // settle her onto a tile before the show begins
     if (n.tx !== undefined) { n.x = n.tx; n.y = n.ty; n.tx = undefined; }
     n.px = n.x * TS; n.py = n.y * TS;
     n.dollyDancing = true;
     n.anim = 0;
-    toddParty = { t: 0, npc: n };
-    G.Audio.playDolly();
-    showBanner('DANCE BREAK!');
+    n.hop = 0;
+    var path = toddPathToFront(m, n);
+    toddParty = { phase: path && path.length ? 'walk' : 'hitit', t: 0, npc: n, path: path || [], i: 0 };
+    if (toddParty.phase === 'hitit') toddSayHitIt();
+  }
+
+  function toddSayHitIt() {
+    var p = toddParty;
+    p.npc.dir = 'down';
+    G.Dialogue.start([{ name: 'MRS. TODD', text: 'Hit it!' }], {
+      onDone: function () {
+        if (!toddParty) return;
+        toddParty.phase = 'dance';
+        toddParty.t = 0;
+        G.Audio.playDolly();
+        showBanner('DANCE BREAK!');
+      }
+    });
   }
 
   function endDollyParty(silent) {
@@ -2063,37 +2114,56 @@ var G = window.G = window.G || {};
     }
   }
 
+  // slide her toward her current step target; returns true while mid-step
+  function toddStep(n, speed) {
+    if (n.tx === undefined) return false;
+    var dx = n.tx * TS - n.px, dy = n.ty * TS - n.py;
+    if (Math.abs(dx) <= speed && Math.abs(dy) <= speed) {
+      n.px = n.tx * TS; n.py = n.ty * TS;
+      n.x = n.tx; n.y = n.ty;
+      n.tx = undefined;
+      return false;
+    }
+    n.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+    n.px += Math.sign(dx) * speed;
+    n.py += Math.sign(dy) * speed;
+    return true;
+  }
+
   function updateToddParty(dt) {
     var p = toddParty;
-    p.t += dt;
-    if (p.t >= 30) { endDollyParty(); return; }
     var n = p.npc;
     var m = map();
-    // dance steps: quick tile-to-tile boogie all over the office, no pauses.
-    // she stays in FRONT of the banner (rows 3+); from further up she may
-    // only boogie downward, out from behind it
+
+    // phase 1: she marches out to the front of the room first
+    if (p.phase === 'walk') {
+      if (n.tx === undefined) {
+        var next = p.path[p.i++];
+        if (!next) { toddSayHitIt(); p.phase = 'hitit'; return; }
+        n.tx = next[0]; n.ty = next[1];
+      }
+      toddStep(n, 44 * dt);
+      n.anim += dt * 6;
+      return;
+    }
+    // phase 2: "Hit it!" is on screen; she holds still until the kid answers
+    if (p.phase === 'hitit') return;
+
+    // phase 3: THE DANCE
+    p.t += dt;
+    if (p.t >= 30) { endDollyParty(); return; }
+    // quick tile-to-tile boogie around the open floor, no pauses -- and
+    // never up by the banner (rows 4+ only)
     if (n.tx === undefined) {
       var dirs = [['down', 0, 1], ['up', 0, -1], ['left', -1, 0], ['right', 1, 0]];
       var d = dirs[Math.floor(Math.random() * 4)];
       n.dir = d[0];
       var nty = n.y + d[2];
-      if ((nty >= 3 || nty > n.y) && npcCanWalk(m, n.x + d[1], nty)) {
+      if (nty >= 4 && npcCanWalk(m, n.x + d[1], nty)) {
         n.tx = n.x + d[1]; n.ty = nty;
       }
     }
-    if (n.tx !== undefined) {
-      var speed = 62 * dt;
-      var dx = n.tx * TS - n.px, dy = n.ty * TS - n.py;
-      n.anim += dt * 9;
-      if (Math.abs(dx) <= speed && Math.abs(dy) <= speed) {
-        n.px = n.tx * TS; n.py = n.ty * TS;
-        n.x = n.tx; n.y = n.ty;
-        n.tx = undefined;
-      } else {
-        n.px += Math.sign(dx) * speed;
-        n.py += Math.sign(dy) * speed;
-      }
-    }
+    if (toddStep(n, 62 * dt)) n.anim += dt * 9;
     // the hop -- and a twirl every few beats
     n.hop = Math.abs(Math.sin(p.t * 7)) * 3;
     if (p.t % 3 < 0.6) n.dir = ['down', 'left', 'up', 'right'][Math.floor(p.t * 12) % 4];
@@ -2102,6 +2172,7 @@ var G = window.G = window.G || {};
   // the big banner unfurls from the back wall (and rolls back up at the end);
   // drawn BEFORE the characters so Mrs. Todd always dances in front of it
   function drawDollyBanner(cam) {
+    if (toddParty.phase !== 'dance') return;
     var t = toddParty.t;
     var m = map();
     var u = Math.min(1, Math.max(0, (t - 0.4) / 1.2));       // unroll
@@ -2126,6 +2197,7 @@ var G = window.G = window.G || {};
 
   function drawToddParty(cam) {
     var p = toddParty;
+    if (p.phase !== 'dance') return; // no effects until she says "Hit it!"
     var t = p.t;
     var m = map();
     ctx.imageSmoothingEnabled = false;
