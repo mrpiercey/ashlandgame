@@ -39,7 +39,7 @@ var G = window.G = window.G || {};
   // ---- the stuck-player clock ---------------------------------------------
   // wander this long without turning up a letter or a clue and Eddie flies in
   // to name a teacher who actually has one. Any real progress restarts it.
-  var HINT_AFTER = 300; // seconds
+  var HINT_AFTER = 180; // seconds (three minutes)
   var idleT = 0;
   function noteProgress() { idleT = 0; }
 

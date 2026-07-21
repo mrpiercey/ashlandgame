@@ -218,7 +218,7 @@ var G = window.G = window.G || {};
     movePlayer(dt);
     updateNpcs(dt);
 
-    // adrift for five minutes? Eddie comes to the rescue. Reaching this line
+    // adrift for a few minutes? Eddie comes to the rescue. Reaching this line
     // already means we're in play with no transition, ceremony or dialogue.
     // The clock simply pauses when a flyby would be wrong (mid-party, or with
     // the real Eddie already standing on screen), so no nudge is ever lost.
