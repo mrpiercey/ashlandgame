@@ -3135,12 +3135,20 @@ var G = window.G = window.G || {};
       var focus = m.isHall ? (inGymArea() ? 'b-gym' : null) : currentMapId;
       var curFloor = m.isHall ? currentMapId : (G.ROOMS[currentMapId] ? G.ROOMS[currentMapId].floor : 'middle');
       var obj = G.Quest.objective(focus, curFloor);
-      ctx.fillStyle = obj.color;
       var objLines = wrapSide(obj.text);
       var OBJ_YS = { 1: [203], 2: [199, 210], 3: [197, 206, 215] };
+      // school colours, and the outline makes it pop off the dark sidebar
+      ctx.strokeStyle = '#1e7a3c';
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.miterLimit = 2;
+      ctx.fillStyle = '#f7d84d';
       objLines.forEach(function (line, i) {
-        ctx.fillText(line, cx, OBJ_YS[objLines.length][i]);
+        var ly = OBJ_YS[objLines.length][i];
+        ctx.strokeText(line, cx, ly);
+        ctx.fillText(line, cx, ly);
       });
+      ctx.lineWidth = 1;
     }
 
     // Eddie keeps watch at the bottom
