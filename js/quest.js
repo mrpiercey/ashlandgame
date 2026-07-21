@@ -95,16 +95,11 @@ var G = window.G = window.G || {};
       var tn = roomNum(walkerTip);
       return { text: stairs + 'TALK TO ' + tw + (!stairs && tn ? ' (ROOM ' + tn + ')' : ''), color: '#9fd4e8' };
     }
-    // quest on-ramp: Eddie's story, then Mrs. Walker -- but if the player
-    // dives straight into chatting with the staff, that step is skipped
+    // quest on-ramp: Eddie's story first, then Mrs. Walker's briefing
     if (!metEddie) return { text: 'TALK TO EDDIE THE EAGLE', color: '#9fd4e8' };
-    if (!metWalker && !chattedWithStaff()) return { text: 'TALK TO MRS. WALKER', color: '#9fd4e8' };
+    if (!metWalker) return { text: 'TALK TO MRS. WALKER', color: '#9fd4e8' };
     // exploring: one steady nudge, in Eddie-green so it reads as a tip
     return { text: 'GO TALK TO SOME OF YOUR TEACHERS', color: '#5fbd87' };
-  }
-
-  function chattedWithStaff() {
-    return Object.keys(talkCount).length > 0 || countFound() > 0;
   }
 
   // what the GTA-style guide arrow should point at right now (semantic
@@ -117,7 +112,7 @@ var G = window.G = window.G || {};
     if (pendingHint && !found[pendingHint.letter]) return { kind: 'room', roomId: pendingHint.roomId };
     if (walkerTip && G.ROOMS[walkerTip]) return { kind: 'room', roomId: walkerTip };
     if (!metEddie) return { kind: 'eddie' };
-    if (!metWalker && !chattedWithStaff()) return { kind: 'walker' };
+    if (!metWalker) return { kind: 'walker' };
     return null;
   }
 
@@ -316,6 +311,12 @@ var G = window.G = window.G || {};
     // the 9th straight visit tips Mrs. Todd into Dolly Parton territory
     if (roomId === 'm-todd' && toddTalks >= 9) {
       dollyDialogue(name, onClose);
+      return;
+    }
+
+    // the 10th chat with Mr. Piercey unlocks his dad-joke stash for good
+    if (roomId === 't-217' && talkCount[roomId] >= 10) {
+      pierceyJokeOffer(name, onClose);
       return;
     }
 
@@ -646,6 +647,7 @@ var G = window.G = window.G || {};
   }
 
   var walkerMet = false;
+  var walkerBriefed = false; // heard her how-to-get-the-letters-back speech
 
   function walkerDialogue(onClose) {
     metWalker = true;
@@ -719,8 +721,20 @@ var G = window.G = window.G || {};
     }
     // she knows whether Eddie's story has been heard -- no sending kids
     // back to a conversation they already had
-    if (metEddie) {
-      hello.push({ name: name, text: 'Oh, I see you already talked to Eddie about him losing our golden letters!' });
+    if (metEddie && !walkerBriefed) {
+      // the one-time briefing: HOW to get the letters back, then she
+      // sends the student off to a specific teacher
+      walkerBriefed = true;
+      hello.push({ name: name, text: 'Oh good, Eddie sent you! He told me ALL about dropping our four golden letters. Here is how we get them back...' });
+      hello.push({ name: name, text: 'Talk to the teachers in their rooms -- they keep spotting the letters while they set up for the new year!' });
+      hello.push({ name: name, text: 'But the teachers will QUIZ you before they help, so learn our SOAR expectations first!' });
+      hello.push({ name: name, text: 'S is for SAFETY AT WORK AND PLAY.' });
+      hello.push({ name: name, text: 'O is for ON TASK EVERY DAY.' });
+      hello.push({ name: name, text: 'A is for ACCOUNTABLE FOR ALL WE DO.' });
+      hello.push({ name: name, text: 'And R is for RESPECT FOR ME AND YOU. That is how Eagles SOAR!' });
+      hello.push({ name: name, text: suggestTeacher() + ' Maybe they have seen something!' });
+    } else if (metEddie) {
+      hello.push({ name: name, text: 'Any luck finding those golden letters?' });
       hello.push({ name: name, text: suggestTeacher() + ' Maybe they have seen something!' });
     } else {
       hello.push({ name: name, text: 'See that empty banner up on my wall? Our four golden letters -- S, O, A, R -- are MISSING! Have you talked to EDDIE THE EAGLE yet? He is waddling around the hallway near the front doors. Go hear his story!' });
@@ -875,19 +889,113 @@ var G = window.G = window.G || {};
     });
   }
 
+  // ---- Mr. Piercey's 50 dad jokes ----------------------------------------
+  // dealt from a shuffled deck: random order, but no repeats until all 50
+  // have been told, then the deck reshuffles and starts over
+  var DAD_JOKES = [
+    ['Why did the math book look so sad?', 'Because it had too many problems.'],
+    ["What do you call cheese that isn't yours?", 'Nacho cheese.'],
+    ["Why couldn't the bicycle stand up by itself?", 'It was two-tired.'],
+    ['What do you call a bear with no teeth?', 'A gummy bear.'],
+    ['Why did the student eat his homework?', 'Because the teacher said it was a piece of cake.'],
+    ['What do you call a fish wearing a bowtie?', 'Sofishticated.'],
+    ['Why did the golfer bring two pairs of pants?', 'In case he got a hole in one.'],
+    ['How do you organize a space party?', 'You planet.'],
+    ["Why don't eggs tell jokes?", "They'd crack each other up."],
+    ['What kind of tree fits in your hand?', 'A palm tree.'],
+    ['Why did the scarecrow win an award?', 'Because he was outstanding in his field.'],
+    ['What do you call an alligator in a vest?', 'An investigator.'],
+    ["Why can't your nose be 12 inches long?", 'Because then it would be a foot.'],
+    ['What did one wall say to the other wall?', "I'll meet you at the corner."],
+    ['What kind of music do planets like?', 'Neptunes.'],
+    ['Why was the broom late?', 'It swept in.'],
+    ['What do you call a sleeping dinosaur?', 'A dino-snore.'],
+    ['Why did the cookie go to the doctor?', 'Because it felt crummy.'],
+    ['How do bees get to school?', 'On the school buzz.'],
+    ['What did the ocean say to the beach?', 'Nothing. It just waved.'],
+    ['Why did the computer go to the doctor?', 'It had a virus.'],
+    ['What do you call a cow with no legs?', 'Ground beef.'],
+    ['Why did the pencil get an award?', 'It had a sharp mind.'],
+    ['What did one plate say to the other plate?', 'Lunch is on me.'],
+    ['Why are frogs so happy?', 'They eat whatever bugs them.'],
+    ['What do you call a fake noodle?', 'An impasta.'],
+    ['Why did the banana go to the nurse?', "Because it wasn't peeling well."],
+    ['What do you call a snowman in July?', 'A puddle.'],
+    ['Why did the music teacher need a ladder?', 'To reach the high notes.'],
+    ['What did the stamp say to the envelope?', "Stick with me and we'll go places."],
+    ['Why did the tomato blush?', 'Because it saw the salad dressing.'],
+    ['What kind of shoes do ninjas wear?', 'Sneakers.'],
+    ['Why did the clock get detention?', 'It kept tocking back.'],
+    ["What do you call a boomerang that won't come back?", 'A stick.'],
+    ['Why did the duck become a detective?', 'It always quacked the case.'],
+    ["Why don't skeletons fight each other?", "They don't have the guts."],
+    ['What do elves learn in school?', 'The elf-abet.'],
+    ['Why was the library so tall?', 'Because it had lots of stories.'],
+    ['What do you call a dog magician?', 'A labra-cadabra-dor.'],
+    ['Why was the belt arrested?', 'It was holding up a pair of pants.'],
+    ['What do you call a cloud that loves school?', 'A brainstorm.'],
+    ['Why did the chicken join the band?', 'Because it had the drumsticks.'],
+    ['What kind of room has no doors or windows?', 'A mushroom.'],
+    ['Why did the crayon quit its job?', 'It was feeling drawn out.'],
+    ['What do you call a rabbit with fleas?', 'Bugs Bunny.'],
+    ['Why was the stadium so cool?', 'It was full of fans.'],
+    ['What did one volcano say to the other?', 'I lava you.'],
+    ['Why did the astronaut break up with the moon?', 'It needed space.'],
+    ["What kind of key can't open a lock?", 'A turkey.'],
+    ['Why are elevators so good at telling jokes?', 'They always work on so many levels.']
+  ];
+  var jokeDeck = [];
+
+  function pierceyJokeOffer(name, onClose) {
+    G.Dialogue.start([
+      { name: name, text: 'Say, do you want to hear a dad joke?' }
+    ], {
+      choices: [
+        { label: 'Yes!', cb: function () { tellDadJoke(name, onClose); } },
+        { label: 'Not right now!', cb: function () { if (onClose) onClose(); } }
+      ]
+    });
+  }
+
+  function tellDadJoke(name, onClose) {
+    if (!jokeDeck.length) {
+      jokeDeck = DAD_JOKES.slice();
+      for (var i = jokeDeck.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = jokeDeck[i]; jokeDeck[i] = jokeDeck[j]; jokeDeck[j] = tmp;
+      }
+    }
+    var joke = jokeDeck.pop();
+    // setup on its own card; the punchline lands on the next click,
+    // with the rimshot the instant it appears
+    G.Dialogue.start([{ name: name, text: joke[0] }], {
+      onDone: function () {
+        G.Audio.playRimshot();
+        G.Dialogue.start([{ name: name, text: joke[1] }], {
+          onDone: function () {
+            G.Dialogue.start([
+              { name: name, text: 'Do you want to hear another one?' }
+            ], {
+              choices: [
+                { label: 'Yes! Another!', cb: function () { tellDadJoke(name, onClose); } },
+                { label: "That's enough!", cb: function () { if (onClose) onClose(); } }
+              ]
+            });
+          }
+        });
+      }
+    });
+  }
+
   function eagleDialogue(onClose) {
     metEddie = true;
+    // Eddie tells the story and points at the principal -- Mrs. Walker is
+    // the one who explains HOW to get the letters back (quiz briefing etc.)
     var pages = [
       { name: 'EDDIE THE EAGLE', text: 'SQUAWK! Oh no, oh no... am I glad to see you! I need your help, friend!' },
       { name: 'EDDIE THE EAGLE', text: 'All summer I was flying around the school helping the teachers get their rooms set up for the new year...' },
       { name: 'EDDIE THE EAGLE', text: '...and while I was swooping through the halls, I accidentally DROPPED all four golden letters of our motto! S! O! A! R! They scattered EVERYWHERE!' },
-      { name: 'EDDIE THE EAGLE', text: 'Will you help me find them? Talk to the teachers in their rooms -- they keep spotting the letters while they set up!' },
-      { name: 'EDDIE THE EAGLE', text: 'But KNOW our SOAR expectations first, because the teachers will quiz you!' },
-      { name: 'EDDIE THE EAGLE', text: 'S is for SAFETY AT WORK AND PLAY.' },
-      { name: 'EDDIE THE EAGLE', text: 'O is for ON TASK EVERY DAY.' },
-      { name: 'EDDIE THE EAGLE', text: 'A is for ACCOUNTABLE FOR ALL WE DO.' },
-      { name: 'EDDIE THE EAGLE', text: 'And R is for RESPECT FOR ME AND YOU. That is how Eagles SOAR!' },
-      { name: 'EDDIE THE EAGLE', text: 'When you have all four letters, take them to Mrs. Walker, our principal -- her office is at the far end of this hallway. SQUAWK! Good luck!' }
+      { name: 'EDDIE THE EAGLE', text: 'Will you help me find them? Go talk to MRS. WALKER, our principal, first -- her office is at the far end of this hallway. She knows how to get them back! SQUAWK!' }
     ];
     if (allFound()) {
       pages = [{ name: 'EDDIE THE EAGLE', text: 'SQUAWK! You found all four letters! You are a true Eagle! Hurry to Mrs. Walker\'s office at the far end of this hallway!' }];
@@ -895,8 +1003,15 @@ var G = window.G = window.G || {};
       var still = LETTERS.filter(function (l) { return !found[l]; });
       var list = still.length === 1 ? still[0]
         : still.slice(0, -1).join(', ') + ' and ' + still[still.length - 1];
-      pages.splice(1, 3,
-        { name: 'EDDIE THE EAGLE', text: 'You have found ' + countFound() + ' of the letters I dropped! You still need ' + list + ' -- keep talking to the teachers!' });
+      pages = [
+        { name: 'EDDIE THE EAGLE', text: 'SQUAWK! You have found ' + countFound() + ' of the letters I dropped! You still need ' + list + ' -- keep talking to the teachers!' },
+        { name: 'EDDIE THE EAGLE', text: 'And remember: when you are carrying letters, bring them to Mrs. Walker\'s office at the far end of this hallway!' }
+      ];
+    } else if (metWalker) {
+      // heard the story already AND been briefed -- just a nudge
+      pages = [
+        { name: 'EDDIE THE EAGLE', text: 'SQUAWK! Mrs. Walker filled you in, right? Talk to the teachers in their rooms -- they keep spotting my letters while they set up!' }
+      ];
     }
     G.Dialogue.start(pages, { onDone: onClose });
   }
@@ -958,6 +1073,7 @@ var G = window.G = window.G || {};
     battleAsk: battleAsk,
     objective: objective,
     guide: guide,
+    hasMetEddie: function () { return metEddie; },
     partyDialogue: partyDialogue,
     djDialogue: djDialogue,
     setPartyMode: setPartyMode

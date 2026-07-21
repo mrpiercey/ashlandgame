@@ -1227,6 +1227,16 @@ var G = window.G = window.G || {};
   }
 
   function enterRoom(roomId, exitIndex) {
+    // nothing opens until the player hears Eddie's story (before that they
+    // can only be in the spawn hallway, so this gate can be global)
+    if (!G.Quest.hasMetEddie()) {
+      if (bumpCooldown <= 0) {
+        bumpCooldown = 2;
+        G.Audio.sfx('locked');
+        G.Dialogue.start([{ text: 'EDDIE THE EAGLE looks like he REALLY needs to talk to you first!' }]);
+      }
+      return;
+    }
     // the Eagle's Nest is staff only!
     if (roomId === 'm-eagles') {
       if (bumpCooldown <= 0) {
@@ -1263,6 +1273,15 @@ var G = window.G = window.G || {};
   }
 
   function takeStairs(st) {
+    // stairwells stay shut until the player hears Eddie's story too
+    if (!G.Quest.hasMetEddie()) {
+      if (bumpCooldown <= 0) {
+        bumpCooldown = 2;
+        G.Audio.sfx('locked');
+        G.Dialogue.start([{ text: 'EDDIE THE EAGLE looks like he REALLY needs to talk to you first!' }]);
+      }
+      return;
+    }
     // stairwell doors ask which floor you want
     var choices = st.options.map(function (o) {
       return {

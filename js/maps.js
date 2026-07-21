@@ -778,17 +778,15 @@ var G = window.G = window.G || {};
     applyHallOverride(maps.top, overrides.top);
     applyHallOverride(maps.basement, overrides.basement);
 
-    // ONLY the stairwells on the LEFT side of the school lead outside to
-    // recess -- edited halls may move stairwell doors around, so strip the
-    // playground option from any stairwell that ended up in the right half
+    // the playground is HIDDEN for now: strip its option from every
+    // stairwell in the school. (To bring recess back, restore the old
+    // left-side-only rule: only filter when +k.split(',')[0] >= hm.w / 2.)
     ['middle', 'top', 'basement'].forEach(function (hid) {
       var hm = maps[hid];
       Object.keys(hm.stairs).forEach(function (k) {
         var st = hm.stairs[k];
         if (!st.options) return;
-        if (+k.split(',')[0] >= hm.w / 2) {
-          st.options = st.options.filter(function (o) { return o.map !== 'playground'; });
-        }
+        st.options = st.options.filter(function (o) { return o.map !== 'playground'; });
       });
     });
     // older saves painted the court with tiles - the vector court replaces them

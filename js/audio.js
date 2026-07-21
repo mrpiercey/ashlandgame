@@ -294,6 +294,20 @@ var G = window.G = window.G || {};
     if (bgmEl && !fellBack) { var p = bgmEl.play(); if (p && p.catch) p.catch(function () {}); }
   }
 
+  // ---- Mr. Piercey's dad-joke rimshot --------------------------------------
+  var rimshotEl = null;
+  function playRimshot() {
+    if (rimshotEl === 'missing') return;
+    if (!rimshotEl) {
+      rimshotEl = new Audio('rimshot_01.mp3');
+      rimshotEl.addEventListener('error', function () { rimshotEl = 'missing'; });
+    }
+    rimshotEl.volume = muted ? 0 : 0.6;
+    try { rimshotEl.currentTime = 0; } catch (e) {}
+    var p = rimshotEl.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+
   // ---- sfx ----------------------------------------------------------------
   var SFX = {
     blip: function (t) { note(midi(84), t, 0.06, 'square', 0.25); },
@@ -351,6 +365,7 @@ var G = window.G = window.G || {};
     if (flightEl && flightEl !== 'missing') flightEl.volume = m ? 0 : 0.55;
     if (partyEl && partyEl !== 'missing') partyEl.volume = m ? 0 : 0.55;
     if (dollyEl) dollyEl.volume = m ? 0 : 0.65;
+    if (rimshotEl && rimshotEl !== 'missing') rimshotEl.volume = m ? 0 : 0.6;
     var btn = document.getElementById('mute-btn');
     if (btn) btn.classList.toggle('muted', m);
   }
@@ -369,6 +384,7 @@ var G = window.G = window.G || {};
     stopParty: stopParty,
     playDolly: playDolly,
     stopDolly: stopDolly,
+    playRimshot: playRimshot,
     playVictory: playVictory,
     stopVictory: stopVictory,
     sfx: sfx,
