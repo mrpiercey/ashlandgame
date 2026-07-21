@@ -85,7 +85,8 @@
       outfit: base.outfit || 0,
       shirtColor: (base.shirtColor === undefined ? null : base.shirtColor),
       pantsColor: (base.pantsColor === undefined ? null : base.pantsColor),
-      glasses: !!base.glasses
+      glasses: !!base.glasses,
+      gender: base.gender || null
     };
   });
 
@@ -104,6 +105,7 @@
       };
       if (w.shirtColor !== null) out[id].shirtColor = w.shirtColor;
       if (w.pantsColor !== null) out[id].pantsColor = w.pantsColor;
+      if (w.gender) out[id].gender = w.gender;
     });
     localStorage.setItem(KEY, JSON.stringify(out));
     setStatus('Unsaved changes...', 'warn');
@@ -222,6 +224,17 @@
       glasses.type = 'checkbox'; glasses.checked = w.glasses;
       glasses.addEventListener('change', function () { w.glasses = glasses.checked; refresh(); });
       row('Specs', glasses);
+
+      // her room / his room / their room in dialogue; blank = guess from name
+      var gsel = document.createElement('select');
+      [['', 'auto (from name)'], ['f', 'She/Her'], ['m', 'He/Him']].forEach(function (o) {
+        var op = document.createElement('option');
+        op.value = o[0]; op.textContent = o[1];
+        gsel.appendChild(op);
+      });
+      gsel.value = w.gender || '';
+      gsel.addEventListener('change', function () { w.gender = gsel.value || null; refresh(); });
+      row('Gender', gsel);
 
       dice.addEventListener('click', function () {
         w.style = Math.floor(Math.random() * S.STYLES.length);

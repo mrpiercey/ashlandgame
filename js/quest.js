@@ -294,8 +294,11 @@ var G = window.G = window.G || {};
     var roomId = holders[letter];
     var d = describeTeacherPlace(roomId);
     var place = d.ownedPlace, where = d.where;
+    // when the teacher was just named, "her room" beats repeating the name
+    var pp = G.pronounsFor(roomId);
+    var pronounPlace = d.num ? pp.poss + ' room (Room ' + d.num + ')' : place;
     var hints = [
-      'I heard ' + d.who + ' found something shiny while setting up! Check ' + place + ', ' + where + '.',
+      'I heard ' + d.who + ' found something shiny while setting up! Check ' + pronounPlace + ', ' + where + '.',
       'Psst... someone spotted a golden letter in ' + place + ', ' + where + '!',
       'Try ' + place + ', ' + where + ' -- Eddie was flying around in there all summer!'
     ];
@@ -513,7 +516,7 @@ var G = window.G = window.G || {};
     'You might want to ask {who} -- {where}.',
     'Have you tried {place} yet? It is {where}.',
     'I would peek into {place}, {where}. You never know!',
-    'Why not ask {who}? You can find them {where}.',
+    'Why not ask {who}? You can find {them} {where}.',
     'If I were you, I would go see {who}, {where}.'
   ];
   function referralLine(selfId) {
@@ -531,10 +534,12 @@ var G = window.G = window.G || {};
     // the building is not progress, so Eddie's stuck-timer keeps ticking
     tipTarget = id;
     var d = describeTeacherPlace(id);
+    var p = G.pronounsFor(id);
     return REFERRAL_FORMS[Math.floor(Math.random() * REFERRAL_FORMS.length)]
       .replace('{who}', d.who)
       .replace('{place}', d.ownedPlace)
-      .replace('{where}', d.where);
+      .replace('{where}', d.where)
+      .replace('{them}', p.obj);
   }
   var dryStreak = 0;    // new teachers met since the last real clue
 
@@ -967,10 +972,10 @@ var G = window.G = window.G || {};
       hello.push({ name: name, text: 'O is for ON TASK EVERY DAY.' });
       hello.push({ name: name, text: 'A is for ACCOUNTABLE FOR ALL WE DO.' });
       hello.push({ name: name, text: 'And R is for RESPECT FOR ME AND YOU. That is how Eagles SOAR!' });
-      hello.push({ name: name, text: suggestTeacher() + ' Maybe they have seen something!' });
+      hello.push({ name: name, text: suggestTeacher() });
     } else if (metEddie) {
       hello.push({ name: name, text: 'Any luck finding those golden letters?' });
-      hello.push({ name: name, text: suggestTeacher() + ' Maybe they have seen something!' });
+      hello.push({ name: name, text: suggestTeacher() });
     } else {
       hello.push({ name: name, text: 'See that empty banner up on my wall? Our four golden letters -- S, O, A, R -- are MISSING! Have you talked to EDDIE THE EAGLE yet? He is waddling around the hallway near the front doors. Go hear his story!' });
     }
@@ -991,7 +996,9 @@ var G = window.G = window.G || {};
     tipTarget = id;
     noteProgress(); // a fresh lead from the principal restarts the clock
     var d = describeTeacherPlace(id);
-    return 'Go see ' + d.who + ' in ' + d.place + ', ' + d.where + '!';
+    var p = G.pronounsFor(id);
+    return 'Go see ' + d.who + ' in ' + d.place + ', ' + d.where + '! Maybe ' +
+      p.subj + ' ' + p.has + ' seen something!';
   }
 
   // Mrs. Walker's reaction right after the letters fly onto the wall

@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Teacher sprite designs</title>
+<style>
+  body { background: #14141c; color: #eee; font-family: monospace; padding: 16px; }
+  h1 { font-size: 18px; } h2 { font-size: 15px; margin: 26px 0 8px; color: #f7d84d; }
+  .row { display: flex; gap: 26px; align-items: flex-end; flex-wrap: wrap; }
+  .cell { text-align: center; }
+  .cell .label { margin-top: 6px; font-size: 12px; color: #9fd4e8; white-space: pre; }
+  canvas { image-rendering: pixelated; background: #232332; border: 1px solid #444; }
+  #warnings { color: #ff7a6a; white-space: pre; margin-top: 18px; }
+</style>
+</head>
+<body>
+<h1>Teacher sprite redesigns &mdash; Mr. Piercey / Mrs. Mulert</h1>
+<div id="out"></div>
+<div id="warnings"></div>
+
+<script src="js/sprites.js"></script>
+<script>
+function shade(hex, f) {
+  var n = parseInt(hex.slice(1), 16);
+  var r = Math.max(0, Math.min(255, Math.round(((n >> 16) & 255) * f)));
+  var g = Math.max(0, Math.min(255, Math.round(((n >> 8) & 255) * f)));
+  var b = Math.max(0, Math.min(255, Math.round((n & 255) * f)));
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+// Mr. Piercey: orange tee, blue pants, dark brown hair. Mrs. Mulert: pink dress, blonde.
+var MAN = {
+  skin: '#f7d6b0', hair: '#3a2a1a', hairShine: '#5c4530',
+  top: '#e8722c', pants: '#3d5c92', shoes: '#e8e8e2'
+};
+var WOMAN = {
+  skin: '#f7d6b0', hair: '#e8b64c', hairShine: '#f7dc8a',
+  top: '#e06a92', pants: '#4a3a5a', shoes: '#20242a'
+};
+
+function palFor(c, soft) {
+  var p = {
+    O: '#1c1c26',
+    S: c.skin, s: shade(c.skin, 0.78), K: shade(c.skin, 1.08),
+    H: c.hair, h: shade(c.hair, 0.66), G: c.hairShine, b: shade(c.hair, 0.66),
+    W: '#ffffff', E: '#20203a', M: '#8a4a3c',
+    T: c.top, t: shade(c.top, 0.72), U: shade(c.top, 1.3),
+    L: c.pants, l: shade(c.pants, 0.72),
+    F: c.shoes, f: shade(c.shoes, 0.6),
+    C: '#f2b09a'
+  };
+  if (soft) { // the no-black-outline look: edges are darker versions of each material
+    p.O = null;
+    p.Y = shade(c.skin, 0.62);   // skin edge
+    p.J = shade(c.hair, 0.55);   // hair edge
+    p.X = shade(c.top, 0.5);     // top edge
+    p.Z = shade(c.pants, 0.5);   // pants edge
+    p.Q = shade(c.shoes, 0.45);  // shoe edge
+  }
+  return p;
+}
+
+// ---------------------------------------------------------------- designs --
+var DESIGNS = [];
+
+// ---- 1. SLIM CLASSIC: smaller head, jaw, brows, neck, belt ----------------
+DESIGNS.push({
+  name: '1 SLIM CLASSIC',
+  blurb: 'smaller head, real jaw,\nbrows + neck + belt',
+  man: [
+    '......OOOO......',
+    '.....OHHHHO.....',
+    '....OHGHHHHO....',
+    '....OHHHHHHO....',
+    '....OHSSSSHO....',
+    '....ObSSSSbO....',
+    '....OWESSWEO....',
+    '....OsSSSSsO....',
+    '.....OSMMSO.....',
+    '......OSSO......',
+    '......OssO......',
+    '...OTTTTTTTTO...',
+    '..OtTTTUUTTTtO..',
+    '..OtTTTTTTTTtO..',
+    '..OsTTTTTTTTsO..',
+    '...OTTTTTTTTO...',
+    '...OllllllllO...',
+    '....OLLLLLLO....',
+    '....OLLOOLLO....',
+    '....OLO..OLO....',
+    '....OLO..OLO....',
+    '....OlO..OlO....',
+    '....OFO..OFO....',
+    '...OFfO..OFfO...'
+  ],
+  woman: [
+    '......OOOO......',
+    '....OHHHHHHO....',
+    '...OHGHHHHHHO...',
+    '...OHHHHHHHHO...',
+    '...OHSSSSSSHO...',
+    '...OHbSSSSbHO...',
+    '...OHWESSWEHO...',
+    '...OHsSSSSsHO...',
+    '...OHSSMMSSHO...',
+    '...OHHOSSOHHO...',
+    '...OHHOssOHHO...',
+    '..OHHTTTTTTHHO..',
+    '..OHtTTUUTTtHO..',
+    '..OhsTTTTTTshO..',
+    '...OTTTTTTTTO...',
+    '...OtTTTTTTtO...',
+    '..OTTTTTTTTTTO..',
+    '..OTTTTTTTTTTO..',
+    '.OTTTTTTTTTTTTO.',
+    '.OttttttttttttO.',
+    '.....OS..SO.....',
+    '.....Os..sO.....',
+    '....OFO..OFO....',
+    '...OFfO..OFfO...'
+  ]
+});
+
+// ---- 2. BIG-HEAD DELUXE: today's proportions, sculpted --------------------
+DESIGNS.push({
+  name: '2 BIG-HEAD DELUXE',
+  blurb: "today's size, but a real\nface: brows, smile, chin",
+  man: [
+    '.....OOOOOO.....',
+    '...OOHHHHHHOO...',
+    '..OHHGGHHHHHHO..',
+    '..OHHHHHHHHHHO..',
+    '.OHHSSSSSSSSHHO.',
+    '.OHSSSSSSSSSSHO.',
+    '.OSSbbSSSSbbSSO.',
+    '.OSSWESSSSWESSO.',
+    '.OsSSSSSSSSSSsO.',
+    '..OSSSSssSSSSO..',
+    '..OSSSSMMSSSSO..',
+    '...OSSSSSSSSO...',
+    '....OSSSSSSO....',
+    '.....OsSSsO.....',
+    '..OUTTTTTTTTUO..',
+    '..OtTTUUUUTTtO..',
+    '..OtTTTTTTTTtO..',
+    '..OtTTTTTTTTtO..',
+    '..OTtttttttTTO..',
+    '..OsTTTTTTTTsO..',
+    '...OTTTTTTTTO...',
+    '...OlllWWlllO...',
+    '....OLLLLLLO....',
+    '....OlLOOLlO....',
+    '....OLO..OLO....',
+    '....OLO..OLO....',
+    '....OlO..OlO....',
+    '....OFO..OFO....',
+    '...OFfO..OFfO...'
+  ],
+  woman: [
+    '.....OOOOOO.....',
+    '...OOHHHHHHOO...',
+    '..OHHGGHHHHHHO..',
+    '.OHHHHHHHHHHHHO.',
+    '.OHHSSSSSSSSHHO.',
+    'OHHSSSSSSSSSSHHO',
+    'OHSSbbSSSSbbSSHO',
+    'OHSSWESSSSWESSHO',
+    'OHsSSSSSSSSSSsHO',
+    'OHHSSSSssSSSSHHO',
+    'OHHSSSSMMSSSSHHO',
+    'OHHOSSSSSSSSOHHO',
+    '.OHO.OSSSSO.OHO.',
+    '.OHO.OsSSsO.OHO.',
+    '.OHHTTTTTTTTHHO.',
+    '.OHtTTUUUUTTtHO.',
+    '.OhtTTTTTTTTthO.',
+    '..OsTTTTTTTTsO..',
+    '..OTTTTTTTTTTO..',
+    '..OtTTTTTTTTtO..',
+    '.OTTTTTTTTTTTTO.',
+    '.OttttttttttttO.',
+    '.....OS..SO.....',
+    '.....Os..sO.....',
+    '....OFO..OFO....',
+    '...OFfO..OFfO...'
+  ]
+});
+
+// ---- 3. TALL & LANKY: long legs, narrow shoulders --------------------------
+DESIGNS.push({
+  name: '3 TALL + LANKY',
+  blurb: 'stretched: long legs,\nnarrow frame',
+  man: [
+    '......OOOO......',
+    '.....OHHHHO.....',
+    '....OHGHHHHO....',
+    '....OHHHHHHO....',
+    '....OHSSSSHO....',
+    '....ObSSSSbO....',
+    '....OWESSWEO....',
+    '....OsSSSSsO....',
+    '.....OSMMSO.....',
+    '......OSSO......',
+    '......OssO......',
+    '....OTTTTTTO....',
+    '...OtTUUUUTtO...',
+    '...OtTTTTTTtO...',
+    '...OsTTTTTTsO...',
+    '....OTTTTTTO....',
+    '....OTTTTTTO....',
+    '....OLLLLLLO....',
+    '....OLLOOLLO....',
+    '....OLO..OLO....',
+    '....OLO..OLO....',
+    '....OLO..OLO....',
+    '....OLO..OLO....',
+    '....OlO..OlO....',
+    '....OFO..OFO....',
+    '...OFfO..OFfO...'
+  ],
+  woman: [
+    '......OOOO......',
+    '....OHHHHHHO....',
+    '...OHGHHHHHHO...',
+    '...OHHHHHHHHO...',
+    '...OHSSSSSSHO...',
+    '...OHbSSSSbHO...',
+    '...OHWESSWEHO...',
+    '...OHsSSSSsHO...',
+    '...OHSSMMSSHO...',
+    '...OHHOSSOHHO...',
+    '...OHHOssOHHO...',
+    '...OHTTTTTTHO...',
+    '...OHtTUUTtHO...',
+    '...OhTTTTTThO...',
+    '...OsTTTTTTsO...',
+    '....OTTTTTTO....',
+    '....OTTTTTTO....',
+    '....OTTTTTTO....',
+    '...OTTTTTTTTO...',
+    '...OTTTTTTTTO...',
+    '..OTTTTTTTTTTO..',
+    '..OttttttttttO..',
+    '.....OS..SO.....',
+    '.....OS..SO.....',
+    '.....Os..sO.....',
+    '....OFO..OFO....'
+  ]
+});
+
+// ---- 4. SOFT & ROUND: no black outline, warm and friendly ------------------
+DESIGNS.push({
+  name: '4 SOFT + ROUND',
+  blurb: 'no black outline --\nwarm storybook look',
+  soft: true,
+  man: [
+    '......JJJJ......',
+    '.....JHHHHJ.....',
+    '....JHGHHHHJ....',
+    '....JHHHHHHJ....',
+    '....JHSSSSHJ....',
+    '....YSSSSSSY....',
+    '....YSESSESY....',
+    '....YsSSSSsY....',
+    '....YSCMMCSY....',
+    '.....YSSSSY.....',
+    '......YssY......',
+    '...XTTTTTTTTX...',
+    '..XtTTTUUTTTtX..',
+    '..XtTTTTTTTTtX..',
+    '..XsTTTTTTTTsX..',
+    '...XTTTTTTTTX...',
+    '...XttttttttX...',
+    '....ZLLLLLLZ....',
+    '....ZLLZZLLZ....',
+    '....ZLZ..ZLZ....',
+    '....ZLZ..ZLZ....',
+    '....ZlZ..ZlZ....',
+    '....QFQ..QFQ....',
+    '...QFfQ..QFfQ...'
+  ],
+  woman: [
+    '......JJJJ......',
+    '....JHHHHHHJ....',
+    '...JHGHHHHHHJ...',
+    '...JHHHHHHHHJ...',
+    '...JHSSSSSSHJ...',
+    '...JHSSSSSSHJ...',
+    '...JHSESSESHJ...',
+    '...JHsSSSSsHJ...',
+    '...JHSCMMCSHJ...',
+    '...JHHYSSYHHJ...',
+    '...JHHYssYHHJ...',
+    '..JHHTTTTTTHHJ..',
+    '..JHtTTUUTTtHJ..',
+    '..JhsTTTTTTshJ..',
+    '...XTTTTTTTTX...',
+    '...XtTTTTTTtX...',
+    '..XTTTTTTTTTTX..',
+    '..XTTTTTTTTTTX..',
+    '.XTTTTTTTTTTTTX.',
+    '.XttttttttttttX.',
+    '.....YS..SY.....',
+    '.....Ys..sY.....',
+    '....QFQ..QFQ....',
+    '...QFfQ..QFfQ...'
+  ]
+});
+
+// ---- 5. 16-BIT PRO: max shading, collars, buttons ---------------------------
+DESIGNS.push({
+  name: '5 16-BIT PRO',
+  blurb: 'most detail: side-swept\nhair, collar, buttons',
+  man: [
+    '.....OOOOO......',
+    '....OGGHHHO.....',
+    '...OHGHHHHHO....',
+    '...OHHHHHHhO....',
+    '...OHSSSSShO....',
+    '...ObSSSSbhO....',
+    '...OWESSWESO....',
+    '...OsSSSSSsO....',
+    '....OSsMMsO.....',
+    '.....OSSSO......',
+    '......OsO.......',
+    '...OTWTTTTWTO...',
+    '..OtTTWUUWTTtO..',
+    '..OtTTTWWTTTtO..',
+    '..OsTTTWWTTTsO..',
+    '...OTTTWWTTTO...',
+    '...OlllWWlllO...',
+    '....OLLLLLLO....',
+    '....OLlOOlLO....',
+    '....OLO..OLO....',
+    '....OLO..OLO....',
+    '....OlO..OlO....',
+    '....OFO..OFO....',
+    '...OFfO..OFfO...'
+  ],
+  woman: [
+    '.....OOOOOO.....',
+    '....OGGHHHHO....',
+    '...OHGHHHHHHO...',
+    '...OHHHHHHHHO...',
+    '...OHSSSSSShO...',
+    '...OHbSSSSbhO...',
+    '...OHWESSWEhO...',
+    '...OHsSSSSshO...',
+    '...OHSSMMSShO...',
+    '...OHHOSSOHHO...',
+    '...OhHOssOHhO...',
+    '..OhHTTTTTTHhO..',
+    '..OhtTUWWUTthO..',
+    '..OsTTTWWTTTsO..',
+    '...OTTTWWTTTO...',
+    '...OTtTTTTtTO...',
+    '..OTTTTTTTTTTO..',
+    '..OTtTTTTTTtTO..',
+    '.OTTTTTTTTTTTTO.',
+    '.OttttttttttttO.',
+    '.....OS..SO.....',
+    '.....Os..sO.....',
+    '....OFO..OFO....',
+    '...OFfO..OFfO...'
+  ]
+});
+
+// ---------------------------------------------------------------- render ---
+var out = document.getElementById('out');
+var warnings = [];
+var ZOOM = 8;
+
+function paintRows(rows, pal) {
+  var c = document.createElement('canvas');
+  c.width = 16; c.height = rows.length;
+  var x2 = c.getContext('2d');
+  rows.forEach(function (row, y) {
+    if (row.length !== 16) warnings.push('row ' + y + ' has ' + row.length + ' chars: "' + row + '"');
+    for (var x = 0; x < 16; x++) {
+      var ch = row[x];
+      if (!ch || ch === '.') continue;
+      var col = pal[ch];
+      if (col === undefined) warnings.push('unknown symbol "' + ch + '" at ' + x + ',' + y);
+      if (!col) continue;
+      x2.fillStyle = col;
+      x2.fillRect(x, y, 1, 1);
+    }
+  });
+  return c;
+}
+
+function cell(canvas, label) {
+  var d = document.createElement('div');
+  d.className = 'cell';
+  var big = document.createElement('canvas');
+  big.width = canvas.width * ZOOM; big.height = canvas.height * ZOOM;
+  var bc = big.getContext('2d');
+  bc.imageSmoothingEnabled = false;
+  bc.drawImage(canvas, 0, 0, big.width, big.height);
+  d.appendChild(big);
+  // ...and at roughly the size it appears in the game window
+  var small = document.createElement('canvas');
+  small.width = canvas.width * 3; small.height = canvas.height * 3;
+  var sc = small.getContext('2d');
+  sc.imageSmoothingEnabled = false;
+  sc.drawImage(canvas, 0, 0, small.width, small.height);
+  small.style.display = 'block';
+  small.style.margin = '6px auto 0';
+  d.appendChild(small);
+  var l = document.createElement('div');
+  l.className = 'label';
+  l.textContent = label;
+  d.appendChild(l);
+  return d;
+}
+
+function renderRow(title, person, colors) {
+  var h = document.createElement('h2');
+  h.textContent = title;
+  out.appendChild(h);
+  var row = document.createElement('div');
+  row.className = 'row';
+  // today's sprite from the real game code
+  var cfg = G.Sprites.cfgFrom(person === 'man'
+    ? { style: 0, skin: 0, hairColor: 1, outfit: 4, glasses: false }
+    : { style: 1, skin: 0, hairColor: 6, outfit: 10, glasses: false, shirtColor: 6 });
+  var frames = G.Sprites.makeAdult(cfg);
+  row.appendChild(cell(frames.down[0], 'TODAY\n(the potato)'));
+  DESIGNS.forEach(function (d) {
+    row.appendChild(cell(paintRows(d[person], palFor(colors, d.soft)), d.name + '\n' + d.blurb));
+  });
+  out.appendChild(row);
+}
+
+renderRow('MR. PIERCEY', 'man', MAN);
+renderRow('MRS. MULERT', 'woman', WOMAN);
+
+document.getElementById('warnings').textContent = warnings.length
+  ? 'TEMPLATE WARNINGS:\n' + warnings.join('\n') : '';
+</script>
+</body>
+</html>

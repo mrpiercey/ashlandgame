@@ -910,6 +910,24 @@ var G = window.G = window.G || {};
     return out;
   }
 
+  // ---- suit tie -------------------------------------------------------------
+  // a knot under the chin and a short tail down the chest, with two white
+  // collar points. Front view only (you can't see a tie from behind, and at
+  // one pixel wide it reads as noise from the side).
+  function applyTie(rows) {
+    var out = rows.slice();
+    function set(y, x, ch) {
+      if (!out[y]) return;
+      var r = out[y].split('');
+      if (r[x] === 'T' || r[x] === 't' || r[x] === 'U') { r[x] = ch; out[y] = r.join(''); }
+    }
+    set(14, 6, 'W'); set(14, 9, 'W');   // collar points on the shoulder row
+    set(15, 7, 'V'); set(15, 8, 'V');   // the knot
+    set(16, 7, 'V'); set(16, 8, 'V');   // the tail...
+    set(17, 7, 'v'); set(17, 8, 'v');   // ...tapering into shadow
+    return out;
+  }
+
   // ---- hair overlays --------------------------------------------------------
   // each style has a full 17-row overlay per direction (13 head rows + 4
   // rows that drape over the shoulders); non-dot cells replace the frame
@@ -955,7 +973,16 @@ var G = window.G = window.G || {};
     { name: 'Gold polo', shirt: '#d9a520', pants: '#3a3f45', shoes: '#e8e8e2' },
     { name: 'Gray hoodie', shirt: '#7a8089', pants: '#3a3f45', shoes: '#e8e8e2' },
     { name: 'Sky blue shirt', shirt: '#4a9ad4', pants: '#33406e', shoes: '#e8e8e2' },
-    { name: 'Dress', shirt: '#9a6ee0', pants: '#4a3a5a', shoes: '#20242a', dress: true }
+    { name: 'Dress', shirt: '#9a6ee0', pants: '#4a3a5a', shoes: '#20242a', dress: true },
+    // brighter dresses and proper suits (append only -- saved outfit
+    // numbers point into this list, so the old entries must not move)
+    { name: 'Sunny dress', shirt: '#f2c14e', pants: '#4a3a5a', shoes: '#e8e8e2', dress: true },
+    { name: 'Sky dress', shirt: '#4a9ad4', pants: '#33406e', shoes: '#f4f0e6', dress: true },
+    { name: 'Rose dress', shirt: '#e05a6e', pants: '#4a3a5a', shoes: '#20242a', dress: true },
+    { name: 'Mint dress', shirt: '#57c28f', pants: '#2d5a4a', shoes: '#f4f0e6', dress: true },
+    { name: 'Navy suit & tie', shirt: '#33406e', pants: '#2a3350', shoes: '#20242a', tie: '#c43a3a' },
+    { name: 'Gray suit & tie', shirt: '#6a7078', pants: '#4a4f57', shoes: '#20242a', tie: '#d9a520' },
+    { name: 'Shirt & tie', shirt: '#f4f0e6', pants: '#3a3f45', shoes: '#20242a', tie: '#2a6ed4' }
   ];
 
   // clothing colors the outfit can be re-dyed with
@@ -979,6 +1006,7 @@ var G = window.G = window.G || {};
         : PANTSCOLORS[ov.pantsColor % PANTSCOLORS.length],
       shoes: outfit.shoes,
       dress: !!outfit.dress,
+      tie: outfit.tie || null,
       glasses: !!ov.glasses
     };
   }
@@ -1028,12 +1056,17 @@ var G = window.G = window.G || {};
       U: shade(cfg.shirt || '#2e8f57', 1.35),  // shirt highlight
       L: cfg.pants || '#3d5c92',
       l: shade(cfg.pants || '#3d5c92', 0.72),  // pants shadow
-      F: cfg.shoes || '#e8e8e2'
+      F: cfg.shoes || '#e8e8e2',
+      V: cfg.tie || '#c43a3a',
+      v: shade(cfg.tie || '#c43a3a', 0.7)
     };
 
     function prep(rows, dir) {
       var out = applyHair(rows, dir, cfg.style || 'short');
       if (cfg.glasses) out = applyGlasses(out, dir);
+      // ties belong to the tall adult template only (rows 14-17 are the
+      // chest there; on the kid template those rows are legs)
+      if (cfg.tie && !cfg.dress && bodies.adult && dir === 'down') out = applyTie(out);
       return out;
     }
 
@@ -1074,6 +1107,7 @@ var G = window.G = window.G || {};
   // grown-ups: same head and hair, taller 16x29 body with human proportions
   function makeAdult(cfg) {
     return buildFrames(cfg, {
+      adult: true,
       downStand: cfg.dress ? ADULT_DRESS_DOWN_STAND : ADULT_DOWN_STAND,
       downStep: cfg.dress ? ADULT_DRESS_DOWN_STEP : ADULT_DOWN_STEP,
       leftStand: cfg.dress ? ADULT_DRESS_LEFT_STAND : ADULT_LEFT_STAND,

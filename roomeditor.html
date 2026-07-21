@@ -356,6 +356,8 @@
       <div class="applabel">PANTS COLOR</div>
       <div class="swatchrow" id="pants-colors"></div>
       <div id="glassesrow"><label><input type="checkbox" id="glasses-check"> Glasses</label></div>
+      <div class="applabel" title='Used in dialogue: "Check her room" / "his room" / "their room"'>GENDER</div>
+      <div class="stylerow" id="gender-pick"></div>
     </div>
     <button id="allspritesbtn" style="background:#4a2a6e;" title="Open the TEACHER LOOKS gallery: every teacher's sprite on one page, all editable">&#128064; ALL TEACHER SPRITES</button>
     <div id="status">No changes yet.</div>
@@ -648,7 +650,14 @@
     if (!currentId || !G.TEACHERS[currentId]) return null;
     if (workingSprites[currentId]) return workingSprites[currentId];
     var base = G.TEACHERS[currentId].spriteOv || { style: 0, skin: 0, hairColor: 0, outfit: 0, glasses: false };
-    return { style: base.style, skin: base.skin, hairColor: base.hairColor, outfit: base.outfit, glasses: !!base.glasses };
+    return {
+      style: base.style, skin: base.skin, hairColor: base.hairColor, outfit: base.outfit,
+      glasses: !!base.glasses,
+      // carry the extras too, or the first edit silently wipes them
+      shirtColor: (base.shirtColor === undefined ? null : base.shirtColor),
+      pantsColor: (base.pantsColor === undefined ? null : base.pantsColor),
+      gender: base.gender || null
+    };
   }
 
   function setOv(patch) {
@@ -811,6 +820,22 @@
     var gl = document.getElementById('glasses-check');
     gl.checked = !!ov.glasses;
     gl.onchange = function () { setOv({ glasses: gl.checked }); };
+
+    // gender: drives "her room" / "his room" / "their room" in dialogue.
+    // Unset falls back to the name (Mrs./Ms./Nurse -> she, Mr. -> he).
+    var gp = document.getElementById('gender-pick');
+    gp.innerHTML = '';
+    [['f', 'SHE/HER'], ['m', 'HE/HIM'], [null, 'THEY/THEM']].forEach(function (opt) {
+      var b = document.createElement('button');
+      b.textContent = opt[1];
+      b.style.cssText = 'font-family:monospace;font-size:10px;padding:4px 8px;' +
+        'width:auto;height:auto;min-width:0;line-height:1.2;';
+      var cur = ov.gender || null;
+      b.className = cur === opt[0] ? 'selected' : '';
+      b.title = opt[0] ? '' : 'Or leave unset: Mrs./Ms./Nurse reads as she, Mr. as he';
+      b.addEventListener('click', function () { setOv({ gender: opt[0] }); });
+      gp.appendChild(b);
+    });
   }
 
   document.getElementById('teachername').addEventListener('input', function () {

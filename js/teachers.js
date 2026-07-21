@@ -238,5 +238,20 @@ var G = window.G = window.G || {};
     return T[id];
   };
 
+  // She/He/They for a teacher. An explicit pick from the look editor wins
+  // (stored as spriteOv.gender: 'f' | 'm'); otherwise the honorific in the
+  // name decides; otherwise a respectful they/them.
+  G.pronounsFor = function (id) {
+    var t = T[id];
+    var g = t && t.spriteOv && t.spriteOv.gender;
+    if (!g && t) {
+      if (/^(mrs|ms|miss|nurse)\.?\s/i.test(t.name)) g = 'f';
+      else if (/^mr\.?\s/i.test(t.name)) g = 'm';
+    }
+    if (g === 'f') return { subj: 'she', obj: 'her', poss: 'her', has: 'has' };
+    if (g === 'm') return { subj: 'he', obj: 'him', poss: 'his', has: 'has' };
+    return { subj: 'they', obj: 'them', poss: 'their', has: 'have' };
+  };
+
   G.TEACHERS = T;
 })();
