@@ -169,8 +169,10 @@ var G = window.G = window.G || {};
     // quest on-ramp: Eddie's story first, then Mrs. Walker's briefing
     if (!metEddie) return { text: 'TALK TO EDDIE THE EAGLE', color: '#9fd4e8' };
     if (!metWalker) return { text: 'TALK TO MRS. WALKER', color: '#9fd4e8' };
-    // exploring: one steady nudge, in Eddie-green so it reads as a tip
-    return { text: 'GO TALK TO SOME OF YOUR TEACHERS', color: '#5fbd87' };
+    // exploring: one steady nudge, in Eddie-green so it reads as a tip.
+    // Say WHAT to ask about -- "go talk to your teachers" left kids guessing.
+    // (Keep it to three sidebar lines: wrapSide crams anything longer.)
+    return { text: 'ASK TEACHERS ABOUT MISSING LETTERS', color: '#5fbd87' };
   }
 
   // what the GTA-style guide arrow should point at right now (semantic
