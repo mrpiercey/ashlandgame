@@ -381,6 +381,8 @@ var G = window.G = window.G || {};
 
   // teachers WITHOUT a real welcome letter never invent facts or claim years
   // of teaching -- they only look forward to the new school year
+  // the big shared pool: forty school-positive lines, nothing personal.
+  // every teacher draws a different dozen, so no two neighbors sound alike
   var FORWARD = [
     'I cannot WAIT for the first day of school!',
     'This year is going to be one to remember. I can feel it!',
@@ -389,7 +391,39 @@ var G = window.G = window.G || {};
     'The first week of school is my favorite week of the whole year!',
     'Big things are coming this year. BIG things!',
     'Every new school year feels like a brand new adventure!',
-    'New year, new friends, new things to learn. I love it!'
+    'New year, new friends, new things to learn. I love it!',
+    'Mistakes are proof that you are trying. We LOVE mistakes here!',
+    'Ask questions! Great questions are how great learning starts.',
+    'Readers are leaders. Grab a book every chance you get!',
+    'Being kind is always the right answer.',
+    'S-O-A-R: Safety, On task, Accountable, Respect. That is the Ashland Way!',
+    'The best classrooms are full of curious kids. Bring your curiosity!',
+    'Every single student in this school matters. Including YOU.',
+    'Hard things become easy things with practice. Every time!',
+    'A good night of sleep is a secret school superpower.',
+    'Eat a good breakfast and your brain says THANK YOU.',
+    'Teamwork makes everything better -- and more fun!',
+    'You do not have to be perfect. You just have to try!',
+    'Some days are tricky. We help each other through those.',
+    'Every expert was once a beginner. Every single one!',
+    'Your brain grows every time you learn something new. Really!',
+    'Helping a friend is one of the best feelings there is.',
+    'We celebrate effort here, not just answers!',
+    'There is no such thing as a silly question in my class.',
+    'When you feel stuck, take a deep breath and try again.',
+    'Listening is a superpower. So is sharing.',
+    'The library is full of adventures. Have you visited yet?',
+    'Recess, lunch, learning -- every part of the day matters!',
+    'Say good morning to somebody tomorrow. It changes their whole day!',
+    'You belong here. Every Eagle does.',
+    'Try something NEW this year. You might love it!',
+    'Neat desks are nice, but kind hearts are better.',
+    'The more you read, the more places you will go!',
+    'Water, sleep, and a smile -- the school day starter pack!',
+    'If you see someone sitting alone, invite them in. That is the Eagle way.',
+    'Learning is not a race. Go at YOUR pace and keep going!',
+    'Practice makes progress. Progress makes pride!',
+    'One day soon this hallway will be FULL of happy noise. I cannot wait!'
   ];
 
   // specials teachers describe (generically) what their class does
@@ -398,31 +432,61 @@ var G = window.G = window.G || {};
       'In PE we warm up, play games, and get MOVING!',
       'We play basketball, run relay races, and learn to be good sports!',
       'My number one gym rule: try your best and cheer for your team!',
-      'The big red curtain means the gym is our stage too!'
+      'The big red curtain means the gym is our stage too!',
+      'Stretch first, play hard, high-five after. That is PE!',
+      'You do not have to be the fastest. You just have to MOVE!',
+      'Good sports say GOOD GAME no matter who wins.',
+      'Sneakers tied tight? Then you are ready for my class!',
+      'We learn new games all year -- some you have never even heard of!',
+      'Exercise makes your body AND your brain stronger.'
     ],
     'b-music': [
       'In music class we sing, clap rhythms, and play instruments!',
       'Music is for EVERYONE -- every voice belongs in this room!',
       'Wait until you hear our first concert of the year!',
-      'We learn songs, beats, and maybe even a little dancing!'
+      'We learn songs, beats, and maybe even a little dancing!',
+      'Clap this: ta, ta, ti-ti, ta! You just read rhythm!',
+      'Loud parts, quiet parts -- music is full of surprises.',
+      'Xylophones, drums, shakers... we get to play them ALL.',
+      'If you can talk, you can sing. Everyone can!',
+      'Some days we listen, some days we PERFORM!',
+      'The best sound in this school is a whole class singing together.'
     ],
     'b-dance': [
       'I teach Dance AND Drama -- jazz hands, everyone!',
       'In our class we move, act, and put on little shows!',
       'Our stage is right upstairs in the gym!',
-      'Warm-ups, stretches, and BIG dramatic feelings. That is drama class!'
+      'Warm-ups, stretches, and BIG dramatic feelings. That is drama class!',
+      'Freeze like a statue... now MELT like ice cream! That is a drama game.',
+      'Every story needs actors. This year, that is YOU.',
+      'We practice speaking loud and proud so the back row can hear!',
+      'Dancers count to eight. Five, six, seven, eight!',
+      'Being a little nervous before a show is totally normal -- even for grown-ups.',
+      'Take a bow! You always end a performance with a bow.'
     ],
     't-221': [
       "I'm the ART teacher! We get to use paint, clay, and glitter this year!",
       'In art class we draw, paint, and create something new every week!',
       'Every artist starts somewhere -- this room is where YOU start!',
-      'Messy hands mean a masterpiece is happening!'
+      'Messy hands mean a masterpiece is happening!',
+      'Red and yellow make orange. Blue and yellow make green. Try it!',
+      'There is no WRONG way to make art. That is the best part.',
+      'We learn about real artists and then create like them!',
+      'Smocks on, sleeves up -- it is about to get creative in here.',
+      'Some of the best art in this school hangs right in the hallway!',
+      'Scissors, glue, paint, clay... this room has ALL the good stuff.'
     ],
     't-lib': [
       'Welcome to the library -- home of Media Arts!',
       'We read amazing books and learn to find GREAT information!',
       'In media arts we get creative with stories and technology!',
-      'There is a perfect book in here for every single reader!'
+      'There is a perfect book in here for every single reader!',
+      'Picture books, chapter books, joke books -- we have them ALL.',
+      'You can borrow books and take them home. For FREE. Forever the best deal.',
+      'Treat books gently and they will last for hundreds of readers.',
+      'If you loved a book, tell me -- I will find you another one just like it!',
+      'Shhh is only SOMETIMES the rule in here. Sometimes we get loud about books!',
+      'Authors and illustrators make books together. Maybe you will make one someday!'
     ]
   };
 
@@ -437,15 +501,19 @@ var G = window.G = window.G || {};
     if (t.intro) lines = []; // roaming staff already greet with their own intro
     var real = (G.TEACHER_LINES || {})[roomId];
     if (real && real.length) {
-      // this teacher's ACTUAL facts from their welcome letter
-      return lines.concat(real);
+      // this teacher's ACTUAL facts from their welcome letter come first
+      lines = lines.concat(real);
+    } else {
+      var specials = SPECIALS_LINES[t.roomOf || roomId];
+      if (specials) lines = lines.concat(specials);
     }
-    var specials = SPECIALS_LINES[t.roomOf || roomId];
-    if (specials) return lines.concat(specials);
-    // everyone else: pure excitement for the year ahead (4 distinct picks,
-    // stride 3 is coprime with the pool size so no repeats)
+    // everyone tops up to a baker's dozen from the shared pool -- each
+    // teacher draws a different slice (stride 7 is coprime with the pool
+    // size, so a single teacher never repeats a line)
     var off = chash(roomId + 'fw') % FORWARD.length;
-    for (var i = 0; i < 4; i++) lines.push(FORWARD[(off + i * 3) % FORWARD.length]);
+    for (var i = 0; lines.length < 13 && i < FORWARD.length; i++) {
+      lines.push(FORWARD[(off + i * 7) % FORWARD.length]);
+    }
     return lines;
   }
 

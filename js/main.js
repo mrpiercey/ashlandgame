@@ -1838,6 +1838,11 @@ var G = window.G = window.G || {};
       "With great switches comes great responsibility."
     ]
   };
+  // the bonus facts in js/facts-extra.js top every object up to 10-15 lines
+  Object.keys(G.FACTS_EXTRA || {}).forEach(function (k) {
+    FACTS[k] = (FACTS[k] || []).concat(G.FACTS_EXTRA[k]);
+  });
+
   var FACT_ALIAS = {
     "carpetRed": "carpet",
     "carpetGreen": "carpet",
