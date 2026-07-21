@@ -789,6 +789,43 @@ var G = window.G = window.G || {};
         st.options = st.options.filter(function (o) { return o.map !== 'playground'; });
       });
     });
+
+    // A stairwell menu offers FLOORS -- only the two you are not on. Hall
+    // edits can reattach the old "stairs down to Dance & Drama" shortcut to
+    // half of a two-tile stairwell doorway, so one tile asks TOP/LOWER and
+    // its twin asks a one-option "DANCE & DRAMA?" question. Scrub every
+    // menu down to real other-floor destinations; a tile left with nothing
+    // borrows its doorway twin's menu, and a truly lone dance staircase
+    // becomes a walk-straight-in door (Dance & Drama's real entrance at the
+    // cafeteria stairs already works that way).
+    ['middle', 'top', 'basement'].forEach(function (hid) {
+      var hm = maps[hid];
+      var keys = Object.keys(hm.stairs).filter(function (k) { return hm.stairs[k].options; });
+      keys.forEach(function (k) {
+        var seen = {};
+        hm.stairs[k].floorOptions = hm.stairs[k].options.filter(function (o) {
+          if (!maps[o.map] || !maps[o.map].isHall || o.map === hid) return false;
+          if (seen[o.map]) return false;
+          seen[o.map] = true;
+          return true;
+        });
+      });
+      keys.forEach(function (k) {
+        var st = hm.stairs[k];
+        if (st.floorOptions.length) { st.options = st.floorOptions; }
+        else {
+          var xy = k.split(','), x = +xy[0], y = +xy[1];
+          var twin = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(function (d) {
+            return hm.stairs[(x + d[0]) + ',' + (y + d[1])];
+          }).filter(function (n) { return n && n.floorOptions && n.floorOptions.length; })[0];
+          if (twin) st.options = twin.floorOptions;
+          else if (st.options.some(function (o) { return o.map === 'b-dance'; })) {
+            hm.stairs[k] = { goRoom: 'b-dance', pairIndex: 0 };
+          }
+        }
+      });
+      keys.forEach(function (k) { if (hm.stairs[k]) delete hm.stairs[k].floorOptions; });
+    });
     // older saves painted the court with tiles - the vector court replaces them
     (function (m) {
       var legacy = { gymlineH: 1, gymlineV: 1, gymkey: 1, gymcirTL: 1, gymcirTR: 1, gymcirBL: 1, gymcirBR: 1 };
