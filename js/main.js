@@ -111,6 +111,7 @@ var G = window.G = window.G || {};
       }
       if (e.key !== 'ashland-room-overrides' && e.key !== 'ashland-custom-rooms') return;
       G.buildMaps();
+      countableCache = null; // doors may have moved: recount the rooms
       // any freshly created teachers need sprites
       Object.keys(G.TEACHERS).forEach(function (id) {
         if (!teacherFrames[id]) teacherFrames[id] = G.Sprites.makeAdult(G.TEACHERS[id].sprite);
@@ -2239,14 +2240,32 @@ var G = window.G = window.G || {};
   var partyFly = null; // {t, sparkles, ending}
   var BOOTH = { x0: 41, x1: 43, y: 18 }; // DJ table tiles (gym far right)
 
+  // rooms a student can actually walk into: something, somewhere, has a
+  // door or stairway leading to them. The staff-only Eagle's Nest and any
+  // door-less room (like the PLC room) don't count toward the total.
+  var countableCache = null;
+  function countableRooms() {
+    if (countableCache) return countableCache;
+    var reach = {};
+    Object.keys(G.Maps.all).forEach(function (mid) {
+      var m = G.Maps.all[mid];
+      Object.keys(m.doors || {}).forEach(function (k) { reach[m.doors[k].roomId] = true; });
+      Object.keys(m.stairs || {}).forEach(function (k) {
+        if (m.stairs[k].goRoom) reach[m.stairs[k].goRoom] = true;
+      });
+    });
+    reach['b-gym'] = true; // the gym is an open area off the basement hallway
+    countableCache = Object.keys(G.ROOMS).filter(function (id) {
+      return id !== 'm-eagles' && reach[id];
+    });
+    return countableCache;
+  }
+
   function allRoomsVisited() {
-    var total = Object.keys(G.ROOMS).filter(function (id) { return id !== 'm-eagles'; }).length;
-    return Object.keys(visited).length >= total;
+    return countableRooms().every(function (id) { return visited[id]; });
   }
   function debugVisitAll() {
-    Object.keys(G.ROOMS).forEach(function (id) {
-      if (id !== 'm-eagles') visited[id] = true;
-    });
+    countableRooms().forEach(function (id) { visited[id] = true; });
   }
 
   function startParty() {
@@ -2881,11 +2900,11 @@ var G = window.G = window.G || {};
     ctx.fillText(G.Quest.countFound() + ' OF 4', cx, 86);
     divider(102);
 
-    // rooms visited
-    // Mrs. Wang's room is staff-only (students bounce off the door), so it
-    // doesn't count toward the rooms a student can visit
-    var total = Object.keys(G.ROOMS).filter(function (id) { return id !== 'm-eagles'; }).length;
-    var seen = Object.keys(visited).length;
+    // rooms visited -- only rooms a student can actually reach count
+    // (no staff-only Eagle's Nest, no door-less rooms)
+    var countable = countableRooms();
+    var total = countable.length;
+    var seen = countable.filter(function (id) { return visited[id]; }).length;
     ctx.fillStyle = '#5fbd87';
     ctx.fillText('ROOMS', cx, 108);
     ctx.fillStyle = '#9aa0ac';
