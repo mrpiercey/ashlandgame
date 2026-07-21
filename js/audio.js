@@ -308,6 +308,38 @@ var G = window.G = window.G || {};
     if (p && p.catch) p.catch(function () {});
   }
 
+  // ---- footsteps on the stairwell ------------------------------------------
+  // Plays over the whole fade-out / fade-in, so the student lands on the new
+  // floor as the last step dies away. Returns how long the clip runs (or 0 if
+  // it will not play), which is what paces the transition in main.js.
+  var stairEl = null;
+  var STAIR_FALLBACK = 2.1; // the clip is ~2.1s; used until metadata loads
+  // fetched up front so the FIRST trip upstairs knows its real length and
+  // starts instantly, instead of falling back to the estimate
+  (function preloadStairs() {
+    try {
+      stairEl = new Audio('stair.mp3');
+      stairEl.preload = 'auto';
+      stairEl.addEventListener('error', function () { stairEl = 'missing'; });
+    } catch (e) { stairEl = null; }
+  })();
+  function playStairs() {
+    if (stairEl === 'missing') { sfx('stairs'); return 0; }
+    if (!stairEl) {
+      stairEl = new Audio('stair.mp3');
+      stairEl.addEventListener('error', function () { stairEl = 'missing'; });
+    }
+    stairEl.volume = muted ? 0 : 0.65;
+    try { stairEl.currentTime = 0; } catch (e) {}
+    var p = stairEl.play();
+    if (p && p.catch) p.catch(function () {});
+    var d = stairEl.duration;
+    return (d && isFinite(d) && d > 0) ? d : STAIR_FALLBACK;
+  }
+  function stopStairs() {
+    if (stairEl && stairEl !== 'missing') { try { stairEl.pause(); } catch (e) {} }
+  }
+
   // ---- sfx ----------------------------------------------------------------
   var SFX = {
     blip: function (t) { note(midi(84), t, 0.06, 'square', 0.25); },
@@ -377,6 +409,7 @@ var G = window.G = window.G || {};
     if (partyEl && partyEl !== 'missing') partyEl.volume = m ? 0 : 0.55;
     if (dollyEl) dollyEl.volume = m ? 0 : 0.65;
     if (rimshotEl && rimshotEl !== 'missing') rimshotEl.volume = m ? 0 : 0.6;
+    if (stairEl && stairEl !== 'missing') stairEl.volume = m ? 0 : 0.65;
     var btn = document.getElementById('mute-btn');
     if (btn) btn.classList.toggle('muted', m);
   }
@@ -396,6 +429,8 @@ var G = window.G = window.G || {};
     playDolly: playDolly,
     stopDolly: stopDolly,
     playRimshot: playRimshot,
+    playStairs: playStairs,
+    stopStairs: stopStairs,
     playVictory: playVictory,
     stopVictory: stopVictory,
     sfx: sfx,

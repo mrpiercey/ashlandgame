@@ -149,11 +149,18 @@ var G = window.G = window.G || {};
     if (bumpCooldown > 0) bumpCooldown -= dt;
 
     if (transition) {
-      transition.t += dt * 2.6;
+      var tspeed = transition.speed || 2.6;
+      transition.t += dt * tspeed;
       if (transition.t >= 1) {
         if (transition.phase === 'out') {
+          // stairs hold on black while the footsteps keep climbing
+          if (transition.hold > 0) {
+            transition.hold -= dt;
+            transition.t = 1;
+            return;
+          }
           if (transition.onMid) transition.onMid();
-          transition = { phase: 'in', t: 0 };
+          transition = { phase: 'in', t: 0, speed: tspeed };
         } else {
           transition = null;
         }
@@ -1379,9 +1386,23 @@ var G = window.G = window.G || {};
     autoWalk = null; // a room change makes any old walking route nonsense
     eddieVisit = null; // he doesn't follow you through doors
     if (toddParty) endDollyParty(true); // leaving mid-boogie ends it quietly
-    G.Audio.sfx(sfxName);
+    // stairwells get the real footsteps clip, and the fade is stretched to
+    // match it so the last step lands as the new floor appears
+    var fadeSpeed = 2.6, holdBlack = 0;
+    if (sfxName === 'stairs') {
+      var climb = G.Audio.playStairs();
+      if (climb > 0) {
+        var fade = Math.min(0.55, climb * 0.3);   // out, then in
+        fadeSpeed = 1 / fade;
+        holdBlack = Math.max(0, climb - fade * 2);
+      } else {
+        G.Audio.sfx(sfxName); // no clip: the old chiptune, old timing
+      }
+    } else {
+      G.Audio.sfx(sfxName);
+    }
     transition = {
-      phase: 'out', t: 0,
+      phase: 'out', t: 0, speed: fadeSpeed, hold: holdBlack,
       onMid: function () {
         currentMapId = mapId;
         player.x = tx * TS;
