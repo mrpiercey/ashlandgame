@@ -5,6 +5,8 @@ var G = window.G = window.G || {};
   var SW = 320, SH = 240;      // the game viewport (left side)
   var SIDE_W = 112;            // Gauntlet-style stats panel (right side)
   var TOTAL_W = SW + SIDE_W;
+  var TOP_H = 36, BOT_H = 64;  // upright phones: HUD above and below instead
+  var portrait = false;
   var TS = 16;
   var canvas, ctx;
   var visited = {};            // roomIds the player has entered
@@ -81,6 +83,7 @@ var G = window.G = window.G || {};
     });
 
     window.addEventListener('resize', fit);
+    window.addEventListener('orientationchange', function () { setTimeout(fit, 60); });
     // live-reload edits from the editors in other tabs
     window.addEventListener('storage', function (e) {
       if (e.key === 'ashland-sign-overrides') {
@@ -126,13 +129,37 @@ var G = window.G = window.G || {};
     requestAnimationFrame(loop);
   }
 
+  // A phone held upright gets the HUD stacked above and below the world
+  // instead of squeezed beside it -- a 432-wide strip on a portrait screen
+  // shrinks to nothing, which is what used to make us beg for landscape.
   function fit() {
-    var scale = Math.min(window.innerWidth / TOTAL_W, window.innerHeight / SH);
+    // portrait only matters when the screen is genuinely taller than wide
+    portrait = window.innerHeight > window.innerWidth * 1.15;
+    var w = portrait ? SW : TOTAL_W;
+    var h = portrait ? SH + TOP_H + BOT_H : SH;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      ctx.imageSmoothingEnabled = false;
+    }
+    // upright, the controls live under the game, so leave room for them
+    var avail = portrait ? window.innerHeight * 0.62 : window.innerHeight;
+    var scale = Math.min(window.innerWidth / w, avail / h);
     // big screens snap to whole-number scaling (crispest pixels); small
     // screens (phones, tablets) take the exact fit so the game fills them
     if (scale >= 2) scale = Math.floor(scale);
-    canvas.style.width = Math.floor(TOTAL_W * scale) + 'px';
-    canvas.style.height = Math.floor(SH * scale) + 'px';
+    canvas.style.width = Math.floor(w * scale) + 'px';
+    canvas.style.height = Math.floor(h * scale) + 'px';
+    document.body.classList.toggle('portrait', portrait);
+    // centre the thumb controls in whatever room is left under the game:
+    // low enough to reach, never stranded at the very bottom of a tall phone
+    if (portrait) {
+      var bottomOfGame = Math.floor(h * scale);
+      var room = Math.max(0, window.innerHeight - bottomOfGame);
+      var top = bottomOfGame + Math.max(18, (room - 200) / 2);
+      top = Math.min(top, Math.max(0, window.innerHeight - 200));
+      document.documentElement.style.setProperty('--ctl-top', Math.round(top) + 'px');
+    }
   }
 
   // ---- game loop ----------------------------------------------------------
@@ -320,7 +347,8 @@ var G = window.G = window.G || {};
     eddieVisit = null; // the quiz takes over the screen; don't strand him on it
     battleSnap = document.createElement('canvas');
     battleSnap.width = SW; battleSnap.height = SH;
-    battleSnap.getContext('2d').drawImage(canvas, 0, 0, SW, SH, 0, 0, SW, SH);
+    // upright, the world is drawn below the top bar -- grab THAT, not the HUD
+    battleSnap.getContext('2d').drawImage(canvas, 0, portrait ? TOP_H : 0, SW, SH, 0, 0, SW, SH);
     battle = { phase: 'intro', t: 0, letter: h.letter };
     state = 'battle';
     G.Audio.sfx('encounter');
@@ -1047,15 +1075,18 @@ var G = window.G = window.G || {};
 
   function onCanvasClick(e) {
     var r = canvas.getBoundingClientRect();
-    var gx = (e.clientX - r.left) / r.width * TOTAL_W;
-    var gy = (e.clientY - r.top) / r.height * SH;
+    var gx = (e.clientX - r.left) / r.width * canvas.width;
+    var gy = (e.clientY - r.top) / r.height * canvas.height;
+    // upright, the world sits below the top bar
+    if (portrait) gy -= TOP_H;
     // outside free play (title, dialogue, battle, menus...) a click is
     // simply the action button -- it advances whatever is on screen
     if (state !== 'play' || G.Dialogue.isActive() || transition || ceremony) {
       G.Input.pressAction();
       return;
     }
-    if (gx >= SW) return; // the stats panel isn't clickable
+    // the stats panel isn't clickable, whichever side of the world it is on
+    if (portrait ? (gy < 0 || gy >= SH) : gx >= SW) return;
     var cam = cameraPos();
     clickToWalk(gx + cam.x, gy + cam.y);
   }
@@ -3112,6 +3143,100 @@ var G = window.G = window.G || {};
     });
   }
 
+  // ---- the same stats, stacked above and below (upright phones) -----------
+  function hudLocation() {
+    var m = G.Maps.all[currentMapId];
+    return m.outdoor ? 'THE PLAYGROUND'
+      : m.isHall ? (inGymArea() ? G.ROOMS['b-gym'].name : 'HALLWAY')
+      : locationLabel(currentMapId);
+  }
+  function hudObjective() {
+    var m = G.Maps.all[currentMapId];
+    var focus = m.isHall ? (inGymArea() ? 'b-gym' : null) : currentMapId;
+    var curFloor = m.isHall ? currentMapId : (G.ROOMS[currentMapId] ? G.ROOMS[currentMapId].floor : 'middle');
+    return G.Quest.objective(focus, curFloor);
+  }
+  // wrap to an arbitrary pixel width (the sidebar version is fixed at 104)
+  function wrapTo(text, max) {
+    var lines = [], cur = '';
+    String(text).split(' ').forEach(function (w) {
+      var t = cur ? cur + ' ' + w : w;
+      if (!cur || ctx.measureText(t).width <= max) cur = t;
+      else { lines.push(cur); cur = w; }
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
+  function drawStackedHud() {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.font = font(8);
+
+    // ---- top strip: the school badge, and where you are ----
+    G.Dialogue.drawWindow(ctx, 4, 2, 150, TOP_H - 6);
+    ctx.fillStyle = '#f7d84d';
+    ctx.fillText('ASHLAND', 79, 7);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('ELEMENTARY', 79, 20);
+
+    ctx.fillStyle = '#9fd4e8';
+    ctx.fillText('LOCATION', 238, 4);
+    ctx.fillStyle = '#ffffff';
+    var loc = wrapTo(hudLocation(), 150);
+    while (loc.length > 2) loc[1] += ' ' + loc.splice(2, 1)[0];
+    loc.forEach(function (line, i) { ctx.fillText(line, 238, 17 + i * 10); });
+
+    // ---- bottom strip: letters, what to do next, rooms visited ----
+    var y0 = TOP_H + SH;
+    ctx.fillStyle = '#3a3f4a';
+    ctx.fillRect(0, y0, SW, 1);
+
+    ctx.fillStyle = '#f7d84d';
+    ctx.fillText('LETTERS', 52, y0 + 6);
+    G.Quest.LETTERS.forEach(function (l, i) {
+      ctx.fillStyle = G.Quest.delivered[l] ? '#f7d84d'
+        : G.Quest.found[l]
+          ? (Math.floor(Date.now() / 400) % 2 ? '#fdf0a8' : '#f7d84d')
+          : 'rgba(255,255,255,0.18)';
+      ctx.fillText(l, 25 + i * 18, y0 + 20);
+    });
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(G.Quest.countFound() + ' OF 4', 52, y0 + 34);
+
+    var countable = countableRooms();
+    var seen = countable.filter(function (id) { return visited[id]; }).length;
+    ctx.fillStyle = '#5fbd87';
+    ctx.fillText('ROOMS', 270, y0 + 6);
+    ctx.fillStyle = '#9aa0ac';
+    ctx.fillText('VISITED', 270, y0 + 18);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(seen + '/' + countable.length, 270, y0 + 32);
+
+    // the blinking prompt sits between them, under its own little rule,
+    // with Eddie keeping watch below
+    ctx.fillStyle = '#3a3f4a';
+    ctx.fillRect(122, y0 + 9, 78, 1);
+    if (Date.now() % 2400 > 450) {
+      var obj = hudObjective();
+      var lines = wrapTo(obj.text, 108);
+      while (lines.length > 3) lines[2] += ' ' + lines.splice(3, 1)[0];
+      ctx.strokeStyle = '#1e7a3c';
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.miterLimit = 2;
+      ctx.fillStyle = '#f7d84d';
+      var top = y0 + (lines.length === 3 ? 12 : lines.length === 2 ? 16 : 21);
+      lines.forEach(function (line, i) {
+        ctx.strokeText(line, 161, top + i * 11);
+        ctx.fillText(line, 161, top + i * 11);
+      });
+      ctx.lineWidth = 1;
+    }
+    ctx.drawImage(eagleSprite, 153, y0 + BOT_H - 19);
+    ctx.textAlign = 'left';
+  }
+
   // ---- Gauntlet-style stats panel on the right ----------------------------
   function drawSidebar() {
     var x0 = SW;
@@ -3647,6 +3772,15 @@ var G = window.G = window.G || {};
   }
 
   function draw() {
+    // upright: clear the whole tall canvas, then slide the 320x240 world
+    // down under the top bar. Everything else draws exactly as it always has.
+    if (portrait) {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, SW, SH + TOP_H + BOT_H);
+    }
+    ctx.save();
+    if (portrait) ctx.translate(0, TOP_H);
+
     if (state === 'title') {
       drawTitle();
     } else if (state === 'charselect') {
@@ -3664,13 +3798,16 @@ var G = window.G = window.G || {};
       drawBanner();
       G.Dialogue.draw(ctx);
     }
-    drawSidebar();
+    if (!portrait) drawSidebar();
 
     if (transition) {
       var a = transition.phase === 'out' ? transition.t : 1 - transition.t;
       ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, Math.max(0, a)) + ')';
       ctx.fillRect(0, 0, SW, SH);
     }
+    ctx.restore();
+
+    if (portrait) drawStackedHud();
   }
 
   G.Game = {

@@ -7,6 +7,15 @@ html, body {
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+  /* no grey flash when a finger touches the screen */
+  -webkit-tap-highlight-color: transparent;
+}
+/* the canvas is tapped constantly to walk -- it must never flash or
+   show a focus ring, and a long press must not pop the callout menu */
+#game {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  outline: none;
 }
 
 #game-wrap {
@@ -95,27 +104,41 @@ body.touch #touch-controls { display: block; }
   touch-action: none;
 }
 .dbtn:active, #a-btn:active { filter: brightness(1.6); }
+/* the buttons give their own press feedback -- suppress the browser's
+   grey tap box on top of it, and the focus ring a tap leaves behind */
+.dbtn, #a-btn, #mute-btn {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  outline: none;
+}
+.dbtn:focus, #a-btn:focus, #mute-btn:focus { outline: none; }
 
-/* friendly nudge to hold the phone sideways (touch + portrait only) */
-#rotate-hint {
-  display: none;
-  position: fixed;
-  top: calc(6px + env(safe-area-inset-top, 0px));
+/* Held upright, the game gets its own proper layout (stats stacked above
+   and below by drawStackedHud), so there is nothing to apologise for and
+   no reason to ask anyone to turn their phone. */
+#rotate-hint { display: none; }
+
+/* upright: game pinned to the top, thumbs get the space underneath */
+body.portrait #game-wrap {
+  display: block;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+body.portrait #game {
+  display: block;
+  margin: 0 auto;
+}
+body.portrait #dpad {
   left: 50%;
-  transform: translateX(-50%);
-  z-index: 30;
-  padding: 8px 12px;
-  border: 2px solid #f7d84d;
-  border-radius: 8px;
-  background: rgba(10, 20, 48, 0.92);
-  color: #f7d84d;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 9px;
-  text-align: center;
-  line-height: 1.6;
-  max-width: 86vw;
-  pointer-events: none;
+  transform: translateX(-152px);
+  top: var(--ctl-top, 60%);
+  bottom: auto;
 }
-@media (orientation: portrait) {
-  body.touch #rotate-hint { display: block; }
+body.portrait #a-btn {
+  right: auto;
+  left: 50%;
+  transform: translateX(56px);
+  top: calc(var(--ctl-top, 60%) + 38px);
+  bottom: auto;
 }
+/* phones already have a volume rocker -- no need to spend screen on ours */
+body.touch #mute-btn { display: none; }
