@@ -129,7 +129,9 @@ var G = window.G = window.G || {};
 
   function spotPrompt(label) {
     return label
-      .replace(/^one of /, 'the ')
+      // "one of the tables" -> "the tables" (swallow the article it already has,
+      // or CHECK THE THE TABLES is what lands in the sidebar)
+      .replace(/^one of (the )?/, 'the ')
       .replace(/^my /, "the teacher's ")
       .toUpperCase();
   }
