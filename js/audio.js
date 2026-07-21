@@ -325,6 +325,11 @@ var G = window.G = window.G || {};
       note(midi(41), t, 0.12, 'square', 0.4);
       note(midi(40), t + 0.12, 0.18, 'square', 0.35);
     },
+    // the office intercom clearing its throat: bing... bong
+    chime: function (t) {
+      note(midi(76), t, 0.28, 'sine', 0.34);
+      note(midi(69), t + 0.26, 0.42, 'sine', 0.34);
+    },
     // Eddie announcing himself: a bright two-note bird call
     squawk: function (t) {
       note(midi(88), t, 0.07, 'square', 0.3);

@@ -8,6 +8,8 @@ var G = window.G = window.G || {};
   var TS = 16;
   var canvas, ctx;
   var visited = {};            // roomIds the player has entered
+  var floorsSeen = { middle: true }; // floors walked on (we spawn on the ground)
+  var flybyRoom = null;        // room a just-won letter was caught in, or null
 
   var state = 'title'; // title | play | ending
   var player = { x: 0, y: 0, dir: 'down', anim: 0, moving: false };
@@ -218,6 +220,19 @@ var G = window.G = window.G || {};
     movePlayer(dt);
     updateNpcs(dt);
 
+    // the lead Eddie queued during the battle. Only if the student is still
+    // standing in the room where they caught it -- walk out and the moment
+    // has passed (the sidebar and arrow already carry the lead anyway).
+    if (flybyRoom !== null) {
+      var stillThere = flybyRoom === currentMapId ||
+        (flybyRoom === 'b-gym' && currentMapId === 'basement');
+      flybyRoom = null;
+      var queued = G.Quest.takeFlyby();
+      if (queued && stillThere && !eddieVisit && !party && !toddParty) {
+        startEddieVisit(queued);
+      }
+    }
+
     // adrift for a few minutes? Eddie comes to the rescue. Reaching this line
     // already means we're in play with no transition, ceremony or dialogue.
     // The clock simply pauses when a flyby would be wrong (mid-party, or with
@@ -350,6 +365,9 @@ var G = window.G = window.G || {};
         // the victory song plays right up until the letter leaves the screen
         G.Audio.stopVictory();
         G.Audio.stopBattle();
+        // Eddie couldn't fly while the battle screen covered the world;
+        // now that it's gone, let him swoop in with the next lead
+        flybyRoom = G.Quest.catchRoom();
       }
     }
   }
@@ -582,9 +600,12 @@ var G = window.G = window.G || {};
         return nearestStair(function (st) { return st.exit; }) ||
                nearestStair(function (st) { return st.goRoom; });
       }
-      if (r.floor === currentMapId) return null; // same floor, nothing to add
+      // aim for the hallway the room's door actually opens onto, NOT its
+      // nominal floor (see G.Maps.hallOf -- Dance & Drama is the awkward one)
+      var hall = G.Maps.hallOf(roomId);
+      if (hall === currentMapId) return null; // same hallway, nothing to add
       return nearestStair(function (st) {
-        return st.options && st.options.some(function (o) { return o.map === r.floor; });
+        return st.options && st.options.some(function (o) { return o.map === hall; });
       });
     }
     function doorTo(roomId) {
@@ -610,6 +631,11 @@ var G = window.G = window.G || {};
           if (d < bd) { bd = d; best = { x: t[0] * TS + 8, y: t[1] * TS + 8 }; }
         });
         return best;
+      }
+      // the gym has no door of its own, so doorTo/towardRoom come up empty
+      // once you're already on the basement map -- aim at Ms. Kirk instead
+      if (roomId === 'b-gym' && currentMapId === 'basement') {
+        return npcPos(function (n) { return n.roomId === 'b-gym'; }) || doorTo(roomId);
       }
       return doorTo(roomId);
     }
@@ -813,7 +839,8 @@ var G = window.G = window.G || {};
     return false;
   }
 
-  function startEddieVisit() {
+  // line is optional: without one he improvises a rescue hint on arrival
+  function startEddieVisit(line) {
     var cam = cameraPos();
     var pSX = player.x + 8 - cam.x;
     // come from whichever side gives the longer, more visible run
@@ -821,7 +848,7 @@ var G = window.G = window.G || {};
     eddieVisit = {
       phase: 'in', t: 0, flap: 0, fromLeft: fromLeft,
       x: fromLeft ? -40 : SW + 40,
-      y: 60
+      y: 60, line: line || null
     };
     G.Audio.sfx('squawk');
   }
@@ -850,10 +877,11 @@ var G = window.G = window.G || {};
       e.y = 60 + (spot.y - 60) * ease;
       if (p < 1) return;
       // the student sorted themselves out mid-swoop: peel off without a word
-      if (!G.Quest.needsHint()) { e.phase = 'out'; e.t = 0; return; }
+      // (a post-catch visit carries its own line, so it always gets said)
+      if (!e.line && !G.Quest.needsHint()) { e.phase = 'out'; e.t = 0; return; }
       // somebody else is mid-sentence -- hover and wait rather than barge in
       if (G.Dialogue.isActive()) return;
-      var line = G.Quest.eddieHintLine();
+      var line = e.line || G.Quest.eddieHintLine();
       if (!line) { e.phase = 'out'; e.t = 0; return; }
       e.phase = 'talk';
       e.t = 0;
@@ -1371,6 +1399,10 @@ var G = window.G = window.G || {};
         // its own "floor" -- sunshine has a soundtrack too)
         var mm = G.Maps.all[mapId];
         var floor = (mm.isHall || mm.outdoor) ? mapId : G.ROOMS[mapId].floor;
+        // "have they been downstairs?" means the hallway they walked through,
+        // not the room's label -- Dance & Drama is a basement room you reach
+        // from the ground floor, and it shouldn't tick off the basement
+        floorsSeen[(mm.isHall || mm.outdoor) ? mapId : G.Maps.hallOf(mapId)] = true;
         G.Audio.playFloor(floor);
       }
     };
@@ -3626,6 +3658,7 @@ var G = window.G = window.G || {};
     startDollyParty: startDollyParty,
     finishParty: finishParty,
     allRoomsVisited: allRoomsVisited,
+    hasSeenFloor: function (f) { return !!floorsSeen[f]; },
     debugVisitAll: debugVisitAll,
     battleVictory: battleVictory,
     deliverLetters: deliverLetters,

@@ -1150,7 +1150,18 @@ var G = window.G = window.G || {};
       });
     });
 
-    G.Maps = { all: maps, returns: returns, entries: entries };
+    G.Maps = { all: maps, returns: returns, entries: entries, hallOf: hallOf };
+  }
+
+  // Which hallway a room actually opens onto -- almost always its own floor,
+  // but Dance & Drama sits downstairs behind a private stairwell off the
+  // GROUND floor hall, so routing (and "have they been down there yet?")
+  // by floor alone tells students to go somewhere they can't get in from.
+  function hallOf(roomId) {
+    var back = (G.Maps.returns || {})[roomId + ':0'];
+    if (back && back.map) return back.map;
+    var r = G.ROOMS[roomId];
+    return r ? r.floor : null;
   }
 
   // the big playground structure: towers, roofs, monkey bars and the slide,

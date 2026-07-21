@@ -65,6 +65,10 @@ var G = window.G = window.G || {};
       G.Quest.collect(p.letter);
       p.fanfare = false;
     }
+    if (p.pa) {
+      G.Audio.sfx('chime'); // the intercom bings before it speaks
+      p.pa = false;
+    }
   }
 
   function totalChars() {

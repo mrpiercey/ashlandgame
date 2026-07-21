@@ -96,6 +96,16 @@ var G = window.G = window.G || {};
     top: 'up on the top floor',
     basement: 'down on the lower floor'
   };
+  // Dance & Drama is a lower-floor room, but the only way in is the little
+  // stairwell by the cafeteria -- "down on the lower floor" sends kids to
+  // the basement hallway, which has no door to it
+  var WHERE_OVERRIDE = {
+    'b-dance': 'down the stairs by the cafeteria'
+  };
+  // "in the Dance & Drama" reads like a missing word
+  var PLACE_OVERRIDE = {
+    'b-dance': 'the Dance & Drama room'
+  };
   function describeTeacherPlace(roomId) {
     var room = G.ROOMS[roomId];
     var who = G.TEACHERS[roomId].name;
@@ -105,11 +115,11 @@ var G = window.G = window.G || {};
     return {
       who: who,
       num: num,
-      where: FLOOR_WORDS[room.floor],
+      where: WHERE_OVERRIDE[roomId] || FLOOR_WORDS[room.floor],
       // "Room 220" for a classroom, "the Cafeteria" for a named space
-      place: num ? 'Room ' + num : named,
+      place: num ? 'Room ' + num : (PLACE_OVERRIDE[roomId] || named),
       // the longer form a gossiping teacher uses
-      ownedPlace: num ? who + "'s room (Room " + num + ')' : named
+      ownedPlace: num ? who + "'s room (Room " + num + ')' : (PLACE_OVERRIDE[roomId] || named)
     };
   }
 
@@ -198,20 +208,42 @@ var G = window.G = window.G || {};
       return id !== 'm-walker' && !G.TEACHERS[id].noLetter && G.ROOMS[id];
     });
     // shuffle
-    for (var i = eligible.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
-      var tmp = eligible[i]; eligible[i] = eligible[j]; eligible[j] = tmp;
-    }
+    shuffle(eligible);
+    // ONE letter always waits downstairs (the gym, the music room or Mrs.
+    // Oldham's) -- 27 of the 35 rooms are upstairs, so a blind draw skips
+    // the lower floor about two games in three and nobody ever goes down
+    var downstairs = eligible.filter(function (id) {
+      return G.ROOMS[id].floor === 'basement';
+    });
+    var picks = [];
+    if (downstairs.length) picks.push(downstairs[Math.floor(Math.random() * downstairs.length)]);
+    // the other three come from anywhere ELSE: exactly one downstairs, never
+    // two -- the lower floor is only three rooms wide and stacking it there
+    // makes the hunt feel lopsided
+    eligible.forEach(function (id) {
+      if (picks.length < LETTERS.length && picks.indexOf(id) < 0 &&
+          G.ROOMS[id].floor !== 'basement') picks.push(id);
+    });
+    // (a roster with almost nothing upstairs would still need topping up)
+    eligible.forEach(function (id) {
+      if (picks.length < LETTERS.length && picks.indexOf(id) < 0) picks.push(id);
+    });
+    // ...but WHICH letter is downstairs still varies between playthroughs
+    shuffle(picks);
     LETTERS.forEach(function (letter, idx) {
-      holders[letter] = eligible[idx];
+      holders[letter] = picks[idx];
       icons[letter] = G.Sprites.letterIcon(letter);
     });
     hinters = {};
     // 1 in 3 people know where a letter is: the 4 holders plus enough hinters
+    var rest = eligible.filter(function (id) { return picks.indexOf(id) < 0; });
     var wanted = Math.max(0, Math.round(eligible.length / 3) - LETTERS.length);
-    eligible.slice(LETTERS.length, LETTERS.length + wanted).forEach(function (id) {
+    rest.slice(0, wanted).forEach(function (id) {
       hinters[id] = true;
     });
+    // each playthrough uses all three messengers, in a different order
+    leadOrder = shuffle(['teacher', 'pa', 'eddie']);
+    leadIdx = 0;
   }
 
   function countFound() {
@@ -237,6 +269,11 @@ var G = window.G = window.G || {};
   function letterList(arr) {
     return arr.length === 1 ? arr[0]
       : arr.slice(0, -1).join(', ') + ' and ' + arr[arr.length - 1];
+  }
+
+  // did this room's letter already get caught?
+  function letterFoundHere(roomId) {
+    return LETTERS.some(function (l) { return holders[l] === roomId && found[l]; });
   }
 
   function letterHeldBy(roomId) {
@@ -395,6 +432,21 @@ var G = window.G = window.G || {};
     if (allFound()) {
       if (n === 0) pages.push(introFirst);
       pages.push({ name: name, text: 'You found all four letters?! Amazing! Mrs. Walker is waiting for you in her office!' });
+      G.Dialogue.start(pages, { onDone: onClose });
+      return;
+    }
+
+    // you took HER letter a moment ago -- she should not claim she has
+    // never seen one, which is what the generic shrug below would say
+    if (letterFoundHere(roomId)) {
+      pages.push({ name: name, text: 'I still cannot believe that golden letter was hiding in my room the whole time!' });
+      var onward = pendingHint && !found[pendingHint.letter] ? describeTeacherPlace(pendingHint.roomId) : null;
+      pages.push({
+        name: name,
+        text: onward
+          ? 'Keep going -- I heard the next one is in ' + onward.place + ', ' + onward.where + '!'
+          : 'Keep going, you are so close! Ask the other teachers about the ones still missing.'
+      });
       G.Dialogue.start(pages, { onDone: onClose });
       return;
     }
@@ -741,9 +793,70 @@ var G = window.G = window.G || {};
     ], { choices: choices });
   }
 
+  // ---- the lead you get after catching a letter ---------------------------
+  // Each catch (except the last) hands the student a real lead to the next
+  // letter, delivered by a different messenger each time. Setting pendingHint
+  // is the whole trick: the sidebar objective and the gold arrow follow it
+  // for free, and it expires by itself once that letter is found.
+  var leadOrder = ['teacher', 'pa', 'eddie'];
+  var leadIdx = 0;
+  var pendingFlyby = null; // Eddie can't fly during the battle -- see main.js
+
+  // which letter to send them after: prefer a floor they have never set foot
+  // on, so following the leads walks them through the whole school
+  function nextLeadTarget(justCaught) {
+    var left = LETTERS.filter(function (l) {
+      // the catch is not recorded until the fanfare page draws, so the
+      // letter we just won still looks unfound here
+      return l !== justCaught && !found[l] && holders[l] && G.ROOMS[holders[l]] && G.TEACHERS[holders[l]];
+    });
+    if (!left.length) return null;
+    var unseen = left.filter(function (l) {
+      var hall = (G.Maps && G.Maps.hallOf) ? G.Maps.hallOf(holders[l]) : G.ROOMS[holders[l]].floor;
+      return !G.Game || !G.Game.hasSeenFloor || !G.Game.hasSeenFloor(hall);
+    });
+    var pool = unseen.length ? unseen : left;
+    var letter = pool[Math.floor(Math.random() * pool.length)];
+    pendingHint = { letter: letter, roomId: holders[letter] };
+    tipTarget = null; // a real lead replaces whatever gossip was live
+    return { letter: letter, roomId: holders[letter], d: describeTeacherPlace(holders[letter]) };
+  }
+
+  // returns the extra dialogue page for this catch, or null. An Eddie lead
+  // returns no page -- it is queued for main.js to play once we are back on
+  // the map, because the battle screen paints over the world.
+  function leadPage(justCaught, teacherName) {
+    var t = nextLeadTarget(justCaught);
+    if (!t) return null;
+    var who = leadOrder[leadIdx % leadOrder.length];
+    leadIdx++;
+    if (who === 'eddie') {
+      // main.js prefixes the SQUAWK! when he opens his beak
+      pendingFlyby = 'You found the ' + justCaught + ' I dropped! I think I dropped another one in ' +
+        t.d.place + ', ' + t.d.where + '!';
+      return null;
+    }
+    if (who === 'pa') {
+      // the principal or her assistant, whoever is nearer the microphone
+      var vid = Math.random() < 0.5 ? 'm-walker' : 'm-todd';
+      var voice = (G.TEACHERS[vid] && G.TEACHERS[vid].name) || 'Mrs. Walker';
+      return {
+        name: 'INTERCOM',
+        pa: true,
+        text: 'Attention Eagles, this is ' + voice + '. A golden letter was just spotted in ' +
+          t.d.place + ', ' + t.d.where + '!'
+      };
+    }
+    return {
+      name: teacherName,
+      text: 'You found it! Now go see ' + t.d.who + ' in ' + t.d.place + ', ' + t.d.where + '!'
+    };
+  }
+
   function battleWin(onWin) {
     var letter = hunt.letter;
     var name = hunt.name;
+    var roomId = hunt.roomId;
     hunt = null;
     var pages = [
       { name: name, text: "That's IT! " + letter + ' is for ' + MEANINGS[letter] + '! You caught it!' },
@@ -759,9 +872,14 @@ var G = window.G = window.G || {};
         name: name,
         text: "That's all four letters! S... O... A... R! Hurry and take them to Mrs. Walker's office on the ground floor!"
       });
+    } else {
+      var lead = leadPage(letter, name);
+      if (lead) pages.push(lead);
+      lastCatchRoom = roomId;
     }
     G.Dialogue.start(pages, { onDone: onWin });
   }
+  var lastCatchRoom = null;
 
   var walkerMet = false;
   var walkerBriefed = false; // heard her how-to-get-the-letters-back speech
@@ -1192,6 +1310,10 @@ var G = window.G = window.G || {};
     hasMetEddie: function () { return metEddie; },
     idleTick: idleTick,
     needsHint: needsHint,
+    // Eddie's post-catch lead: queued here, flown by main.js once the
+    // battle screen is gone and the world is being drawn again
+    takeFlyby: function () { var f = pendingFlyby; pendingFlyby = null; return f; },
+    catchRoom: function () { var r = lastCatchRoom; lastCatchRoom = null; return r; },
     eddieHintLine: eddieHintLine,
     noteProgress: noteProgress,
     partyDialogue: partyDialogue,
