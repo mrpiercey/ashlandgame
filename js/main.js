@@ -207,6 +207,8 @@ var G = window.G = window.G || {};
     // the party never stops -- not even while you're chatting
     if (party) updateParty(dt);
     if (toddParty) updateToddParty(dt);
+    // Eddie keeps flapping while his hint box is on screen
+    if (eddieVisit) updateEddieVisit(dt);
 
     if (G.Dialogue.isActive()) {
       G.Dialogue.update(ctx);
@@ -215,6 +217,13 @@ var G = window.G = window.G || {};
 
     movePlayer(dt);
     updateNpcs(dt);
+
+    // adrift for five minutes? Eddie comes to the rescue. Reaching this line
+    // already means we're in play with no transition, ceremony or dialogue.
+    // The clock simply pauses when a flyby would be wrong (mid-party, or with
+    // the real Eddie already standing on screen), so no nudge is ever lost.
+    if (!eddieVisit && !party && !toddParty && !autoWalk && !eagleOnScreen() &&
+        G.Quest.idleTick(dt)) startEddieVisit();
 
     // the gym is an open area off the basement hallway, not a separate room
     var nowInGym = inGymArea();
@@ -286,6 +295,7 @@ var G = window.G = window.G || {};
   }
 
   function startEncounter(h) {
+    eddieVisit = null; // the quiz takes over the screen; don't strand him on it
     battleSnap = document.createElement('canvas');
     battleSnap.width = SW; battleSnap.height = SH;
     battleSnap.getContext('2d').drawImage(canvas, 0, 0, SW, SH, 0, 0, SW, SH);
@@ -751,6 +761,114 @@ var G = window.G = window.G || {};
     }
   }
 
+  // ---- Eddie's rescue flyby ----------------------------------------------
+  // Wander too long without turning up a letter or a clue and Eddie swoops in,
+  // hovers over the student, names a teacher who really has one, and leaves.
+  // He works in SCREEN pixels: he is pinned to the player, so the off-screen
+  // entrance and the "stay clear of the dialogue box" clamp both fall out.
+  var eddieVisit = null; // {phase:'in'|'talk'|'out', t, flap, fromLeft, x, y}
+  var EDDIE_IN = 1.1, EDDIE_OUT = 1.1;
+
+  // the real Eddie stands in the spawn hallway (maps.js) -- one is plenty
+  function eagleOnScreen() {
+    var m = map(), cam = cameraPos();
+    for (var i = 0; i < m.npcs.length; i++) {
+      var n = m.npcs[i];
+      if (n.kind !== 'eagle') continue;
+      var sx = (n.px !== undefined ? n.px : n.x * TS) - cam.x;
+      var sy = (n.py !== undefined ? n.py : n.y * TS) - cam.y;
+      if (sx > -24 && sx < SW + 24 && sy > -24 && sy < SH + 24) return true;
+    }
+    return false;
+  }
+
+  function startEddieVisit() {
+    var cam = cameraPos();
+    var pSX = player.x + 8 - cam.x;
+    // come from whichever side gives the longer, more visible run
+    var fromLeft = pSX > SW / 2;
+    eddieVisit = {
+      phase: 'in', t: 0, flap: 0, fromLeft: fromLeft,
+      x: fromLeft ? -40 : SW + 40,
+      y: 60
+    };
+    G.Audio.sfx('squawk');
+  }
+
+  // where he wants to sit: just above the student's head, but always high
+  // enough that the dialogue box (70px tall at the bottom) can't swallow him
+  function eddieHoverSpot() {
+    var cam = cameraPos();
+    return {
+      x: Math.max(24, Math.min(SW - 24, player.x + 8 - cam.x)),
+      y: Math.max(14, Math.min(138, player.y + 8 - cam.y - 34))
+    };
+  }
+
+  function updateEddieVisit(dt) {
+    var e = eddieVisit;
+    e.t += dt;
+    e.flap += dt; // monotonic, so the wings don't stutter when a phase resets t
+    var spot = eddieHoverSpot();
+
+    if (e.phase === 'in') {
+      var p = Math.min(1, e.t / EDDIE_IN);
+      var ease = 1 - (1 - p) * (1 - p); // glide in and settle
+      var x0 = e.fromLeft ? -40 : SW + 40;
+      e.x = x0 + (spot.x - x0) * ease;
+      e.y = 60 + (spot.y - 60) * ease;
+      if (p < 1) return;
+      // the student sorted themselves out mid-swoop: peel off without a word
+      if (!G.Quest.needsHint()) { e.phase = 'out'; e.t = 0; return; }
+      // somebody else is mid-sentence -- hover and wait rather than barge in
+      if (G.Dialogue.isActive()) return;
+      var line = G.Quest.eddieHintLine();
+      if (!line) { e.phase = 'out'; e.t = 0; return; }
+      e.phase = 'talk';
+      e.t = 0;
+      G.Input.clearEdges(); // a button held during the swoop mustn't skip his line
+      G.Dialogue.start([{ name: 'EDDIE THE EAGLE', text: 'SQUAWK! ' + line }], {
+        onDone: function () {
+          if (!eddieVisit) return;
+          eddieVisit.phase = 'out';
+          eddieVisit.t = 0;
+        }
+      });
+      return;
+    }
+
+    // hovering while the hint is on screen: keep tracking the student and flap
+    if (e.phase === 'talk') {
+      e.x = spot.x;
+      e.y = spot.y + Math.sin(e.t * 4) * 2.5;
+      return;
+    }
+
+    // and away he goes, out the far side
+    var op = e.t / EDDIE_OUT;
+    e.x += (e.fromLeft ? 1 : -1) * (90 + op * 260) * dt;
+    e.y -= 24 * dt;
+    if (e.t >= EDDIE_OUT || e.x < -60 || e.x > SW + 60) eddieVisit = null;
+  }
+
+  function drawEddieVisit() {
+    var e = eddieVisit;
+    // the flight frames face LEFT, so mirror him when he is heading right
+    // (entering from the left edge means he travels rightward throughout)
+    var goingRight = e.fromLeft;
+    var frame = eagleFlyFrames[Math.floor(e.flap * 7) % 2];
+    var x = Math.round(e.x), y = Math.round(e.y);
+    ctx.save();
+    if (goingRight) {
+      ctx.translate(x + 16, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(frame, 0, y);
+    } else {
+      ctx.drawImage(frame, x - 16, y);
+    }
+    ctx.restore();
+  }
+
   // ---- movement & collision ----------------------------------------------
   function solidAt(px, py) {
     var m = map();
@@ -1200,6 +1318,7 @@ var G = window.G = window.G || {};
 
   function warpTo(mapId, tx, ty, dir, bannerText, sfxName) {
     autoWalk = null; // a room change makes any old walking route nonsense
+    eddieVisit = null; // he doesn't follow you through doors
     if (toddParty) endDollyParty(true); // leaving mid-boogie ends it quietly
     G.Audio.sfx(sfxName);
     transition = {
@@ -2056,6 +2175,7 @@ var G = window.G = window.G || {};
   }
 
   function startEnding() {
+    eddieVisit = null;
     transition = { phase: 'out', t: 0, onMid: beginEnding };
   }
 
@@ -2099,6 +2219,7 @@ var G = window.G = window.G || {};
   }
 
   function startDollyParty() {
+    eddieVisit = null;
     var m = map();
     var n = null;
     for (var i = 0; i < m.npcs.length; i++) {
@@ -2300,6 +2421,7 @@ var G = window.G = window.G || {};
   }
 
   function startParty() {
+    eddieVisit = null;
     transition = { phase: 'out', t: 0, onMid: startPartyFly };
   }
 
@@ -2844,6 +2966,8 @@ var G = window.G = window.G || {};
     if (toddParty) drawToddParty(cam);
     // the objective arrow rides above everything, even the dark
     drawGuideArrow(cam);
+    // ...and Eddie rides above even that
+    if (eddieVisit) drawEddieVisit();
   }
 
   // ---- door signs: the shared engine lives in js/signs.js -----------------

@@ -36,10 +36,81 @@ var G = window.G = window.G || {};
   // objective points at it until that letter is found.
   var pendingHint = null;
 
+  // ---- the stuck-player clock ---------------------------------------------
+  // wander this long without turning up a letter or a clue and Eddie flies in
+  // to name a teacher who actually has one. Any real progress restarts it.
+  var HINT_AFTER = 300; // seconds
+  var idleT = 0;
+  function noteProgress() { idleT = 0; }
+
+  // is the player stuck in a way a hint can actually fix?
+  function needsHint() {
+    if (hunt || allFound() || allDelivered() || partyMode) return false;
+    if (!metEddie || !metWalker) return false; // the opening already guides them
+    // there has to be an unfound letter sitting in a real, reachable room
+    return missingLetters().some(function (l) {
+      return holders[l] && G.ROOMS[holders[l]] && G.TEACHERS[holders[l]];
+    });
+  }
+
+  // true exactly once each time the player has been adrift for HINT_AFTER.
+  // The clock only runs while a hint would actually help.
+  function idleTick(dt) {
+    if (!needsHint()) return false;
+    idleT += dt;
+    if (idleT < HINT_AFTER) return false;
+    idleT = 0;
+    return true;
+  }
+
+  // Eddie names a teacher whose room really does still hold a letter, and
+  // sets pendingHint so the sidebar and the guide arrow follow him for free.
+  function eddieHintLine() {
+    var missing = missingLetters().filter(function (l) {
+      return holders[l] && G.ROOMS[holders[l]] && G.TEACHERS[holders[l]];
+    });
+    if (!missing.length) return null;
+    // don't just repeat the room they already ignored, if there's another
+    var fresh = missing.filter(function (l) {
+      return !pendingHint || holders[l] !== pendingHint.roomId;
+    });
+    var pool = fresh.length ? fresh : missing;
+    var letter = pool[Math.floor(Math.random() * pool.length)];
+    var roomId = holders[letter];
+    pendingHint = { letter: letter, roomId: roomId };
+    var d = describeTeacherPlace(roomId);
+    return 'Looking for a hint? Go check with ' + d.who + ' in ' + d.place + ', ' + d.where + '!';
+  }
+
   function roomNum(roomId) {
     var r = G.ROOMS[roomId];
     var m = r && /^ROOM (\d+)/.exec(r.name);
     return m ? m[1] : null;
+  }
+
+  // how everyone -- hinter teachers, Mrs. Walker, Eddie -- names a place:
+  // "Room 220" / "Mrs. Smith's room (Room 213)" / "the Cafeteria", plus the
+  // floor. Classrooms need their number: there are two Mrs. Smiths!
+  var FLOOR_WORDS = {
+    middle: 'on the ground floor',
+    top: 'up on the top floor',
+    basement: 'down on the lower floor'
+  };
+  function describeTeacherPlace(roomId) {
+    var room = G.ROOMS[roomId];
+    var who = G.TEACHERS[roomId].name;
+    var num = roomNum(roomId);
+    var title = room.name.toLowerCase().replace(/(^|[\s/])\w/g, function (c) { return c.toUpperCase(); });
+    var named = /^the\b/i.test(room.name) ? title : 'the ' + title;
+    return {
+      who: who,
+      num: num,
+      where: FLOOR_WORDS[room.floor],
+      // "Room 220" for a classroom, "the Cafeteria" for a named space
+      place: num ? 'Room ' + num : named,
+      // the longer form a gossiping teacher uses
+      ownedPlace: num ? who + "'s room (Room " + num + ')' : named
+    };
   }
 
   // short "go here" phrasing for the sidebar objective
@@ -144,6 +215,11 @@ var G = window.G = window.G || {};
   }
   function allFound() { return countFound() === 4; }
 
+  // letters still out there somewhere in the school
+  function missingLetters() {
+    return LETTERS.filter(function (l) { return !found[l]; });
+  }
+
   function countDelivered() {
     return LETTERS.filter(function (l) { return delivered[l]; }).length;
   }
@@ -175,23 +251,15 @@ var G = window.G = window.G || {};
       ? missing[chash(hinterRoomId + 'pick') % missing.length]
       : missing[Math.floor(Math.random() * missing.length)];
     var roomId = holders[letter];
-    var room = G.ROOMS[roomId];
-    var who = G.TEACHERS[roomId].name;
-    var where = { middle: 'on the ground floor', top: 'up on the top floor', basement: 'down on the lower floor' }[room.floor];
-    // name the room number too: "Mrs. Smith's room" alone is ambiguous
-    // (rooms 213 AND 235!) -- and rooms with real names (The Office, the
-    // Cafeteria...) go by their name, not "so-and-so's room"
-    var num = roomNum(roomId);
-    var title = room.name.toLowerCase().replace(/(^|[\s/])\w/g, function (c) { return c.toUpperCase(); });
-    var place = num
-      ? who + "'s room (Room " + num + ')'
-      : (/^the\b/i.test(room.name) ? title : 'the ' + title);
+    var d = describeTeacherPlace(roomId);
+    var place = d.ownedPlace, where = d.where;
     var hints = [
-      'I heard ' + who + ' found something shiny while setting up! Check ' + place + ', ' + where + '.',
+      'I heard ' + d.who + ' found something shiny while setting up! Check ' + place + ', ' + where + '.',
       'Psst... someone spotted a golden letter in ' + place + ', ' + where + '!',
       'Try ' + place + ', ' + where + ' -- Eddie was flying around in there all summer!'
     ];
     pendingHint = { letter: letter, roomId: roomId };
+    noteProgress(); // a real clue counts as making headway
     return { text: hints[Math.floor(Math.random() * hints.length)] };
   }
 
@@ -582,6 +650,7 @@ var G = window.G = window.G || {};
       name: G.TEACHERS[roomId].name.toUpperCase(),
       spot: pickSpot(roomId)
     };
+    noteProgress(); // found a teacher who really has one
   }
 
   function shuffle(arr) {
@@ -752,14 +821,9 @@ var G = window.G = window.G || {};
     });
     var id = ids[Math.floor(Math.random() * ids.length)];
     walkerTip = id;
-    var r = G.ROOMS[id];
-    var who = G.TEACHERS[id].name;
-    var num = roomNum(id);
-    var where = { middle: 'on the ground floor', top: 'up on the top floor', basement: 'down on the lower floor' }[r.floor];
-    if (num) return 'Go see ' + who + ' in Room ' + num + ', ' + where + '!';
-    var title = r.name.toLowerCase().replace(/(^|[\s/])\w/g, function (c) { return c.toUpperCase(); });
-    var place = /^the\b/i.test(r.name) ? title : 'the ' + title;
-    return 'Go see ' + who + ' in ' + place + ', ' + where + '!';
+    noteProgress(); // a fresh lead from the principal restarts the clock
+    var d = describeTeacherPlace(id);
+    return 'Go see ' + d.who + ' in ' + d.place + ', ' + d.where + '!';
   }
 
   // Mrs. Walker's reaction right after the letters fly onto the wall
@@ -1041,12 +1105,14 @@ var G = window.G = window.G || {};
   function collect(letter) {
     if (!found[letter]) {
       found[letter] = true;
+      noteProgress();
       G.Audio.sfx('fanfare');
     }
   }
 
   function deliver(letter) {
     delivered[letter] = true;
+    noteProgress();
   }
 
   G.Quest = {
@@ -1074,6 +1140,10 @@ var G = window.G = window.G || {};
     objective: objective,
     guide: guide,
     hasMetEddie: function () { return metEddie; },
+    idleTick: idleTick,
+    needsHint: needsHint,
+    eddieHintLine: eddieHintLine,
+    noteProgress: noteProgress,
     partyDialogue: partyDialogue,
     djDialogue: djDialogue,
     setPartyMode: setPartyMode

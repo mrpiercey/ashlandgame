@@ -325,6 +325,12 @@ var G = window.G = window.G || {};
       note(midi(41), t, 0.12, 'square', 0.4);
       note(midi(40), t + 0.12, 0.18, 'square', 0.35);
     },
+    // Eddie announcing himself: a bright two-note bird call
+    squawk: function (t) {
+      note(midi(88), t, 0.07, 'square', 0.3);
+      note(midi(83), t + 0.07, 0.05, 'square', 0.28);
+      note(midi(90), t + 0.14, 0.1, 'square', 0.3);
+    },
     encounter: function (t) {
       // dramatic encounter sting
       [[45, 0], [45, 0.1], [51, 0.2], [57, 0.3], [63, 0.42]].forEach(function (n) {
