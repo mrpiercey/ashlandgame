@@ -159,13 +159,13 @@ var G = window.G = window.G || {};
       return { text: 'GO FIND ' + who + (num ? ' (ROOM ' + num + ')' : ''), color: '#9fd4e8' };
     }
     // Mrs. Walker pointed the student at a specific teacher
-    if (walkerTip && G.TEACHERS[walkerTip] && G.ROOMS[walkerTip]) {
-      var tw = G.TEACHERS[walkerTip].name.toUpperCase();
+    if (tipTarget && G.TEACHERS[tipTarget] && G.ROOMS[tipTarget]) {
+      var tw = G.TEACHERS[tipTarget].name.toUpperCase();
       var ORDER = { basement: 0, middle: 1, top: 2 };
-      var tFloor = G.ROOMS[walkerTip].floor;
+      var tFloor = G.ROOMS[tipTarget].floor;
       var stairs = curFloor === undefined || tFloor === curFloor ? ''
         : ORDER[tFloor] > ORDER[curFloor] ? 'GO UPSTAIRS AND ' : 'GO DOWNSTAIRS AND ';
-      var tn = roomNum(walkerTip);
+      var tn = roomNum(tipTarget);
       return { text: stairs + 'TALK TO ' + tw + (!stairs && tn ? ' (ROOM ' + tn + ')' : ''), color: '#9fd4e8' };
     }
     // quest on-ramp: Eddie's story first, then Mrs. Walker's briefing
@@ -185,7 +185,7 @@ var G = window.G = window.G || {};
     if (hunt) return { kind: 'hunt', roomId: hunt.roomId, spot: hunt.spot };
     if (allFound()) return { kind: 'walker' };
     if (pendingHint && !found[pendingHint.letter]) return { kind: 'room', roomId: pendingHint.roomId };
-    if (walkerTip && G.ROOMS[walkerTip]) return { kind: 'room', roomId: walkerTip };
+    if (tipTarget && G.ROOMS[tipTarget]) return { kind: 'room', roomId: tipTarget };
     if (!metEddie) return { kind: 'eddie' };
     if (!metWalker) return { kind: 'walker' };
     return null;
@@ -331,7 +331,7 @@ var G = window.G = window.G || {};
     }
 
     // reached the teacher Mrs. Walker suggested? mission accomplished
-    if (roomId === walkerTip) walkerTip = null;
+    if (roomId === tipTarget) tipTarget = null;
 
     // Dolly Parton watch: only an unbroken streak of Mrs. Todd visits counts
     toddTalks = roomId === 'm-todd' ? toddTalks + 1 : 0;
@@ -451,10 +451,11 @@ var G = window.G = window.G || {};
     "Not a flash of gold in here anywhere... and I've had my eyes peeled!"
   ];
 
-  // ...then a friendly nudge toward a random colleague. This is pure
-  // teacher gossip, NOT a real clue: the letters sit wherever init() put
-  // them, so following the tip may or may not pay off. (Real leads come
-  // from the hinters, which also move the guide arrow -- this doesn't.)
+  // ...then a friendly nudge toward a random colleague, with the yellow
+  // arrow following it so nobody stalls out wondering where to go next.
+  // It is NOT a real clue -- the picker never looks at where the letters
+  // are, so the trip may or may not pay off, and students are free to
+  // ignore the arrow and talk to anyone they like.
   var REFERRAL_FORMS = [
     'Maybe go check {place}, {where}!',
     'You might want to ask {who} -- {where}.',
@@ -469,7 +470,15 @@ var G = window.G = window.G || {};
         !G.TEACHERS[id].roomOf && G.ROOMS[id];
     });
     if (!ids.length) return null;
-    var d = describeTeacherPlace(ids[Math.floor(Math.random() * ids.length)]);
+    // steer toward rooms they have not tried yet: still just chatter, but
+    // chatter that opens a new door beats chatter that loops them back
+    var fresh = ids.filter(function (id) { return !talkCount[id]; });
+    var pool = fresh.length ? fresh : ids;
+    var id = pool[Math.floor(Math.random() * pool.length)];
+    // point the arrow, but do NOT call noteProgress(): being passed around
+    // the building is not progress, so Eddie's stuck-timer keeps ticking
+    tipTarget = id;
+    var d = describeTeacherPlace(id);
     return REFERRAL_FORMS[Math.floor(Math.random() * REFERRAL_FORMS.length)]
       .replace('{who}', d.who)
       .replace('{place}', d.ownedPlace)
@@ -850,16 +859,18 @@ var G = window.G = window.G || {};
     G.Dialogue.start(hello, { onDone: onClose });
   }
 
-  // Mrs. Walker sends the student to a random teacher somewhere in the
-  // building: "Go see Mr. Piercey in Room 217, up on the top floor!"
-  // The pick becomes the live objective (sidebar text + guide arrow).
-  var walkerTip = null;
+  // Whoever most recently pointed the student at a teacher -- Mrs. Walker
+  // ("Go see Mr. Piercey in Room 217!") or any teacher passing them along.
+  // The pick becomes the live objective: sidebar text plus guide arrow.
+  // It is only a nudge, never a promise: nobody who sets this has looked at
+  // where the letters actually are, and a real clue (pendingHint) outranks it.
+  var tipTarget = null;
   function suggestTeacher() {
     var ids = Object.keys(G.TEACHERS).filter(function (id) {
       return id !== 'm-walker' && !G.TEACHERS[id].noLetter && !G.TEACHERS[id].roomOf && G.ROOMS[id];
     });
     var id = ids[Math.floor(Math.random() * ids.length)];
-    walkerTip = id;
+    tipTarget = id;
     noteProgress(); // a fresh lead from the principal restarts the clock
     var d = describeTeacherPlace(id);
     return 'Go see ' + d.who + ' in ' + d.place + ', ' + d.where + '!';
