@@ -1217,8 +1217,10 @@ var G = window.G = window.G || {};
         lastTriggerKey = Math.floor((player.x + 8) / TS) + ',' + Math.floor((player.y + 11) / TS);
         resetFollowers(); // the letters pop through the door right behind you
         showBanner(bannerText);
-        // each floor has its own looping theme
-        var floor = G.Maps.all[mapId].isHall ? mapId : G.ROOMS[mapId].floor;
+        // each floor has its own looping theme (the playground counts as
+        // its own "floor" -- sunshine has a soundtrack too)
+        var mm = G.Maps.all[mapId];
+        var floor = (mm.isHall || mm.outdoor) ? mapId : G.ROOMS[mapId].floor;
         G.Audio.playFloor(floor);
       }
     };
@@ -1882,7 +1884,12 @@ var G = window.G = window.G || {};
     "couchLV": "couch",
     "couchRV": "couch",
     "welcomeL": "welcome",
-    "welcomeR": "welcome"
+    "welcomeR": "welcome",
+    "goalL": "soccergoal",
+    "goalR": "soccergoal",
+    "picnicL": "picnic",
+    "picnicR": "picnic",
+    "woodstage": "stage"
   };
 
   var factIdx = {}; // tile type -> next fact to show (cycles through them)
@@ -2711,6 +2718,13 @@ var G = window.G = window.G || {};
       G.drawCourtLines(ctx, TS);
       ctx.restore();
     }
+    // the big playground structure over its platform tiles
+    if (m.playset) {
+      ctx.save();
+      ctx.translate(-cam.x, -cam.y);
+      G.drawPlayset(ctx, TS, m.playset);
+      ctx.restore();
+    }
 
     // wall-mounted name signs sit behind the characters
     // (except at the party -- the gym goes full decoration, no signage)
@@ -2927,9 +2941,10 @@ var G = window.G = window.G || {};
 
     // where the player is right now
     var m = G.Maps.all[currentMapId];
-    var location = m.isHall
-      ? (inGymArea() ? G.ROOMS['b-gym'].name : 'HALLWAY')
-      : locationLabel(currentMapId);
+    var location = m.outdoor ? 'THE PLAYGROUND'
+      : m.isHall
+        ? (inGymArea() ? G.ROOMS['b-gym'].name : 'HALLWAY')
+        : locationLabel(currentMapId);
     ctx.fillStyle = '#9fd4e8';
     ctx.fillText('LOCATION', cx, 152);
     ctx.fillStyle = '#ffffff';

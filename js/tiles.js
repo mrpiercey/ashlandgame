@@ -1670,8 +1670,125 @@ var G = window.G = window.G || {};
     };
   }
 
+  // ---- the playground: outdoor tiles --------------------------------------
+  function pMulch(ctx, rnd) {
+    ctx.fillStyle = '#6b4a2a';
+    ctx.fillRect(0, 0, TS, TS);
+    speckle(ctx, rnd, 14, ['#7d5834', '#5a3c20', '#8a6540', '#4e3419']);
+  }
+  function pConcrete(ctx, rnd) {
+    ctx.fillStyle = '#d8d8d4';
+    ctx.fillRect(0, 0, TS, TS);
+    speckle(ctx, rnd, 8, ['#c9c9c4', '#e2e2de', '#cfcfca']);
+    if (rnd() < 0.2) { ctx.fillStyle = '#c2c2bd'; ctx.fillRect(0, 7, TS, 1); }
+  }
+  function pFence(ctx, rnd) {
+    pMulch(ctx, rnd);
+    // chain-link: diamond mesh under a top rail, post on some tiles
+    ctx.strokeStyle = '#b5babf';
+    ctx.lineWidth = 1;
+    for (var i = -TS; i < TS; i += 4) {
+      ctx.beginPath(); ctx.moveTo(i, 3); ctx.lineTo(i + 13, TS); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(i + 13, 3); ctx.lineTo(i, TS); ctx.stroke();
+    }
+    ctx.fillStyle = '#9aa0a6';
+    ctx.fillRect(0, 1, TS, 2);
+    if (rnd() < 0.5) { ctx.fillStyle = '#7a8086'; ctx.fillRect(7, 1, 2, TS - 1); }
+  }
+  function pTree(ctx, rnd) {
+    pMulch(ctx, rnd);
+    ctx.fillStyle = '#4a3018';
+    ctx.fillRect(7, 12, 3, 3);
+    ctx.fillStyle = '#1f6a35';
+    ctx.beginPath(); ctx.arc(8, 7, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#2e8f4c';
+    ctx.beginPath(); ctx.arc(6, 5, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#37a45c';
+    ctx.fillRect(4, 3, 2, 2);
+    ctx.fillRect(10, 6, 2, 2);
+    ctx.fillStyle = '#175a2b';
+    ctx.fillRect(10, 10, 2, 2);
+    ctx.fillRect(5, 9, 2, 2);
+  }
+  function pPicnic(ctx, rnd, side) {
+    pMulch(ctx, rnd);
+    var x0 = side === 'l' ? 2 : 0, x1 = side === 'l' ? TS : 14;
+    ctx.fillStyle = '#8a5a33';
+    ctx.fillRect(x0, 3, x1 - x0, 2);      // far bench
+    ctx.fillRect(x0, 12, x1 - x0, 2);     // near bench
+    ctx.fillStyle = '#a97f47';
+    ctx.fillRect(x0, 6, x1 - x0, 5);      // table top
+    ctx.fillStyle = '#c99e60';
+    ctx.fillRect(x0, 6, x1 - x0, 2);
+    ctx.fillStyle = '#6e4a24';
+    ctx.fillRect(x0, 10, x1 - x0, 1);
+  }
+  function pPlayset(ctx, rnd) {
+    // platform base; the towers, roofs and slides are painted over the
+    // whole structure by G.drawPlayset
+    ctx.fillStyle = '#3a63c4';
+    ctx.fillRect(0, 0, TS, TS);
+    speckle(ctx, rnd, 6, ['#4a73d4', '#2e53b4']);
+  }
+  function pGoal(ctx, rnd, side) {
+    pConcrete(ctx, rnd);
+    ctx.strokeStyle = 'rgba(244,244,238,0.55)';
+    ctx.lineWidth = 1;
+    for (var nx = 1; nx < TS; nx += 3) {
+      ctx.beginPath(); ctx.moveTo(nx, 4); ctx.lineTo(nx, 12); ctx.stroke();
+    }
+    for (var ny = 5; ny < 13; ny += 3) {
+      ctx.beginPath(); ctx.moveTo(0, ny); ctx.lineTo(TS, ny); ctx.stroke();
+    }
+    ctx.fillStyle = '#f4f4ee';
+    ctx.fillRect(0, 2, TS, 2);                       // crossbar
+    ctx.fillRect(0, 12, TS, 1);                      // ground bar
+    if (side === 'l') ctx.fillRect(0, 2, 2, 11);     // post
+    else ctx.fillRect(14, 2, 2, 11);
+  }
+  function pWoodStage(ctx, rnd) {
+    // outdoor wooden performance stage, weathered planks
+    ctx.fillStyle = '#b08a52';
+    ctx.fillRect(0, 0, TS, TS);
+    ctx.fillStyle = '#c09a62';
+    ctx.fillRect(0, 0, TS, 3);
+    ctx.fillRect(0, 8, TS, 3);
+    ctx.fillStyle = '#93703e';
+    ctx.fillRect(0, 3, TS, 1);
+    ctx.fillRect(0, 7, TS, 1);
+    ctx.fillRect(0, 11, TS, 1);
+    ctx.fillRect(0, 15, TS, 1);
+    speckle(ctx, rnd, 7, ['#a37c46', '#cca972']);
+  }
+  function pBBall(ctx, rnd) {
+    pConcrete(ctx, rnd);
+    ctx.fillStyle = '#555b63';
+    ctx.fillRect(7, 8, 2, 7);                        // pole
+    ctx.fillStyle = '#f4f4ee';
+    ctx.fillRect(3, 1, 10, 6);                       // backboard
+    ctx.fillStyle = '#20242a';
+    ctx.fillRect(6, 3, 4, 3);                        // target square
+    ctx.fillStyle = '#e8722c';
+    ctx.fillRect(5, 6, 6, 2);                        // rim
+    ctx.strokeStyle = 'rgba(244,244,238,0.8)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(6, 8); ctx.lineTo(7, 11); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(10, 8); ctx.lineTo(9, 11); ctx.stroke();
+  }
+
   var PAINTERS = {
     'void': function (ctx, rnd) { pVoid(ctx); },
+    'mulch': pMulch,
+    'concrete': pConcrete,
+    'fence': pFence,
+    'tree': pTree,
+    'picnicL': function (ctx, rnd) { pPicnic(ctx, rnd, 'l'); },
+    'picnicR': function (ctx, rnd) { pPicnic(ctx, rnd, 'r'); },
+    'playset': pPlayset,
+    'goalL': function (ctx, rnd) { pGoal(ctx, rnd, 'l'); },
+    'goalR': function (ctx, rnd) { pGoal(ctx, rnd, 'r'); },
+    'bballnet': pBBall,
+    'woodstage': pWoodStage,
     'floor': pFloor,
     'green': pGreen,
     'blue': pBlue,
@@ -1814,7 +1931,8 @@ var G = window.G = window.G || {};
     'maprug': 1, 'shaperug': 1,
     'gymfloor': 1, 'gymlineH': 1, 'gymlineV': 1,
     'gymkey': 1, 'gymcirTL': 1, 'gymcirTR': 1, 'gymcirBL': 1, 'gymcirBR': 1,
-    'door': 1, 'stairU': 1, 'stairD': 1, 'mat': 1
+    'door': 1, 'stairU': 1, 'stairD': 1, 'mat': 1,
+    'mulch': 1, 'concrete': 1, 'woodstage': 1
   };
 
   G.Tiles = {

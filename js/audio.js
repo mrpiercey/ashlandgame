@@ -86,7 +86,8 @@ var G = window.G = window.G || {};
   var FLOOR_TRACKS = {
     middle: 'middlefloor-theme.mp3',
     top: 'topfloor-theme.mp3',
-    basement: 'basement-theme.mp3'
+    basement: 'basement-theme.mp3',
+    playground: 'introtheme.mp3' // sunny outdoor vibes for recess
   };
   var bgmEl = null;         // currently playing track
   var trackEls = {};        // floor -> Audio element

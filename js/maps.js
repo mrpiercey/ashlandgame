@@ -90,7 +90,8 @@ var G = window.G = window.G || {};
     middle: { map: 'middle', x: 19, y: 12, dir: 'down', label: 'GROUND FLOOR' },
     basement: { map: 'basement', x: 7, y: 22, dir: 'right', label: 'LOWER FLOOR' },
     dance: { map: 'b-dance', x: 2, y: 2, dir: 'down', label: 'DANCE & DRAMA' },
-    middleAtDance: { map: 'middle', x: 41, y: 4, dir: 'down', label: 'GROUND FLOOR' }
+    middleAtDance: { map: 'middle', x: 41, y: 4, dir: 'down', label: 'GROUND FLOOR' },
+    playground: { map: 'playground', x: 41, y: 12, dir: 'left', label: 'OUTSIDE: THE PLAYGROUND!' }
   };
 
   // ---- MIDDLE FLOOR (spawn) ----------------------------------------------
@@ -120,9 +121,10 @@ var G = window.G = window.G || {};
     m.rect(42, 13, 2, 2, 'blue');
     m.rect(42, 18, 2, 2, 'blue');
 
-    // stairwell doors at top of the center hall (serves top floor + basement)
+    // stairwell doors at top of the center hall (serves top floor + basement,
+    // and it's on the LEFT side of the school, so it also goes outside!)
     addStairs(m, [[18, 10], [19, 10], [20, 10], [21, 10]], 'stairU',
-      [DEST.top, DEST.basement]);
+      [DEST.top, DEST.basement, DEST.playground]);
     m.set(22, 10, 'purple');
     m.set(23, 10, 'purple');
 
@@ -227,10 +229,12 @@ var G = window.G = window.G || {};
     addDoor(m, 35, 21, 't-205');
     addDoor(m, 44, 21, 't-213');
 
-    // stairwell doors (red squares on the map) - serve middle floor + basement
+    // stairwell doors (red squares on the map) - serve middle floor + basement.
+    // The LEFT pair also leads outside to the playground for recess!
+    var leftDown = [DEST.middle, DEST.basement, DEST.playground];
     var down = [DEST.middle, DEST.basement];
-    addStairs(m, [[17, 11], [18, 11]], 'stairD', down);
-    addStairs(m, [[17, 21], [18, 21]], 'stairD', down);
+    addStairs(m, [[17, 11], [18, 11]], 'stairD', leftDown);
+    addStairs(m, [[17, 21], [18, 21]], 'stairD', leftDown);
     addStairs(m, [[41, 11], [42, 11]], 'stairD', down);
     addStairs(m, [[41, 21], [42, 21]], 'stairD', down);
 
@@ -271,7 +275,8 @@ var G = window.G = window.G || {};
     // (the basketball court lines are drawn by G.drawCourtLines - smooth arcs
     // that tiles can't manage)
 
-    addStairs(m, [[5, 21], [5, 22]], 'stairU', [DEST.middle, DEST.top]);
+    // the basement stairwell is on the LEFT end: it can go outside too
+    addStairs(m, [[5, 21], [5, 22]], 'stairU', [DEST.middle, DEST.top, DEST.playground]);
 
     addDoor(m, 12, 24, 'b-music');
     addDoor(m, 13, 24, 'b-music');
@@ -711,17 +716,81 @@ var G = window.G = window.G || {};
     });
   }
 
+  // ---- THE PLAYGROUND (recess!) -------------------------------------------
+  // A fenced outdoor yard off the LEFT side of the school: mulch up top with
+  // the wood stage, picnic tables, trees and the big playground structure;
+  // a huge concrete slab below with soccer goals and basketball hoops.
+  function buildPlayground() {
+    var m = GB('playground', 44, 32);
+    m.name = 'THE PLAYGROUND';
+    m.outdoor = true;
+
+    // grounds: mulch inside the fence, big concrete play slab in the middle
+    m.rect(1, 1, 42, 30, 'mulch');
+    m.rect(2, 8, 37, 21, 'concrete');
+
+    // chain-link fence around the yard; the school wall runs down the right
+    for (var x = 0; x < 44; x++) { m.set(x, 0, 'fence'); m.set(x, 31, 'fence'); }
+    for (var y = 0; y < 32; y++) m.set(0, y, 'fence');
+    for (var y2 = 0; y2 < 32; y2++) m.set(43, y2, 'wall');
+
+    // the wood stage (top-left corner, on the mulch)
+    m.rect(2, 2, 3, 3, 'woodstage');
+    // picnic tables
+    m.set(7, 3, 'picnicL'); m.set(8, 3, 'picnicR');
+    m.set(9, 5, 'picnicL'); m.set(10, 5, 'picnicR');
+    // shade trees
+    [[13, 2], [16, 5], [18, 2], [40, 8], [41, 3]].forEach(function (t) {
+      m.set(t[0], t[1], 'tree');
+    });
+    // THE BIG PLAYGROUND (towers, roofs and slides paint over this base)
+    m.rect(21, 2, 12, 5, 'playset');
+    m.playset = { x: 21, y: 2, w: 12, h: 5 };
+
+    // soccer goals at each end of the slab
+    m.set(4, 10, 'goalL'); m.set(5, 10, 'goalR');
+    m.set(5, 26, 'goalL'); m.set(6, 26, 'goalR');
+    // basketball hoops
+    m.set(25, 12, 'bballnet');
+    m.set(24, 22, 'bballnet');
+
+    // two stairwell doors back into the school (its left-side stairwells)
+    var backIn = [DEST.middle, DEST.top, DEST.basement];
+    addStairs(m, [[43, 12], [43, 13]], 'stairU', backIn);
+    addStairs(m, [[43, 22], [43, 23]], 'stairU', backIn);
+    m.set(43, 11, 'exit');
+    m.set(43, 21, 'exit');
+
+    m.spawn = { x: 41, y: 12, dir: 'left' };
+    return m;
+  }
+
   function build() {
     registerCustomRooms();
     var maps = {};
     maps.middle = buildMiddle();
     maps.top = buildTop();
     maps.basement = buildBasement();
+    maps.playground = buildPlayground();
 
     var overrides = loadOverrides();
     applyHallOverride(maps.middle, overrides.middle);
     applyHallOverride(maps.top, overrides.top);
     applyHallOverride(maps.basement, overrides.basement);
+
+    // ONLY the stairwells on the LEFT side of the school lead outside to
+    // recess -- edited halls may move stairwell doors around, so strip the
+    // playground option from any stairwell that ended up in the right half
+    ['middle', 'top', 'basement'].forEach(function (hid) {
+      var hm = maps[hid];
+      Object.keys(hm.stairs).forEach(function (k) {
+        var st = hm.stairs[k];
+        if (!st.options) return;
+        if (+k.split(',')[0] >= hm.w / 2) {
+          st.options = st.options.filter(function (o) { return o.map !== 'playground'; });
+        }
+      });
+    });
     // older saves painted the court with tiles - the vector court replaces them
     (function (m) {
       var legacy = { gymlineH: 1, gymlineV: 1, gymkey: 1, gymcirTL: 1, gymcirTR: 1, gymcirBL: 1, gymcirBR: 1 };
@@ -1040,6 +1109,58 @@ var G = window.G = window.G || {};
 
     G.Maps = { all: maps, returns: returns, entries: entries };
   }
+
+  // the big playground structure: towers, roofs, monkey bars and the slide,
+  // painted across the playset tiles (same trick as the basketball court)
+  G.drawPlayset = function (ctx, s, r) {
+    var x0 = r.x * s, y0 = r.y * s, w = r.w * s, h = r.h * s;
+    // deck border
+    ctx.fillStyle = '#2e53b4';
+    ctx.fillRect(x0, y0, w, 3);
+    ctx.fillRect(x0, y0 + h - 3, w, 3);
+    ctx.fillRect(x0, y0, 3, h);
+    ctx.fillRect(x0 + w - 3, y0, 3, h);
+    // left tower with a green pointed roof
+    ctx.fillStyle = '#f0c53a';
+    ctx.fillRect(x0 + 8, y0 + 8, 26, h - 16);
+    ctx.fillStyle = '#1e7a3c';
+    ctx.beginPath();
+    ctx.moveTo(x0 + 4, y0 + 14);
+    ctx.lineTo(x0 + 21, y0 + 2);
+    ctx.lineTo(x0 + 38, y0 + 14);
+    ctx.closePath();
+    ctx.fill();
+    // right tower with roof
+    ctx.fillStyle = '#f0c53a';
+    ctx.fillRect(x0 + w - 34, y0 + 8, 26, h - 16);
+    ctx.fillStyle = '#1e7a3c';
+    ctx.beginPath();
+    ctx.moveTo(x0 + w - 38, y0 + 14);
+    ctx.lineTo(x0 + w - 21, y0 + 2);
+    ctx.lineTo(x0 + w - 4, y0 + 14);
+    ctx.closePath();
+    ctx.fill();
+    // monkey bars between the towers
+    ctx.fillStyle = '#c9c9c4';
+    ctx.fillRect(x0 + 34, y0 + 16, w - 68, 3);
+    for (var bx = x0 + 38; bx < x0 + w - 38; bx += 8) {
+      ctx.fillRect(bx, y0 + 19, 2, 10);
+    }
+    // the big yellow slide swooping off the right tower
+    ctx.fillStyle = '#f0c53a';
+    ctx.beginPath();
+    ctx.moveTo(x0 + w - 26, y0 + h - 30);
+    ctx.quadraticCurveTo(x0 + w - 14, y0 + h - 8, x0 + w - 6, y0 + h - 6);
+    ctx.lineTo(x0 + w - 6, y0 + h - 14);
+    ctx.quadraticCurveTo(x0 + w - 12, y0 + h - 16, x0 + w - 16, y0 + h - 30);
+    ctx.closePath();
+    ctx.fill();
+    // climbing wall dots on the left tower
+    ['#c43a3a', '#3a63c4', '#2e8f57', '#e06a92'].forEach(function (c, i) {
+      ctx.fillStyle = c;
+      ctx.fillRect(x0 + 12 + i * 5, y0 + 14 + (i % 2) * 6, 3, 3);
+    });
+  };
 
   G.buildMaps = build;
 
