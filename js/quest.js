@@ -429,17 +429,52 @@ var G = window.G = window.G || {};
     } else {
       pages = [{ name: name, text: line }];   // no re-introductions
     }
-    // ...and admit they haven't seen the letters, pointing the kid onward
+    // ...admit they haven't seen the letters, then gossip the kid onward
     pages.push({ name: name, text: SHRUGS[chash(roomId + 'shrug') % SHRUGS.length] });
+    var ref = referralLine(roomId);
+    if (ref) pages.push({ name: name, text: ref });
     G.Dialogue.start(pages, { onDone: onClose });
   }
 
-  // what a teacher with no letter news says to keep the quest moving
+  // what a teacher with no letter news says: each teacher is pinned to
+  // their own variation so they stay in character between visits
   var SHRUGS = [
-    "Hmmm... I haven't seen any of those golden SOAR letters in here. Maybe another teacher has -- go ask around!",
-    'No golden letters in MY room, sorry! Try asking another teacher -- somebody must have spotted one.',
-    "I haven't spotted a single SOAR letter... but keep asking teachers! One of them is bound to know something."
+    "Hmmm... I haven't seen any of those golden SOAR letters in here.",
+    "A golden letter? In MY room? I've looked everywhere -- nothing but glue sticks and dry-erase markers.",
+    "No letters here, I'm afraid. And believe me, I would have noticed something THAT sparkly.",
+    "I've been setting up all week and I haven't spotted a single golden letter.",
+    'Golden letters? Not in my room! I even checked under the rug.',
+    "Nope, no letters in here. I just cleaned every shelf, so I'm SURE.",
+    'I wish I had one of those letters to show you, but my room is letter-free.',
+    'Sorry, friend -- no golden letters in here. Just books, bins and bulletin boards.',
+    'I keep hearing about those missing letters, but none of them landed in MY room.',
+    "Not a flash of gold in here anywhere... and I've had my eyes peeled!"
   ];
+
+  // ...then a friendly nudge toward a random colleague. This is pure
+  // teacher gossip, NOT a real clue: the letters sit wherever init() put
+  // them, so following the tip may or may not pay off. (Real leads come
+  // from the hinters, which also move the guide arrow -- this doesn't.)
+  var REFERRAL_FORMS = [
+    'Maybe go check {place}, {where}!',
+    'You might want to ask {who} -- {where}.',
+    'Have you tried {place} yet? It is {where}.',
+    'I would peek into {place}, {where}. You never know!',
+    'Why not ask {who}? You can find them {where}.',
+    'If I were you, I would go see {who}, {where}.'
+  ];
+  function referralLine(selfId) {
+    var ids = Object.keys(G.TEACHERS).filter(function (id) {
+      return id !== selfId && id !== 'm-walker' && !G.TEACHERS[id].noLetter &&
+        !G.TEACHERS[id].roomOf && G.ROOMS[id];
+    });
+    if (!ids.length) return null;
+    var d = describeTeacherPlace(ids[Math.floor(Math.random() * ids.length)]);
+    return REFERRAL_FORMS[Math.floor(Math.random() * REFERRAL_FORMS.length)]
+      .replace('{who}', d.who)
+      .replace('{place}', d.ownedPlace)
+      .replace('{where}', d.where);
+  }
   var dryStreak = 0;    // new teachers met since the last real clue
 
   var talkCount = {};   // roomId -> how many chats so far
