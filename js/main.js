@@ -2479,7 +2479,35 @@ var G = window.G = window.G || {};
     }
   }
 
-  // the DJ booth + kid-safe disco lights, layered over the gym
+  // the DJ table draws inside the y-sorted entity pass, so dancers walking
+  // in FRONT of it appear in front (and Eddie stays tucked behind the decks)
+  function drawDjBooth(cam) {
+    var t = party.t;
+    var bx = BOOTH.x0 * TS - cam.x, by = BOOTH.y * TS - cam.y;
+    ctx.fillStyle = '#1c1c26';
+    ctx.fillRect(bx - 2, by - 2, TS * 3 + 4, TS + 4);
+    ctx.fillStyle = '#2a3450';
+    ctx.fillRect(bx, by, TS * 3, TS);
+    ctx.fillStyle = '#4a5a80';
+    ctx.fillRect(bx, by, TS * 3, 3);
+    G.Tiles.drawTinyText(ctx, 'DJ EDDIE', bx + 8, by + 10, '#f7d84d', 1);
+    // two spinning vinyls
+    [bx + 9, bx + TS * 3 - 9].forEach(function (cxx, i) {
+      var cy = by + 5;
+      ctx.fillStyle = '#0c0c14';
+      ctx.beginPath(); ctx.arc(cxx, cy, 5.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#2a2a3a';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cxx, cy, 3.5, 0, Math.PI * 2); ctx.stroke();
+      var a = t * 6 + i * 1.2;
+      ctx.strokeStyle = '#8a8f96';
+      ctx.beginPath(); ctx.moveTo(cxx, cy); ctx.lineTo(cxx + Math.cos(a) * 5, cy + Math.sin(a) * 5); ctx.stroke();
+      ctx.fillStyle = '#f7d84d';
+      ctx.fillRect(cxx - 1, cy - 1, 2, 2);
+    });
+  }
+
+  // kid-safe disco lights + decorations, layered over the gym
   function drawPartyScene(cam) {
     var t = party.t;
     ctx.imageSmoothingEnabled = false;
@@ -2525,30 +2553,6 @@ var G = window.G = window.G || {};
     drawBalloons(22 * TS - cam.x, 25 * TS - cam.y, t, 4);
     drawBalloons(44 * TS - cam.x, 24 * TS - cam.y, t, 1);
     drawBalloons(33 * TS - cam.x, 26 * TS - cam.y, t, 3);
-
-    // DJ booth table (Eddie stands behind it)
-    var bx = BOOTH.x0 * TS - cam.x, by = BOOTH.y * TS - cam.y;
-    ctx.fillStyle = '#1c1c26';
-    ctx.fillRect(bx - 2, by - 2, TS * 3 + 4, TS + 4);
-    ctx.fillStyle = '#2a3450';
-    ctx.fillRect(bx, by, TS * 3, TS);
-    ctx.fillStyle = '#4a5a80';
-    ctx.fillRect(bx, by, TS * 3, 3);
-    G.Tiles.drawTinyText(ctx, 'DJ EDDIE', bx + 8, by + 10, '#f7d84d', 1);
-    // two spinning vinyls
-    [bx + 9, bx + TS * 3 - 9].forEach(function (cxx, i) {
-      var cy = by + 5;
-      ctx.fillStyle = '#0c0c14';
-      ctx.beginPath(); ctx.arc(cxx, cy, 5.5, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#2a2a3a';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(cxx, cy, 3.5, 0, Math.PI * 2); ctx.stroke();
-      var a = t * 6 + i * 1.2;
-      ctx.strokeStyle = '#8a8f96';
-      ctx.beginPath(); ctx.moveTo(cxx, cy); ctx.lineTo(cxx + Math.cos(a) * 5, cy + Math.sin(a) * 5); ctx.stroke();
-      ctx.fillStyle = '#f7d84d';
-      ctx.fillRect(cxx - 1, cy - 1, 2, 2);
-    });
 
     // gentle dimming pulse (never dark, never strobing)
     ctx.fillStyle = 'rgba(12,8,44,' + (0.30 + 0.08 * Math.sin(t * 3)).toFixed(3) + ')';
@@ -2715,6 +2719,8 @@ var G = window.G = window.G || {};
       ents.push({ y: (n.py !== undefined ? n.py : n.y * TS), npc: n });
     });
     ents.push({ y: player.y, player: true });
+    // the DJ table takes part in the sort like any other body in the room
+    if (party) ents.push({ y: BOOTH.y * TS + 8, booth: true });
     ents.sort(function (a, b) { return a.y - b.y; });
 
     function dropShadow(cx, cy) {
@@ -2726,6 +2732,7 @@ var G = window.G = window.G || {};
     }
 
     ents.forEach(function (e) {
+      if (e.booth) { drawDjBooth(cam); return; }
       if (e.player) {
         var fset = playerFrames[player.dir];
         var frame = fset[0];
