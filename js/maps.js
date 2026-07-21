@@ -1006,6 +1006,24 @@ var G = window.G = window.G || {};
         }
       });
     });
+    // A room numbers its doors top-to-bottom (then left-to-right) -- the same
+    // order the hallway sorts its door clusters in below. Without this the
+    // library's TOP door could be door 1 while the hall's top door is door 0,
+    // so walking in the top door dropped you at the bottom of the room.
+    Object.keys(G.ROOMS).forEach(function (id) {
+      var im = maps[id];
+      if (!im || !im.exitList || im.exitList.length < 2) return;
+      var order = im.exitList.map(function (e, i) { return { e: e, i: i }; });
+      order.sort(function (a, b) { return (a.e.y - b.e.y) || (a.e.x - b.e.x); });
+      var oldClusters = im._exitClusters || {};
+      var newClusters = {};
+      im.exitList = order.map(function (o, ni) {
+        if (oldClusters[o.i]) newClusters[ni] = oldClusters[o.i];
+        return o.e;
+      });
+      im._exitClusters = newClusters;
+    });
+
     Object.keys(G.ROOMS).forEach(function (id) {
       var im = maps[id];
       if (!im) return;
@@ -1102,6 +1120,33 @@ var G = window.G = window.G || {};
             if (out) returns[rid + ':' + idx] = { map: mid, x: out.x, y: out.y, dir: out.dir };
           }
         });
+      });
+    });
+
+    // Doors joining two rooms directly (the nurse's office <-> the front
+    // office): step through one and you should arrive beside its partner on
+    // the far side, not at whichever door that room happens to number 0.
+    // Runs last so the hallway's doors have already claimed their entries.
+    Object.keys(G.ROOMS).forEach(function (aid) {
+      var am = maps[aid];
+      if (!am || am.isHall) return;
+      Object.keys(am.stairs).forEach(function (ak) {
+        var ast = am.stairs[ak];
+        var bid = ast.goRoom;
+        var bm = bid && maps[bid];
+        if (!bm || bm.isHall || !G.ROOMS[bid] || ast.pairIndex !== undefined) return;
+        // the door in B that points back at A
+        var bk = Object.keys(bm.stairs).filter(function (k) {
+          return bm.stairs[k].goRoom === aid;
+        })[0];
+        if (!bk) return;
+        var bxy = bk.split(',');
+        var inn = neighborWalkable(bm, +bxy[0], +bxy[1]);
+        if (!inn) return;
+        var idx = 0;
+        while (entries[bid + ':' + idx]) idx++; // a fresh slot, never a hallway's
+        entries[bid + ':' + idx] = { map: bid, x: inn.x, y: inn.y, dir: inn.dir };
+        ast.pairIndex = idx;
       });
     });
 
