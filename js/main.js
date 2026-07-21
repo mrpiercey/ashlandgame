@@ -556,10 +556,41 @@ var G = window.G = window.G || {};
       }
       return null;
     }
+    function tileMid(k) {
+      var xy = k.split(',');
+      return { x: +xy[0] * TS + 8, y: +xy[1] * TS + 8 };
+    }
+    // nearest tile on this map matching a test, measured from the student
+    function nearestStair(test) {
+      var best = null, bd = Infinity;
+      Object.keys(m.stairs || {}).forEach(function (k) {
+        if (!test(m.stairs[k])) return;
+        var p = tileMid(k);
+        var dx = p.x - (player.x + 8), dy = p.y - (player.y + 8);
+        var d = dx * dx + dy * dy;
+        if (d < bd) { bd = d; best = p; }
+      });
+      return best;
+    }
+    // the target is somewhere else entirely: point at the way there rather
+    // than going blank. Inside a room that means its door; out in a hallway
+    // it means the closest stairwell that actually serves the right floor.
+    function towardRoom(roomId) {
+      var r = G.ROOMS[roomId];
+      if (!r) return null;
+      if (!m.isHall) {
+        return nearestStair(function (st) { return st.exit; }) ||
+               nearestStair(function (st) { return st.goRoom; });
+      }
+      if (r.floor === currentMapId) return null; // same floor, nothing to add
+      return nearestStair(function (st) {
+        return st.options && st.options.some(function (o) { return o.map === r.floor; });
+      });
+    }
     function doorTo(roomId) {
       var r = G.Maps.returns[roomId + ':0'];
       if (r && r.map === currentMapId) return { x: r.x * TS + 8, y: r.y * TS + 8 };
-      return null;
+      return towardRoom(roomId);
     }
     if (g.kind === 'eddie') return npcPos(function (n) { return n.kind === 'eagle'; });
     if (g.kind === 'walker') {
