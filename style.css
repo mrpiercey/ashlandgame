@@ -66,25 +66,30 @@ body.touch #touch-controls { display: block; }
   position: absolute;
   left: calc(12px + env(safe-area-inset-left, 0px));
   bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  width: 168px;
-  height: 168px;
+  width: 216px;
+  height: 216px;
+  pointer-events: auto;   /* the PAD takes the touch, so a finger can slide
+                             between directions without lifting off */
+  touch-action: none;
 }
 .dbtn {
   position: absolute;
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
   border: 2px solid rgba(255,255,255,0.7);
-  border-radius: 12px;
+  border-radius: 14px;
   background: rgba(20, 82, 47, 0.55);
   color: #fff;
-  font-size: 20px;
-  pointer-events: auto;
+  font-size: 26px;
+  pointer-events: none;   /* ...so the buttons themselves are just artwork */
   touch-action: none;
 }
-#d-up    { left: 56px;  top: 0; }
-#d-left  { left: 0;     top: 56px; }
-#d-right { left: 112px; top: 56px; }
-#d-down  { left: 56px;  top: 112px; }
+#d-up    { left: 72px;  top: 0; }
+#d-left  { left: 0;     top: 72px; }
+#d-right { left: 144px; top: 72px; }
+#d-down  { left: 72px;  top: 144px; }
+/* whichever direction the finger is over, lit by the pad handler */
+.dbtn.pressed { filter: brightness(1.6); }
 
 /* TALK on the RIGHT thumb */
 #a-btn {
@@ -141,7 +146,7 @@ body.portrait #touch-controls {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 44px;
+  gap: 24px;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 body.portrait #dpad {

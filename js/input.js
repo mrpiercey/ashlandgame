@@ -59,17 +59,65 @@ var G = window.G = window.G || {};
     var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0 && window.matchMedia('(pointer: coarse)').matches);
     if (!isTouch) return;
     document.body.classList.add('touch');
-    var map = { 'd-up': 'up', 'd-down': 'down', 'd-left': 'left', 'd-right': 'right' };
-    Object.keys(map).forEach(function (id) {
-      var el = document.getElementById(id);
-      var dir = map[id];
-      ['pointerdown', 'touchstart'].forEach(function (ev) {
-        el.addEventListener(ev, function (e) { e.preventDefault(); press(dir); }, { passive: false });
+
+    // The pad reads the finger's POSITION, not which button it landed on, so
+    // you can slide from left to up to right without lifting off. Buttons
+    // still light up individually -- that is just :active on the one under
+    // the finger, which we set by hand since the touch belongs to the pad.
+    var pad = document.getElementById('dpad');
+    var btns = {
+      up: document.getElementById('d-up'), down: document.getElementById('d-down'),
+      left: document.getElementById('d-left'), right: document.getElementById('d-right')
+    };
+    var padTouch = null; // the finger currently driving the pad
+
+    function padDir(clientX, clientY) {
+      var r = pad.getBoundingClientRect();
+      var dx = clientX - (r.left + r.width / 2);
+      var dy = clientY - (r.top + r.height / 2);
+      // a small dead zone in the middle so a resting thumb doesn't twitch
+      if (dx * dx + dy * dy < (r.width * 0.16) * (r.width * 0.16)) return null;
+      return Math.abs(dx) > Math.abs(dy)
+        ? (dx > 0 ? 'right' : 'left')
+        : (dy > 0 ? 'down' : 'up');
+    }
+
+    function padSet(dir) {
+      ['up', 'down', 'left', 'right'].forEach(function (d) {
+        if (d === dir) { press(d); } else { release(d); }
+        if (btns[d]) btns[d].classList.toggle('pressed', d === dir);
       });
-      ['pointerup', 'pointercancel', 'pointerleave', 'touchend'].forEach(function (ev) {
-        el.addEventListener(ev, function (e) { e.preventDefault(); release(dir); }, { passive: false });
+    }
+    function padClear() {
+      padTouch = null;
+      ['up', 'down', 'left', 'right'].forEach(function (d) {
+        release(d);
+        if (btns[d]) btns[d].classList.remove('pressed');
       });
+    }
+
+    pad.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      padTouch = e.pointerId;
+      if (pad.setPointerCapture) { try { pad.setPointerCapture(e.pointerId); } catch (err) {} }
+      padSet(padDir(e.clientX, e.clientY));
+    }, { passive: false });
+
+    pad.addEventListener('pointermove', function (e) {
+      if (padTouch === null || e.pointerId !== padTouch) return;
+      e.preventDefault();
+      padSet(padDir(e.clientX, e.clientY));
+    }, { passive: false });
+
+    ['pointerup', 'pointercancel'].forEach(function (ev) {
+      pad.addEventListener(ev, function (e) {
+        if (padTouch !== null && e.pointerId !== padTouch) return;
+        e.preventDefault();
+        padClear();
+      }, { passive: false });
     });
+    // a finger that slips off the pad entirely should stop the player
+    window.addEventListener('pointerup', function () { if (padTouch !== null) padClear(); });
     var a = document.getElementById('a-btn');
     ['pointerdown', 'touchstart'].forEach(function (ev) {
       a.addEventListener(ev, function (e) { e.preventDefault(); actionPressed = true; }, { passive: false });

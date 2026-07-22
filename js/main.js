@@ -146,7 +146,7 @@ var G = window.G = window.G || {};
     // underneath. Reserve room for them off a COARSE height so a phone's
     // sliding URL bar doesn't rescale the canvas on every scroll tick.
     var avail = portrait
-      ? Math.round(window.innerHeight / 40) * 40 - 200
+      ? Math.round(window.innerHeight / 40) * 40 - 240 // room for the big pad
       : window.innerHeight;
     var scale = Math.min(window.innerWidth / w, Math.max(1, avail) / h);
     // big screens snap to whole-number scaling (crispest pixels); small
