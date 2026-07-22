@@ -681,7 +681,8 @@ var G = window.G = window.G || {};
     ctx.save();
     ctx.translate(Math.round(x), Math.round(y));
     ctx.rotate(angle);
-    ctx.fillStyle = '#1c1c26';                     // outline
+    ctx.fillStyle = '#1e7a3c';                     // school-green outline,
+                                                   // same as the sidebar prompt
     ctx.beginPath();
     ctx.moveTo(9, 0); ctx.lineTo(-3, -7); ctx.lineTo(-3, -2.5); ctx.lineTo(-9, -2.5);
     ctx.lineTo(-9, 2.5); ctx.lineTo(-3, 2.5); ctx.lineTo(-3, 7); ctx.closePath();
