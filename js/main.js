@@ -3181,7 +3181,7 @@ var G = window.G = window.G || {};
     ctx.fillText('ELEMENTARY', 79, 20);
 
     ctx.fillStyle = '#9fd4e8';
-    ctx.fillText('LOCATION', 238, 4);
+    ctx.fillText('CURRENT LOCATION', 238, 4);
     ctx.fillStyle = '#ffffff';
     var loc = wrapTo(hudLocation(), 150);
     while (loc.length > 2) loc[1] += ' ' + loc.splice(2, 1)[0];
@@ -3284,12 +3284,12 @@ var G = window.G = window.G || {};
     var total = countable.length;
     var seen = countable.filter(function (id) { return visited[id]; }).length;
     ctx.fillStyle = '#5fbd87';
-    ctx.fillText('ROOMS', cx, 108);
+    ctx.fillText('ROOMS', cx, 106);
     ctx.fillStyle = '#9aa0ac';
-    ctx.fillText('VISITED', cx, 120);
+    ctx.fillText('VISITED', cx, 118);
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(seen + '/' + total, cx, 134);
-    divider(146);
+    ctx.fillText(seen + '/' + total, cx, 131);
+    divider(142);
 
     // where the player is right now
     var m = G.Maps.all[currentMapId];
@@ -3297,11 +3297,14 @@ var G = window.G = window.G || {};
       : m.isHall
         ? (inGymArea() ? G.ROOMS['b-gym'].name : 'HALLWAY')
         : locationLabel(currentMapId);
+    // "CURRENT LOCATION" is wider than the panel, so it stacks -- the same
+    // shape as ROOMS / VISITED just above it
     ctx.fillStyle = '#9fd4e8';
-    ctx.fillText('LOCATION', cx, 152);
+    ctx.fillText('CURRENT', cx, 146);
+    ctx.fillText('LOCATION', cx, 157);
     ctx.fillStyle = '#ffffff';
     var locLines = wrapSide(location);
-    var LOC_YS = { 1: [173], 2: [168, 179], 3: [164, 173, 182] };
+    var LOC_YS = { 1: [174], 2: [170, 181], 3: [168, 177, 186] };
     locLines.forEach(function (line, i) {
       ctx.fillText(line, cx, LOC_YS[locLines.length][i]);
     });
