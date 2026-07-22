@@ -10,6 +10,7 @@ var G = window.G = window.G || {};
   var TS = 16;
   var canvas, ctx;
   var visited = {};            // roomIds the player has entered
+  var met = {};                // staff the player has talked to (roomId or '__officer__')
   var floorsSeen = { middle: true }; // floors walked on (we spawn on the ground)
   var flybyRoom = null;        // room a just-won letter was caught in, or null
 
@@ -45,12 +46,17 @@ var G = window.G = window.G || {};
     G.Audio.playTitle();
 
     // shh: ...?ashlandway is the teacher-testing code. It loads the game
-    // with every room visited and all four letters already caught, so the
-    // finale (and the you-know-what in the gym) is one Walker visit away.
+    // with every staff member met and all four letters already caught, so
+    // the full-blowout gym party is one Walker visit away.
     if (/[?&]ashlandway\b/.test(location.search)) {
-      debugVisitAll();
+      debugMeetAll();
       G.Quest.LETTERS.forEach(function (l) { G.Quest.collect(l); });
     }
+    // ...and ?ending=N jumps straight to the last scene: all four letters in
+    // hand, N staff already met, standing in front of Mrs. Walker. One link
+    // per party tier, for showing off the endings without replaying the game.
+    var em = /[?&]ending=(\d+|all)\b/.exec(location.search);
+    if (em) previewEnding = em[1] === 'all' ? Infinity : parseInt(em[1], 10);
 
     playerFrames = G.Sprites.make({
       hair: '#c8451f', skin: '#f2c398', shirt: '#2e8f57', pants: '#3d5c92', shoes: '#e8e8e2', style: 'short'
@@ -2188,10 +2194,13 @@ var G = window.G = window.G || {};
             return;
           }
           if (n.kind === 'eagle') {
+            // Eddie is the DJ, not staff -- he never counts as "met"
             G.Quest.eagleDialogue(null);
           } else if (n.kind === 'officer') {
+            met['__officer__'] = true;
             G.Quest.officerDialogue(null);
           } else {
+            met[n.roomId] = true;
             G.Quest.teacherDialogue(n.roomId, null);
           }
           return;
@@ -2261,7 +2270,65 @@ var G = window.G = window.G || {};
   }
 
   // ---- intro / ending -----------------------------------------------------
+  // ?ending=N: skip the adventure and open on the moment that matters --
+  // four letters floating behind you, N staff already greeted, Mrs. Walker
+  // one keypress away. Her desk moves around between loads, so we find her
+  // and take whichever side of her is walkable.
+  var previewEnding = null;
+
+  function startWalkerPreview(n) {
+    var ids = Object.keys(G.TEACHERS).concat(['__officer__']);
+    for (var i = 0; i < Math.min(n, ids.length); i++) met[ids[i]] = true;
+    G.Quest.LETTERS.forEach(function (l) { G.Quest.collect(l); });
+    G.Quest.setWalkerMet(true);
+
+    currentMapId = 'm-walker';
+    visited['m-walker'] = true;
+    floorsSeen.middle = true;
+    var w = (map().npcs || []).filter(function (x) { return x.kind === 'teacher'; })[0];
+    var sides = [
+      { dx: 0, dy: 1, dir: 'up', bx: 0, by: 1 },
+      { dx: 1, dy: 0, dir: 'left', bx: 1, by: 0 },
+      { dx: -1, dy: 0, dir: 'right', bx: -1, by: 0 },
+      { dx: 0, dy: -1, dir: 'down', bx: 0, by: -1 }
+    ];
+    var spot = null;
+    for (var s = 0; s < sides.length && !spot; s++) {
+      var sx = w.x + sides[s].dx, sy = w.y + sides[s].dy;
+      if (!boxBlocked(sx * TS, sy * TS)) spot = { x: sx, y: sy, s: sides[s] };
+    }
+    if (!spot) spot = { x: w.x, y: w.y + 1, s: sides[0] };
+
+    player.x = spot.x * TS;
+    player.y = spot.y * TS;
+    player.dir = spot.s.dir;
+    player.moving = false;
+    lastTriggerKey = spot.x + ',' + spot.y;
+
+    // fan the letters out behind the player instead of stacking them. They
+    // ride the footprint trail, so lay down a fake one leading back the way
+    // an arriving student would have walked in.
+    trail.length = 0;
+    for (var k = 1; k <= 14; k++) {
+      trail.push({ x: player.x + spot.s.bx * k * 6, y: player.y + spot.s.by * k * 6 });
+    }
+    var flip = player.dir === 'left' || player.dir === 'up';
+    var carried = G.Quest.carriedLetters();
+    carried.forEach(function (l, i) {
+      var rank = flip ? i + 1 : carried.length - i;
+      followers[l] = {
+        x: player.x + spot.s.bx * rank * 14,
+        y: player.y + spot.s.by * rank * 14
+      };
+    });
+
+    state = 'play';
+    G.Audio.startBgm();
+    showBanner("MRS. WALKER'S OFFICE");
+  }
+
   function startIntro() {
+    if (previewEnding !== null) { startWalkerPreview(previewEnding); return; }
     state = 'play';
     G.Audio.startBgm(); // stops the title theme, starts the floor theme
     showBanner('MIDDLE FLOOR');
@@ -2501,41 +2568,67 @@ var G = window.G = window.G || {};
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  // ---- SECRET ENDING: the Ashland dance party ------------------------------
-  // Earned by visiting every room before delivering the last letter. Eddie
-  // flies a victory lap, then the whole staff throws a dance party in the
-  // gym: DJ Eddie on the decks far right, everyone dancing, disco lights
-  // (kid-safe sweeps, no hard strobe), and the student free to celebrate.
-  var party = null;    // {t, savedNpcs}
+  // ---- THE ENDING PARTY: the Ashland gym dance -----------------------------
+  // The party always happens once the banner is whole -- but only the staff
+  // the student actually MET show up, and how loud the room gets depends on
+  // how many that is. Four tiers, each a clear step up from the last:
+  //
+  //   1   0-10  a quiet gym dance. Your people, the music, and that's it.
+  //   2  11-20  a real crowd now, under green-and-gold lights.
+  //   3  21-49  DJ Eddie sets up his decks in the corner.
+  //   4  50+    the blowout: front-of-stage rig, speaker stacks, confetti,
+  //             fireworks, glowsticks, green/gold fountains, and five of the
+  //             staff tumbling across the floor.
+  //
+  // Lights stay kid-safe at every tier: slow sweeps and fades, no hard strobe.
+  var party = null;    // {t, savedNpcs, tier, confetti, fireworks}
   var partyFly = null; // {t, sparkles, ending}
-  var BOOTH = { x0: 41, x1: 43, y: 18 }; // DJ table tiles (gym far right)
+  var BOOTH = { x0: 41, x1: 43, y: 18 }; // DJ table tiles; startPartyRoom repositions
 
-  // rooms a student can actually walk into: something, somewhere, has a
-  // door or stairway leading to them. The staff-only bookkeeper's office and any
-  // door-less room (like the PLC room) don't count toward the total.
-  var countableCache = null;
-  function countableRooms() {
-    if (countableCache) return countableCache;
-    var reach = {};
-    Object.keys(G.Maps.all).forEach(function (mid) {
-      var m = G.Maps.all[mid];
-      Object.keys(m.doors || {}).forEach(function (k) { reach[m.doors[k].roomId] = true; });
-      Object.keys(m.stairs || {}).forEach(function (k) {
-        if (m.stairs[k].goRoom) reach[m.stairs[k].goRoom] = true;
+  // everyone who counts toward STAFF MET: every teacher-record (classroom
+  // teachers, office staff, roaming custodians...) plus Officer Garth.
+  // Eddie is the mascot-slash-DJ and stands outside the count.
+  function staffTotal() { return Object.keys(G.TEACHERS).length + 1; }
+  function countMet() { return Object.keys(met).length; }
+  function allStaffMet() { return countMet() >= staffTotal(); }
+  function debugMeetAll() {
+    Object.keys(G.TEACHERS).forEach(function (id) { met[id] = true; });
+    met['__officer__'] = true;
+  }
+
+  function partyTier() {
+    var n = countMet();
+    if (n >= 50) return 4;
+    if (n >= 21) return 3;
+    if (n >= 11) return 2;
+    return 1;
+  }
+  // Eddie only works the decks from tier 3 up; below that he is out on the
+  // floor dancing with everyone else (talking to him still ends the party)
+  function partyHasDj() { return !!party && party.tier >= 3; }
+
+  // the tumbling crew at the biggest party. Looked up by name so the roster
+  // stays the source of truth -- `hair` picks between same-name teachers
+  // (there are two Mrs. Smiths; the somersaulting one is the black-haired one).
+  var TUMBLERS = [
+    { name: 'Mrs. Smith', hair: 0 },
+    { name: 'Mrs. Oldham' },
+    { name: 'Mrs. Hill' },
+    { name: 'Mrs. Messer' },
+    { name: 'Mrs. Brown' }
+  ];
+  function findStaffId(want) {
+    var hits = Object.keys(G.TEACHERS).filter(function (id) {
+      return G.TEACHERS[id].name === want.name;
+    });
+    if (hits.length > 1 && want.hair !== undefined) {
+      var exact = hits.filter(function (id) {
+        var ov = G.TEACHERS[id].spriteOv;
+        return ov && ov.hairColor === want.hair;
       });
-    });
-    reach['b-gym'] = true; // the gym is an open area off the basement hallway
-    countableCache = Object.keys(G.ROOMS).filter(function (id) {
-      return id !== 'm-eagles' && reach[id];
-    });
-    return countableCache;
-  }
-
-  function allRoomsVisited() {
-    return countableRooms().every(function (id) { return visited[id]; });
-  }
-  function debugVisitAll() {
-    countableRooms().forEach(function (id) { visited[id] = true; });
+      if (exact.length) return exact[0];
+    }
+    return hits[0] || null;
   }
 
   function startParty() {
@@ -2646,29 +2739,60 @@ var G = window.G = window.G || {};
     player.moving = false;
     visited['b-gym'] = true;
     lastTriggerKey = '23,21';
-    party = { t: 0, savedNpcs: m.npcs };
+    var tier = partyTier();
+    party = { t: 0, savedNpcs: m.npcs, tier: tier };
+
+    // tier 4 hauls the big rig out in front of the stage; tier 3 is the
+    // little table in the far corner; below that there are no decks at all
+    if (tier >= 4) { BOOTH.x0 = 31; BOOTH.x1 = 35; BOOTH.y = 12; }
+    else { BOOTH.x0 = 41; BOOTH.x1 = 43; BOOTH.y = 18; }
 
     var dancers = [];
-    // DJ Eddie holds down the decks on the far right
-    dancers.push({ kind: 'eagle', dj: true, x: BOOTH.x0 + 1, y: BOOTH.y - 1, dancing: true });
+    if (tier >= 3) {
+      dancers.push({ kind: 'eagle', dj: true, x: BOOTH.x0 + 2, y: BOOTH.y - 1, dancing: true });
+    } else {
+      // no decks yet -- Eddie is just another Eagle out on the floor
+      dancers.push({ kind: 'eagle', x: 33, y: 16, dancing: true });
+    }
 
-    // EVERYBODY dances: every teacher, every staff member, Officer Garth
-    var ids = Object.keys(G.TEACHERS).concat(['__officer__']);
+    // the guest list is everyone the student actually MET on their adventure
+    var ids = Object.keys(G.TEACHERS).filter(function (id) { return met[id]; });
+    if (met['__officer__']) ids.push('__officer__');
+
+    // at the blowout, five of them tumble in a row out front of the rig --
+    // reserved first so nobody else is standing where they need to land
+    var tumbleRow = [];
+    var tumblers = {};
+    if (tier >= 4) {
+      TUMBLERS.forEach(function (want, i) {
+        var id = findStaffId(want);
+        if (id && met[id]) { tumblers[id] = i; tumbleRow.push([27 + i * 3, BOOTH.y + 4]); }
+      });
+    }
+
     var slots = [];
     for (var sy = 12; sy <= 26; sy += 2) {
       for (var sx = 22; sx <= 44; sx += 2) {
-        if (sx >= BOOTH.x0 - 1 && sy >= BOOTH.y - 2 && sy <= BOOTH.y + 1) continue; // DJ corner
-        if (Math.abs(sx - 23) <= 1 && Math.abs(sy - 21) <= 1) continue;             // player spawn
+        if (tier >= 3 && sx >= BOOTH.x0 - 1 && sx <= BOOTH.x1 + 1 &&
+            sy >= BOOTH.y - 2 && sy <= BOOTH.y + 1) continue;          // DJ corner
+        if (tier >= 4 && sy <= 13 && sx >= BOOTH.x0 - 3 && sx <= BOOTH.x1 + 2) continue; // speaker stacks
+        if (tier < 3 && Math.abs(sx - 33) <= 1 && Math.abs(sy - 16) <= 1) continue;      // Eddie's spot
+        if (Math.abs(sx - 23) <= 1 && Math.abs(sy - 21) <= 1) continue;                  // player spawn
+        if (tier >= 4 && sy >= BOOTH.y + 3 && sy <= BOOTH.y + 5 &&
+            sx >= 26 && sx <= 40) continue;                                             // the tumbling lane
         if (m.get(sx, sy) !== 'gymfloor') continue;
         slots.push([sx, sy]);
       }
     }
+
     ids.forEach(function (id) {
-      if (!slots.length) return;
       var h = 5381;
       for (var k = 0; k < id.length; k++) h = ((h << 5) + h + id.charCodeAt(k)) | 0;
       h = Math.abs(h);
-      var slot = slots.splice(h % slots.length, 1)[0];
+      var slot;
+      if (tumblers[id] !== undefined) slot = tumbleRow[tumblers[id]];
+      else if (slots.length) slot = slots.splice(h % slots.length, 1)[0];
+      if (!slot) return;
       var d = {
         x: slot[0], y: slot[1],
         px: slot[0] * TS + ((h % 7) - 3),
@@ -2677,6 +2801,15 @@ var G = window.G = window.G || {};
         anim: 0,
         dance: { phase: (h % 100) / 100 * Math.PI * 2, style: h % 3, speed: 5 + (h % 4) }
       };
+      if (tumblers[id] !== undefined) {
+        // head over heels, each one starting at a different point in the roll
+        d.px = slot[0] * TS;
+        d.py = slot[1] * TS;
+        d.tumble = { phase: tumblers[id] * 1.15, speed: 3.2 + (tumblers[id] % 3) * 0.35 };
+        d.dance.style = 3;
+      }
+      // glowsticks come out at the blowout
+      if (tier >= 4) d.glow = GLOW_COLORS[h % GLOW_COLORS.length];
       if (id === '__officer__') d.kind = 'officer';
       else { d.kind = 'teacher'; d.roomId = id; }
       dancers.push(d);
@@ -2686,20 +2819,37 @@ var G = window.G = window.G || {};
     state = 'play';
     G.Quest.setPartyMode(true);
     G.Audio.playParty();
-    showBanner('SECRET DANCE PARTY!');
+    showBanner(tier >= 4 ? 'ASHLAND BLOWOUT!!!'
+      : tier === 3 ? 'DJ EDDIE IS IN THE HOUSE!'
+        : tier === 2 ? 'THE GYM IS ROCKING!' : 'DANCE PARTY!');
   }
 
-  // three dance styles, doled out by hash: spin, bounce, shuffle
+  var GLOW_COLORS = ['#7dff9e', '#f7ff5a', '#6ff0ff', '#ff8ad4', '#ffae4a'];
+
+  // four dance styles, doled out by hash: spin, bounce, shuffle -- plus the
+  // somersault, handed out by name to the tumbling crew at the blowout
   function updateDancer(n, dt) {
     var d = n.dance;
     var t = party ? party.t : 0;
     n.anim = (n.anim || 0) + dt * 6;
+    if (d.style === 3) {
+      // head over heels, travelling a little way and rolling back again
+      var roll = t * d.speed + n.tumble.phase;
+      n.spin = roll;
+      n.dir = 'right';
+      n.hop = Math.abs(Math.sin(roll)) * 5;
+      n.px = n.x * TS + Math.round(Math.sin(roll * 0.5) * 10);
+      return;
+    }
     if (d.style === 0) {
       var dirs = ['down', 'left', 'up', 'right'];
       n.dir = dirs[Math.floor(t * 2.8 + d.phase) % 4];
       n.hop = 0;
     } else if (d.style === 1) {
-      n.dir = n.x < BOOTH.x0 ? 'right' : 'down';
+      // bouncers face the DJ: up toward the stage rig, or right at the side
+      // table. With no decks at all they just bounce toward the middle.
+      n.dir = !partyHasDj() ? (n.y > 16 ? 'up' : 'down')
+        : BOOTH.y <= 13 ? 'up' : (n.x < BOOTH.x0 ? 'right' : 'down');
       n.hop = Math.abs(Math.sin(t * d.speed + d.phase)) * 3;
     } else {
       n.dir = Math.floor(t * 2 + d.phase) % 2 ? 'left' : 'right';
@@ -2708,13 +2858,35 @@ var G = window.G = window.G || {};
     }
   }
 
+  // one firework: a shell that climbs, bursts, and rains sparks
+  function spawnFirework() {
+    var cols = ['#5fbd87', '#f7d84d', '#7dff9e', '#fff3a8', '#6ff0ff', '#ff8ad4'];
+    var parts = [];
+    var n = 16 + Math.floor(Math.random() * 10);
+    var c = cols[Math.floor(Math.random() * cols.length)];
+    for (var i = 0; i < n; i++) {
+      var a = (i / n) * Math.PI * 2;
+      var sp = 26 + Math.random() * 26;
+      parts.push({ a: a, sp: sp });
+    }
+    return {
+      x: 26 + Math.random() * 130,
+      y: 22 + Math.random() * 46,
+      t: 0, life: 1.1 + Math.random() * 0.5,
+      c: c, parts: parts
+    };
+  }
+
   function updateParty(dt) {
     party.t += dt;
     var m = map();
     m.npcs.forEach(function (n) {
-      if (n.dancing && !n.dj) updateDancer(n, dt);
+      // Eddie has no dance card -- he freestyles (see the eagle draw)
+      if (n.dancing && n.dance && !n.dj) updateDancer(n, dt);
     });
-    // confetti rains the whole time
+    if (party.tier < 4) return;
+
+    // confetti rains the whole time -- blowout only
     if (!party.confetti) {
       party.confetti = [];
       for (var i = 0; i < 90; i++) {
@@ -2733,6 +2905,38 @@ var G = window.G = window.G || {};
       p.x += p.vx * dt + Math.sin((p.y + p.x) / 16) * 0.5;
       if (p.y > SH + 4) { p.y = -4; p.x = Math.random() * SW; }
     });
+
+    // fireworks going off over the gym
+    if (!party.fireworks) { party.fireworks = []; party.nextFw = 0.2; }
+    party.nextFw -= dt;
+    if (party.nextFw <= 0) {
+      party.fireworks.push(spawnFirework());
+      party.nextFw = 0.55 + Math.random() * 0.7;
+    }
+    party.fireworks = party.fireworks.filter(function (f) {
+      f.t += dt;
+      return f.t < f.life;
+    });
+
+    // the two fountains either side of Eddie, throwing green and gold
+    if (!party.fountain) party.fountain = [];
+    party.fountain.forEach(function (s) {
+      s.t += dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.vy += 92 * dt;
+    });
+    party.fountain = party.fountain.filter(function (s) { return s.t < s.life; });
+    for (var f2 = 0; f2 < 2; f2++) {
+      for (var q = 0; q < 4; q++) {
+        party.fountain.push({
+          side: f2, t: 0, life: 0.9 + Math.random() * 0.6,
+          x: (Math.random() - 0.5) * 5, y: 0,
+          vx: (Math.random() - 0.5) * 34, vy: -(112 + Math.random() * 62),
+          c: Math.random() < 0.5 ? '#5fbd87' : '#f7d84d'
+        });
+      }
+    }
   }
 
   // one bobbing balloon bunch (three balloons + strings)
@@ -2754,16 +2958,44 @@ var G = window.G = window.G || {};
   // in FRONT of it appear in front (and Eddie stays tucked behind the decks)
   function drawDjBooth(cam) {
     var t = party.t;
+    var tiles = BOOTH.x1 - BOOTH.x0 + 1;
+    var bw = TS * tiles;
     var bx = BOOTH.x0 * TS - cam.x, by = BOOTH.y * TS - cam.y;
+
+    // the blowout rig gets speaker stacks flanking the booth: tall dark
+    // cabinets, woofers thumping in time with the music
+    if (party.tier >= 4) {
+      [bx - TS * 2 + 2, bx + bw + 2].forEach(function (sx0, si) {
+        var sw2 = TS + 8, sh2 = TS * 2 + 6;
+        var sy0 = by - TS - 4;
+        ctx.fillStyle = '#14141c';
+        ctx.fillRect(sx0 - 2, sy0 - 2, sw2 + 4, sh2 + 4);
+        ctx.fillStyle = '#20202c';
+        ctx.fillRect(sx0, sy0, sw2, sh2);
+        // two woofers, radius pulsing on the beat
+        [sy0 + 11, sy0 + 27].forEach(function (wy, wi) {
+          var pump = 1 + Math.abs(Math.sin(t * 8 + si + wi)) * 1.6;
+          ctx.fillStyle = '#0a0a10';
+          ctx.beginPath(); ctx.arc(sx0 + sw2 / 2, wy, 5.5 + pump, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = '#3a3a4c';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(sx0 + sw2 / 2, wy, 3 + pump * 0.6, 0, Math.PI * 2); ctx.stroke();
+        });
+        // tweeter
+        ctx.fillStyle = '#0a0a10';
+        ctx.fillRect(sx0 + sw2 / 2 - 2, sy0 + 2, 4, 4);
+      });
+    }
+
     ctx.fillStyle = '#1c1c26';
-    ctx.fillRect(bx - 2, by - 2, TS * 3 + 4, TS + 4);
+    ctx.fillRect(bx - 2, by - 2, bw + 4, TS + 4);
     ctx.fillStyle = '#2a3450';
-    ctx.fillRect(bx, by, TS * 3, TS);
+    ctx.fillRect(bx, by, bw, TS);
     ctx.fillStyle = '#4a5a80';
-    ctx.fillRect(bx, by, TS * 3, 3);
-    G.Tiles.drawTinyText(ctx, 'DJ EDDIE', bx + 8, by + 10, '#f7d84d', 1);
+    ctx.fillRect(bx, by, bw, 3);
+    G.Tiles.drawTinyText(ctx, 'DJ EDDIE', bx + Math.round(bw / 2) - 16, by + 10, '#f7d84d', 1);
     // two spinning vinyls
-    [bx + 9, bx + TS * 3 - 9].forEach(function (cxx, i) {
+    [bx + 9, bx + bw - 9].forEach(function (cxx, i) {
       var cy = by + 5;
       ctx.fillStyle = '#0c0c14';
       ctx.beginPath(); ctx.arc(cxx, cy, 5.5, 0, Math.PI * 2); ctx.fill();
@@ -2775,6 +3007,60 @@ var G = window.G = window.G || {};
       ctx.beginPath(); ctx.moveTo(cxx, cy); ctx.lineTo(cxx + Math.cos(a) * 5, cy + Math.sin(a) * 5); ctx.stroke();
       ctx.fillStyle = '#f7d84d';
       ctx.fillRect(cxx - 1, cy - 1, 2, 2);
+    });
+    // full rig only: a bar of color-cycling party lights along the booth front
+    if (party.tier >= 4) {
+      var LC = ['#f7d84d', '#5fbd87', '#3a63c4', '#e06a92', '#9a6ee0'];
+      for (var li2 = 0; li2 < 5; li2++) {
+        var lx2 = bx + 6 + li2 * ((bw - 12) / 4);
+        var on = Math.sin(t * 5 + li2 * 1.3) > 0;
+        ctx.fillStyle = on ? LC[(li2 + Math.floor(t)) % LC.length] : '#20202c';
+        ctx.fillRect(Math.round(lx2) - 1, by + TS, 3, 3);
+      }
+      drawFountains(bx, by, bw);
+    }
+  }
+
+  // two sparks fountains, one either side of Eddie, jetting green and gold.
+  // Cold-spark style: they arc up and fade, no flame, nothing that scorches
+  // the gym floor a real principal would have to answer for.
+  function drawFountains(bx, by, bw) {
+    var bases = [bx - 46, bx + bw + 42]; // clear of the speaker stacks
+    var ny = by + 12;                    // nozzle height
+    ctx.globalCompositeOperation = 'lighter';
+    (party.fountain || []).forEach(function (s) {
+      var b = bases[s.side];
+      var fade = 1 - s.t / s.life;
+      ctx.globalAlpha = Math.max(0, fade);
+      ctx.fillStyle = s.c;
+      var sz = s.t < 0.2 ? 3 : 2;
+      ctx.fillRect(Math.round(b + s.x), Math.round(ny + s.y), sz, sz);
+    });
+    // a bright column of light standing over each nozzle
+    bases.forEach(function (b) {
+      var col = ctx.createLinearGradient(0, ny - 46, 0, ny + 4);
+      col.addColorStop(0, 'rgba(120,255,170,0)');
+      col.addColorStop(0.55, 'rgba(190,255,150,0.16)');
+      col.addColorStop(1, 'rgba(255,248,190,0.5)');
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = col;
+      ctx.fillRect(b - 9, ny - 46, 20, 50);
+      var g = ctx.createRadialGradient(b + 1, ny, 1, b + 1, ny, 18);
+      g.addColorStop(0, 'rgba(255,255,225,0.95)');
+      g.addColorStop(1, 'rgba(255,255,225,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(b - 17, ny - 17, 36, 36);
+    });
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    // the canisters they fire out of
+    bases.forEach(function (b) {
+      ctx.fillStyle = '#14141c';
+      ctx.fillRect(b - 6, ny + 1, 14, 13);
+      ctx.fillStyle = '#2a3450';
+      ctx.fillRect(b - 5, ny + 2, 12, 11);
+      ctx.fillStyle = '#5fbd87';
+      ctx.fillRect(b - 5, ny + 2, 12, 2);
     });
   }
 
@@ -2807,42 +3093,68 @@ var G = window.G = window.G || {};
       }
     }
 
-    // streamers scalloped along the top of the gym
-    var cols2 = ['#c43a3a', '#3a63c4', '#2e8f57', '#9a6ee0', '#e06a92'];
-    for (var st = 0; st < 12; st++) {
-      var sx0 = (22 + st * 2) * TS - cam.x;
-      ctx.strokeStyle = cols2[st % cols2.length];
-      ctx.beginPath();
-      ctx.moveTo(sx0, 9 * TS - cam.y);
-      ctx.quadraticCurveTo(sx0 + TS, 9 * TS + 10 - cam.y, sx0 + TS * 2, 9 * TS - cam.y);
-      ctx.stroke();
+    // streamers scalloped along the top of the gym -- blowout only
+    if (party.tier >= 4) {
+      var cols2 = ['#c43a3a', '#3a63c4', '#2e8f57', '#9a6ee0', '#e06a92'];
+      for (var st = 0; st < 12; st++) {
+        var sx0 = (22 + st * 2) * TS - cam.x;
+        ctx.strokeStyle = cols2[st % cols2.length];
+        ctx.beginPath();
+        ctx.moveTo(sx0, 9 * TS - cam.y);
+        ctx.quadraticCurveTo(sx0 + TS, 9 * TS + 10 - cam.y, sx0 + TS * 2, 9 * TS - cam.y);
+        ctx.stroke();
+      }
     }
 
-    // balloon bunches around the floor and beside the stage
+    // balloon bunches: the works at the blowout, a couple otherwise
     drawBalloons(23 * TS - cam.x, 11 * TS - cam.y, t, 0);
     drawBalloons(43 * TS - cam.x, 11 * TS - cam.y, t, 2);
-    drawBalloons(22 * TS - cam.x, 25 * TS - cam.y, t, 4);
-    drawBalloons(44 * TS - cam.x, 24 * TS - cam.y, t, 1);
-    drawBalloons(33 * TS - cam.x, 26 * TS - cam.y, t, 3);
-
-    // gentle dimming pulse (never dark, never strobing)
-    ctx.fillStyle = 'rgba(12,8,44,' + (0.30 + 0.08 * Math.sin(t * 3)).toFixed(3) + ')';
-    ctx.fillRect(0, 0, SW, SH);
-    // three colored spotlights sweep the floor
-    ctx.globalCompositeOperation = 'lighter';
-    var colors = ['#f7d84d', '#5fbd87', '#3a63c4'];
-    for (var i2 = 0; i2 < 3; i2++) {
-      var lx = (33 + 10 * Math.sin(t * (0.9 + i2 * 0.35) + i2 * 2.1)) * TS - cam.x;
-      var ly = (18 + 6 * Math.sin(t * (1.2 + i2 * 0.3) + i2 * 1.4)) * TS - cam.y;
-      var g = ctx.createRadialGradient(lx, ly, 4, lx, ly, 55);
-      g.addColorStop(0, colors[i2]);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.globalAlpha = 0.22;
-      ctx.fillStyle = g;
-      ctx.fillRect(lx - 55, ly - 55, 110, 110);
+    if (party.tier >= 4) {
+      drawBalloons(22 * TS - cam.x, 25 * TS - cam.y, t, 4);
+      drawBalloons(44 * TS - cam.x, 24 * TS - cam.y, t, 1);
+      drawBalloons(33 * TS - cam.x, 26 * TS - cam.y, t, 3);
     }
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
+
+    // TIER 1 keeps the house lights up: it is a gym, with people dancing in
+    // it, and that is the whole charm. The light show starts at tier 2.
+    if (party.tier >= 2) {
+      // gentle dimming pulse (never dark, never strobing)
+      ctx.fillStyle = 'rgba(12,8,44,' + (0.30 + 0.08 * Math.sin(t * 3)).toFixed(3) + ')';
+      ctx.fillRect(0, 0, SW, SH);
+      // tier 2 is a pair of school-colour lights fading green <-> gold; tiers
+      // 3 and 4 open up the full three-colour sweep
+      ctx.globalCompositeOperation = 'lighter';
+      var colors = party.tier === 2
+        ? ['#5fbd87', '#f7d84d']
+        : ['#f7d84d', '#5fbd87', '#3a63c4'];
+      for (var i2 = 0; i2 < colors.length; i2++) {
+        var lx = (33 + 10 * Math.sin(t * (0.9 + i2 * 0.35) + i2 * 2.1)) * TS - cam.x;
+        var ly = (18 + 6 * Math.sin(t * (1.2 + i2 * 0.3) + i2 * 1.4)) * TS - cam.y;
+        var g = ctx.createRadialGradient(lx, ly, 4, lx, ly, 55);
+        g.addColorStop(0, colors[i2]);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        // tier 2's two lights breathe in and out of each other, so the room
+        // reads as flashing green and gold -- a slow fade, never a strobe
+        ctx.globalAlpha = party.tier === 2
+          ? 0.10 + 0.32 * (0.5 + 0.5 * Math.sin(t * 3 + i2 * Math.PI))
+          : 0.22;
+        ctx.fillStyle = g;
+        ctx.fillRect(lx - 55, ly - 55, 110, 110);
+      }
+      // tier 2 washes the WHOLE gym green, then gold, then green again, so
+      // there is no mistaking what colour the room is doing
+      if (party.tier === 2) {
+        var swing = 0.5 + 0.5 * Math.sin(t * 3);
+        ctx.globalAlpha = 0.20 * (1 - swing);
+        ctx.fillStyle = '#5fbd87';
+        ctx.fillRect(0, 0, SW, SH);
+        ctx.globalAlpha = 0.20 * swing;
+        ctx.fillStyle = '#f7d84d';
+        ctx.fillRect(0, 0, SW, SH);
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
     // disco ball above the stage
     var dbx = 33 * TS - cam.x, dby = 10 * TS + 4 - cam.y;
     ctx.strokeStyle = '#8a8f96';
@@ -2854,6 +3166,30 @@ var G = window.G = window.G || {};
       var sa = t * 1.5 + s3;
       ctx.fillRect(Math.round(dbx + Math.cos(sa) * (10 + s3 * 5)), Math.round(dby + 4 + Math.sin(sa) * 5), 2, 2);
     }
+    // fireworks bursting over the gym, brightest thing in the room
+    if (party.fireworks) {
+      ctx.globalCompositeOperation = 'lighter';
+      party.fireworks.forEach(function (f) {
+        var p = f.t / f.life;
+        ctx.globalAlpha = Math.max(0, 1 - p * p);
+        ctx.fillStyle = f.c;
+        f.parts.forEach(function (sp) {
+          var r = sp.sp * f.t;
+          var px = f.x + Math.cos(sp.a) * r;
+          var py = f.y + Math.sin(sp.a) * r + 34 * f.t * f.t;
+          ctx.fillRect(Math.round(px), Math.round(py), 2, 2);
+        });
+        // the white flash right at the burst
+        if (f.t < 0.12) {
+          ctx.globalAlpha = 1 - f.t / 0.12;
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath(); ctx.arc(f.x, f.y, 7, 0, Math.PI * 2); ctx.fill();
+        }
+      });
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
     // confetti rains over everything, bright above the lights
     if (party.confetti) {
       party.confetti.forEach(function (p) {
@@ -2998,7 +3334,7 @@ var G = window.G = window.G || {};
     });
     ents.push({ y: player.y, player: true });
     // the DJ table takes part in the sort like any other body in the room
-    if (party) ents.push({ y: BOOTH.y * TS + 8, booth: true });
+    if (partyHasDj()) ents.push({ y: BOOTH.y * TS + 8, booth: true });
     ents.sort(function (a, b) { return a.y - b.y; });
 
     function dropShadow(cx, cy) {
@@ -3039,6 +3375,10 @@ var G = window.G = window.G || {};
               ctx.fillRect(nx + 3, ny - 2 + djBob, 2, 4);   // ear cups
               ctx.fillRect(nx + 12, ny - 2 + djBob, 2, 4);
             }
+          } else if (party && n.dancing) {
+            // no decks tonight: Eddie is out on the floor busting a move
+            var hop = Math.round(Math.abs(Math.sin(party.t * 5)) * 4);
+            ctx.drawImage(eagleSprite, nx, ny - 4 - hop);
           } else {
             ctx.drawImage(eagleSprite, nx, ny - 4);
           }
@@ -3051,8 +3391,33 @@ var G = window.G = window.G || {};
           // stands taller than everyone) -- feet stay planted on the same tile
           var t2 = n.kind === 'teacher' && G.TEACHERS[n.roomId];
           var ah = t2 && t2.tall ? frame.height + 2 : frame.height;
-          // dancers hop; the shadow stays on the ground
-          ctx.drawImage(frame, 0, 0, 16, frame.height, nx, ny - (ah - 16) - Math.round(n.hop || 0), 16, ah);
+          var dy = ny - (ah - 16) - Math.round(n.hop || 0);
+          if (n.tumble) {
+            // head over heels: spin the whole sprite about its middle
+            ctx.save();
+            ctx.translate(nx + 8, dy + ah / 2);
+            ctx.rotate(n.spin || 0);
+            ctx.drawImage(frame, 0, 0, 16, frame.height, -8, -ah / 2, 16, ah);
+            ctx.restore();
+          } else {
+            // dancers hop; the shadow stays on the ground
+            ctx.drawImage(frame, 0, 0, 16, frame.height, nx, dy, 16, ah);
+          }
+          // glowsticks: waved overhead, one per guest at the blowout
+          if (n.glow && party) {
+            var ga = Math.sin(party.t * 4 + (n.dance ? n.dance.phase : 0)) * 0.9;
+            var gx = nx + 8 + Math.cos(ga - Math.PI / 2) * 9;
+            var gy = dy + 4 + Math.sin(ga - Math.PI / 2) * 9;
+            ctx.globalCompositeOperation = 'lighter';
+            var gg = ctx.createRadialGradient(gx, gy, 0, gx, gy, 7);
+            gg.addColorStop(0, n.glow);
+            gg.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gg;
+            ctx.fillRect(gx - 7, gy - 7, 14, 14);
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = n.glow;
+            ctx.fillRect(Math.round(gx) - 1, Math.round(gy) - 2, 2, 5);
+          }
         }
       }
     });
@@ -3212,14 +3577,12 @@ var G = window.G = window.G || {};
     ctx.fillStyle = '#ffffff';
     ctx.fillText(G.Quest.countFound() + ' OF 4', 52, y0 + 34);
 
-    var countable = countableRooms();
-    var seen = countable.filter(function (id) { return visited[id]; }).length;
     ctx.fillStyle = '#5fbd87';
-    ctx.fillText('ROOMS', 270, y0 + 6);
+    ctx.fillText('STAFF', 270, y0 + 6);
     ctx.fillStyle = '#9aa0ac';
-    ctx.fillText('VISITED', 270, y0 + 18);
+    ctx.fillText('MET', 270, y0 + 18);
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(seen + '/' + countable.length, 270, y0 + 32);
+    ctx.fillText(countMet() + '/' + staffTotal(), 270, y0 + 32);
 
     // the blinking prompt sits between them, under its own little rule,
     // with Eddie keeping watch below
@@ -3286,24 +3649,20 @@ var G = window.G = window.G || {};
     ctx.fillText(G.Quest.countFound() + ' OF 4', cx, 86);
     divider(102);
 
-    // rooms visited -- only rooms a student can actually reach count
-    // (no staff-only bookkeeper's office, no door-less rooms)
-    var countable = countableRooms();
-    var total = countable.length;
-    var seen = countable.filter(function (id) { return visited[id]; }).length;
+    // staff met -- every hello grows the party waiting in the gym
     ctx.fillStyle = '#5fbd87';
-    ctx.fillText('ROOMS', cx, 106);
+    ctx.fillText('STAFF', cx, 106);
     ctx.fillStyle = '#9aa0ac';
-    ctx.fillText('VISITED', cx, 118);
+    ctx.fillText('MET', cx, 118);
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(seen + '/' + total, cx, 131);
+    ctx.fillText(countMet() + '/' + staffTotal(), cx, 131);
     divider(142);
 
     // where the player is right now
     var m = G.Maps.all[currentMapId];
     var location = currentPlaceLabel();
     // "CURRENT LOCATION" is wider than the panel, so it stacks -- the same
-    // shape as ROOMS / VISITED just above it
+    // shape as STAFF / MET just above it
     ctx.fillStyle = '#9fd4e8';
     ctx.fillText('CURRENT', cx, 146);
     ctx.fillText('LOCATION', cx, 157);
@@ -3866,9 +4225,13 @@ var G = window.G = window.G || {};
     startParty: startParty,
     startDollyParty: startDollyParty,
     finishParty: finishParty,
-    allRoomsVisited: allRoomsVisited,
+    allStaffMet: allStaffMet,
+    countMet: countMet,
+    staffTotal: staffTotal,
+    partyTier: function () { return party ? party.tier : partyTier(); },
+    metStaff: function () { return met; },
     hasSeenFloor: function (f) { return !!floorsSeen[f]; },
-    debugVisitAll: debugVisitAll,
+    debugMeetAll: debugMeetAll,
     battleVictory: battleVictory,
     deliverLetters: deliverLetters,
     // debug helpers (used for testing; harmless to leave in)

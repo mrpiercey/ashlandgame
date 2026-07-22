@@ -176,26 +176,37 @@ var G = window.G = window.G || {};
     }
 
     if (inChoices) {
+      // a titled menu with a lit-up row, so it is obvious these are two
+      // buttons the player picks between (and not just more talking)
       ctx.font = font(8);
-      var maxLabel = 0;
+      var HEAD = 'PICK ONE:';
+      var rowH = 16;
+      var maxLabel = ctx.measureText(HEAD).width;
       choices.forEach(function (c) {
         maxLabel = Math.max(maxLabel, ctx.measureText(c.label).width);
       });
-      var cw = Math.min(SW - 12, Math.max(170, maxLabel + 44));
-      var chH = choices.length * 14 + 18;
+      var cw = Math.min(SW - 12, Math.max(170, maxLabel + 46));
+      var chH = choices.length * rowH + 32;
       var cx = SW - cw - 8, cy = y - chH - 2;
       drawWindow(ctx, cx, cy, cw, chH);
       ctx.font = font(8);
+      ctx.fillStyle = '#9fd4e8';
+      ctx.fillText(HEAD, cx + 10, cy + 9);
       choiceRects.length = 0;
       for (var c = 0; c < choices.length; c++) {
+        var ry = cy + 24 + c * rowH;
+        if (c === choiceIdx) {
+          ctx.fillStyle = 'rgba(247,216,77,0.22)';
+          ctx.fillRect(cx + 6, ry - 4, cw - 12, rowH - 2);
+        }
         ctx.fillStyle = c === choiceIdx ? '#f7d84d' : '#f4f4f4';
-        ctx.fillText(choices[c].label, cx + 24, cy + 11 + c * 14);
+        ctx.fillText(choices[c].label, cx + 24, ry);
         if (c === choiceIdx) {
           ctx.fillStyle = '#f7d84d';
-          ctx.fillText('>', cx + 10, cy + 11 + c * 14);
+          ctx.fillText('>', cx + 10, ry);
         }
         // remembered here so a finger hits exactly what it sees
-        choiceRects.push({ x: cx, y: cy + 6 + c * 14, w: cw, h: 14 });
+        choiceRects.push({ x: cx, y: ry - 4, w: cw, h: rowH });
       }
     } else {
       choiceRects.length = 0;
