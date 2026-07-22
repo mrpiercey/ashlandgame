@@ -972,6 +972,8 @@ var G = window.G = window.G || {};
       hello.push({ name: name, text: 'O is for ON TASK EVERY DAY.' });
       hello.push({ name: name, text: 'A is for ACCOUNTABLE FOR ALL WE DO.' });
       hello.push({ name: name, text: 'And R is for RESPECT FOR ME AND YOU. That is how Eagles SOAR!' });
+      hello.push({ name: name, text: 'Not sure where to go? Follow the golden arrow -- Eddie keeps it pointed wherever you are needed next.' });
+      hello.push({ name: name, text: 'Take your time and explore, though! Every teacher has a story, and this old building is FULL of little secrets. You never know what you might find!' });
       hello.push({ name: name, text: suggestTeacher() });
     } else if (metEddie) {
       hello.push({ name: name, text: 'Any luck finding those golden letters?' });
@@ -1234,7 +1236,9 @@ var G = window.G = window.G || {};
       { name: 'EDDIE THE EAGLE', text: 'SQUAWK! Oh no, oh no... am I glad to see you! I need your help, friend!' },
       { name: 'EDDIE THE EAGLE', text: 'All summer I was flying around the school helping the teachers get their rooms set up for the new year...' },
       { name: 'EDDIE THE EAGLE', text: '...and while I was swooping through the halls, I accidentally DROPPED all four golden letters of our SOAR EXPECTATIONS! S! O! A! R! They scattered EVERYWHERE!' },
-      { name: 'EDDIE THE EAGLE', text: 'Will you help me find them? Go talk to MRS. WALKER, our principal, first -- her office is at the far end of this hallway. She knows how to get them back! SQUAWK!' }
+      { name: 'EDDIE THE EAGLE', text: 'Will you help me find them? Go talk to MRS. WALKER, our principal, first -- her office is at the far end of this hallway. She knows how to get them back! SQUAWK!' },
+      { name: 'EDDIE THE EAGLE', text: 'And hey -- not sure where to go? Just follow the golden ARROW! I fly it around from up here so it always points at wherever you need to be next.' },
+      { name: 'EDDIE THE EAGLE', text: 'But do not JUST follow it -- go explore! I have flown every hallway in this school and there are secrets tucked in every corner. You never know what you might find!' }
     ];
     if (allFound()) {
       pages = [{ name: 'EDDIE THE EAGLE', text: 'SQUAWK! You found all four letters! You are a true Eagle! Hurry to Mrs. Walker\'s office at the far end of this hallway!' }];
