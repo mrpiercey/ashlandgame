@@ -10,8 +10,8 @@ var G = window.G = window.G || {};
 
   var FLOOR_NAMES = { middle: 'the ground floor', top: 'the top floor', basement: 'the lower floor' };
 
-  // the Ashland S.O.A.R. motto - teachers quiz students on these before
-  // handing a letter over
+  // the Ashland SOAR expectations: what scholars here do to be successful.
+  // Teachers quiz students on these before handing a letter over.
   var MEANINGS = {
     S: 'SAFETY AT WORK AND PLAY',
     O: 'ON TASK EVERY DAY',
@@ -20,7 +20,7 @@ var G = window.G = window.G || {};
   };
 
   // convincing wrong answers for each letter's quiz (all start with the
-  // same letter, so students have to really know the motto)
+  // same letter, so students have to really know the expectations)
   var DISTRACTORS = {
     S: ['SIT STILL IN CLASS', 'SUPER SPELLING SKILLS', 'STAY IN A STRAIGHT LINE', 'SMILE AT EVERYONE', 'SHARE YOUR SNACKS'],
     O: ['OBEY ALL THE RULES', 'ONE VOICE AT A TIME', 'OPEN YOUR BOOKS OFTEN', 'ORGANIZE YOUR DESK', 'ONLY WALK IN THE HALLS'],
@@ -1054,7 +1054,7 @@ var G = window.G = window.G || {};
     'S-O-A-R! S-O-A-R! Sing it with me!',
     'The banner looks PERFECT thanks to you!',
     'You are a true Ashland Eagle!',
-    'I told everyone about the student who saved our motto!',
+    'I told everyone about the student who saved our SOAR expectations!',
     'Best. Scavenger. Hunt. EVER!',
     'You explored the WHOLE school. Even I have not done that!',
     'When I heard the news, I cheered out loud!',
@@ -1233,7 +1233,7 @@ var G = window.G = window.G || {};
     var pages = [
       { name: 'EDDIE THE EAGLE', text: 'SQUAWK! Oh no, oh no... am I glad to see you! I need your help, friend!' },
       { name: 'EDDIE THE EAGLE', text: 'All summer I was flying around the school helping the teachers get their rooms set up for the new year...' },
-      { name: 'EDDIE THE EAGLE', text: '...and while I was swooping through the halls, I accidentally DROPPED all four golden letters of our motto! S! O! A! R! They scattered EVERYWHERE!' },
+      { name: 'EDDIE THE EAGLE', text: '...and while I was swooping through the halls, I accidentally DROPPED all four golden letters of our SOAR EXPECTATIONS! S! O! A! R! They scattered EVERYWHERE!' },
       { name: 'EDDIE THE EAGLE', text: 'Will you help me find them? Go talk to MRS. WALKER, our principal, first -- her office is at the far end of this hallway. She knows how to get them back! SQUAWK!' }
     ];
     if (allFound()) {

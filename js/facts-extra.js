@@ -630,7 +630,7 @@ G.FACTS_EXTRA = {
     "The R brings it home. Big finish!",
     "Respect for teachers, friends, and YOURSELF.",
     "The R has a leg out like it's mid-dance move.",
-    "Four letters, one motto, all Eagle."
+    "Four letters, four expectations, all Eagle."
   ],
   // ---- the playground -------------------------------------------------------
   "mulch": [

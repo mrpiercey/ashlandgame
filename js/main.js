@@ -2264,7 +2264,7 @@ var G = window.G = window.G || {};
     showBanner('GROUND FLOOR');
     G.Dialogue.start([
       { text: 'Summer is almost over, and Ashland Elementary is getting ready for the 26/27 school year...' },
-      { text: '...but something is WRONG. The four golden letters of the school motto -- S, O, A, R -- are MISSING!' },
+      { text: '...but something is WRONG. The four golden letters of the SOAR EXPECTATIONS -- S, O, A, R -- are MISSING!' },
       { text: 'EDDIE THE EAGLE is racing around the hallway near you, and he looks worried. Walk up to him and press almost any key -- he knows what happened!' },
       { text: 'Use the ARROW KEYS (or the d-pad) to walk. Walk into doors to enter rooms!' },
       { text: 'On a computer you can also use the MOUSE: click a teacher or an object and you will walk right over and check it out!' }
