@@ -60,6 +60,26 @@ var G = window.G = window.G || {};
     if (!isTouch) return;
     document.body.classList.add('touch');
 
+    // ---- keep iOS Safari from zooming the game ----------------------------
+    // Safari ignores the page's user-scalable=no, and older versions ignore
+    // touch-action too. Two guards that work everywhere:
+    // 1) a second tap right after the first is Safari's zoom gesture -- and
+    //    picking a student or an option is exactly two quick taps.
+    var lastTapEnd = 0;
+    document.addEventListener('touchend', function (e) {
+      var now = Date.now();
+      if (now - lastTapEnd <= 350 && e.cancelable) e.preventDefault();
+      lastTapEnd = now;
+    }, { passive: false });
+    // 2) pinch, which Safari reports through its own gesture events. A
+    //    fixed-size game has nothing useful to zoom into, and letting it
+    //    happen is what left students stranded at 1.4x with no way back.
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (ev) {
+      document.addEventListener(ev, function (e) {
+        if (e.cancelable) e.preventDefault();
+      }, { passive: false });
+    });
+
     // The pad reads the finger's POSITION, not which button it landed on, so
     // you can slide from left to up to right without lifting off. Buttons
     // still light up individually -- that is just :active on the one under
