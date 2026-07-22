@@ -118,27 +118,46 @@ body.touch #touch-controls { display: block; }
    no reason to ask anyone to turn their phone. */
 #rotate-hint { display: none; }
 
-/* upright: game pinned to the top, thumbs get the space underneath */
+/* Upright: game on top, thumbs underneath -- laid out as a normal column
+   so the controls sit BELOW the canvas by construction. (They used to be
+   positioned from the viewport height, which slides around as a phone's
+   URL bar hides and shows, making everything jump and overlap.) */
 body.portrait #game-wrap {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   padding-top: env(safe-area-inset-top, 0px);
 }
 body.portrait #game {
   display: block;
-  margin: 0 auto;
+  flex: 0 0 auto;
+}
+body.portrait #touch-controls {
+  position: static;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 44px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 body.portrait #dpad {
-  left: 50%;
-  transform: translateX(-152px);
-  top: var(--ctl-top, 60%);
+  position: relative;
+  left: auto;
   bottom: auto;
+  transform: none;
+  flex: 0 0 auto;
 }
 body.portrait #a-btn {
+  position: relative;
+  left: auto;
   right: auto;
-  left: 50%;
-  transform: translateX(56px);
-  top: calc(var(--ctl-top, 60%) + 38px);
   bottom: auto;
+  transform: none;
+  flex: 0 0 auto;
 }
 /* phones already have a volume rocker -- no need to spend screen on ours */
 body.touch #mute-btn { display: none; }

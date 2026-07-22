@@ -9,6 +9,7 @@ var G = window.G = window.G || {};
   var charCount = 0;
   var wrapped = [];
   var choices = null;  // [{label, cb}]
+  var choiceRects = []; // where each option was last drawn, for finger taps
   var choiceIdx = 0;
   var inChoices = false;
   var onDone = null;
@@ -185,6 +186,7 @@ var G = window.G = window.G || {};
       var cx = SW - cw - 8, cy = y - chH - 2;
       drawWindow(ctx, cx, cy, cw, chH);
       ctx.font = font(8);
+      choiceRects.length = 0;
       for (var c = 0; c < choices.length; c++) {
         ctx.fillStyle = c === choiceIdx ? '#f7d84d' : '#f4f4f4';
         ctx.fillText(choices[c].label, cx + 24, cy + 11 + c * 14);
@@ -192,8 +194,32 @@ var G = window.G = window.G || {};
           ctx.fillStyle = '#f7d84d';
           ctx.fillText('>', cx + 10, cy + 11 + c * 14);
         }
+        // remembered here so a finger hits exactly what it sees
+        choiceRects.push({ x: cx, y: cy + 6 + c * 14, w: cw, h: 14 });
+      }
+    } else {
+      choiceRects.length = 0;
+    }
+  }
+
+  // a finger pressing one of the options. Returns true if it landed on one.
+  function tapChoice(gx, gy) {
+    if (!active || !inChoices || !choiceRects.length) return false;
+    for (var i = 0; i < choiceRects.length; i++) {
+      var r = choiceRects[i];
+      // a little padding: options are 14px tall, fingertips are not
+      if (gx >= r.x - 4 && gx <= r.x + r.w + 4 && gy >= r.y - 3 && gy <= r.y + r.h + 3) {
+        if (choiceIdx !== i) { choiceIdx = i; G.Audio.sfx('blip'); }
+        var ch = choices[i];
+        active = false;
+        var cb = onDone; onDone = null;
+        choiceRects.length = 0;
+        if (ch.cb) ch.cb();
+        else if (cb) cb();
+        return true;
       }
     }
+    return false;
   }
 
   G.Dialogue = {
@@ -202,6 +228,7 @@ var G = window.G = window.G || {};
     draw: draw,
     drawWindow: drawWindow,
     wrapText: wrapText,
+    tapChoice: tapChoice,
     isActive: function () { return active; }
   };
 })();

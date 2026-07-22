@@ -142,24 +142,19 @@ var G = window.G = window.G || {};
       canvas.height = h;
       ctx.imageSmoothingEnabled = false;
     }
-    // upright, the controls live under the game, so leave room for them
-    var avail = portrait ? window.innerHeight * 0.62 : window.innerHeight;
-    var scale = Math.min(window.innerWidth / w, avail / h);
+    // Upright, the game takes the full width and the controls flow in
+    // underneath. Reserve room for them off a COARSE height so a phone's
+    // sliding URL bar doesn't rescale the canvas on every scroll tick.
+    var avail = portrait
+      ? Math.round(window.innerHeight / 40) * 40 - 200
+      : window.innerHeight;
+    var scale = Math.min(window.innerWidth / w, Math.max(1, avail) / h);
     // big screens snap to whole-number scaling (crispest pixels); small
     // screens (phones, tablets) take the exact fit so the game fills them
     if (scale >= 2) scale = Math.floor(scale);
     canvas.style.width = Math.floor(w * scale) + 'px';
     canvas.style.height = Math.floor(h * scale) + 'px';
     document.body.classList.toggle('portrait', portrait);
-    // centre the thumb controls in whatever room is left under the game:
-    // low enough to reach, never stranded at the very bottom of a tall phone
-    if (portrait) {
-      var bottomOfGame = Math.floor(h * scale);
-      var room = Math.max(0, window.innerHeight - bottomOfGame);
-      var top = bottomOfGame + Math.max(18, (room - 200) / 2);
-      top = Math.min(top, Math.max(0, window.innerHeight - 200));
-      document.documentElement.style.setProperty('--ctl-top', Math.round(top) + 'px');
-    }
   }
 
   // ---- game loop ----------------------------------------------------------
@@ -1079,6 +1074,10 @@ var G = window.G = window.G || {};
     var gy = (e.clientY - r.top) / r.height * canvas.height;
     // upright, the world sits below the top bar
     if (portrait) gy -= TOP_H;
+    // picking a student, or an option in a conversation: press the one you
+    // want with your finger instead of hunting for the right button
+    if (state === 'charselect' && charSelectTap(gx, gy)) return;
+    if (G.Dialogue.tapChoice(gx, gy)) return;
     // outside free play (title, dialogue, battle, menus...) a click is
     // simply the action button -- it advances whatever is on screen
     if (state !== 'play' || G.Dialogue.isActive() || transition || ceremony) {
@@ -3519,6 +3518,39 @@ var G = window.G = window.G || {};
     state = 'charselect';
   }
 
+  // where each student's card sits -- shared by the drawing and the
+  // finger hit-test so the two can never drift apart
+  var CHAR_BOX = { w: 52, h: 76, gap: 8 };
+  function charBox(i) {
+    var left = (SW - (5 * CHAR_BOX.w + 4 * CHAR_BOX.gap)) / 2;
+    return {
+      x: left + (i % 5) * (CHAR_BOX.w + CHAR_BOX.gap),
+      y: 44 + Math.floor(i / 5) * (CHAR_BOX.h + 10),
+      w: CHAR_BOX.w, h: CHAR_BOX.h
+    };
+  }
+  // a tap picks that student; tapping the one already picked starts the game
+  function charSelectTap(gx, gy) {
+    if (!charSel) return false;
+    for (var i = 0; i < CHARACTERS.length; i++) {
+      var b = charBox(i);
+      // a generous target: fingers are bigger than 52px boxes
+      if (gx >= b.x - 4 && gx <= b.x + b.w + 4 && gy >= b.y - 4 && gy <= b.y + b.h + 6) {
+        if (charSel.i === i) {
+          playerFrames = charSel.frames[i];
+          G.playerName = CHARACTERS[i].name;
+          G.Audio.sfx('fanfare');
+          startIntro();
+        } else {
+          charSel.i = i;
+          G.Audio.sfx('blip');
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
   function updateCharSelect() {
     var c = charSel;
     if (G.Input.consumeDir('left')) { c.i = (c.i + CHARACTERS.length - 1) % CHARACTERS.length; G.Audio.sfx('blip'); }
@@ -3554,13 +3586,11 @@ var G = window.G = window.G || {};
     ctx.fillStyle = '#9fd4e8';
     ctx.fillText('WHO IS EXPLORING ASHLAND TODAY?', SW / 2, 28);
 
-    var BOX_W = 52, BOX_H = 76, GAP = 8;
-    var left = (SW - (5 * BOX_W + 4 * GAP)) / 2;
+    var BOX_W = CHAR_BOX.w, BOX_H = CHAR_BOX.h;
     ctx.imageSmoothingEnabled = false;
     CHARACTERS.forEach(function (ch, i) {
-      var col = i % 5, row = Math.floor(i / 5);
-      var x = left + col * (BOX_W + GAP);
-      var y = 44 + row * (BOX_H + 10);
+      var box = charBox(i);
+      var x = box.x, y = box.y;
       G.Dialogue.drawWindow(ctx, x, y, BOX_W, BOX_H);
       var sel = i === c.i;
       var bob = sel ? Math.sin(Date.now() / 200) * 1.5 : 0;
@@ -3579,7 +3609,9 @@ var G = window.G = window.G || {};
     if (Math.floor(Date.now() / 500) % 2 === 0) {
       ctx.font = font(7);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText('ARROWS TO PICK  -  ENTER TO START', SW / 2, 226);
+      ctx.fillText(document.body.classList.contains('touch')
+        ? 'TAP A STUDENT  -  TAP AGAIN TO START'
+        : 'ARROWS TO PICK  -  ENTER TO START', SW / 2, 226);
     }
     ctx.textAlign = 'left';
   }
