@@ -3811,7 +3811,17 @@ var G = window.G = window.G || {};
       ctx.fillRect(0, 0, SW, SH + TOP_H + BOT_H);
     }
     ctx.save();
-    if (portrait) ctx.translate(0, TOP_H);
+    if (portrait) {
+      ctx.translate(0, TOP_H);
+      // Fence the world into its 320x240 window. The tile loop deliberately
+      // draws a row past each edge so scrolling has no seam; in landscape the
+      // canvas ends exactly there and clips it, but this taller canvas would
+      // let that spare row bleed over the HUD -- and repaint it every time
+      // the camera stepped, which reads as the screen loading a line at a time.
+      ctx.beginPath();
+      ctx.rect(0, 0, SW, SH);
+      ctx.clip();
+    }
 
     if (state === 'title') {
       drawTitle();
