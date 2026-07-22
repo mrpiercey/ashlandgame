@@ -8,8 +8,6 @@ var G = window.G = window.G || {};
   var delivered = { S: false, O: false, A: false, R: false }; // handed to Mrs. Walker: on the wall
   var icons = {};
 
-  var FLOOR_NAMES = { middle: 'the ground floor', top: 'the top floor', basement: 'the lower floor' };
-
   // the Ashland SOAR expectations: what scholars here do to be successful.
   // Teachers quiz students on these before handing a letter over.
   var MEANINGS = {
@@ -92,15 +90,14 @@ var G = window.G = window.G || {};
   // "Room 220" / "Mrs. Smith's room (Room 213)" / "the Cafeteria", plus the
   // floor. Classrooms need their number: there are two Mrs. Smiths!
   var FLOOR_WORDS = {
-    middle: 'on the ground floor',
+    middle: 'on the middle floor',
     top: 'up on the top floor',
     basement: 'down on the lower floor'
   };
-  // Dance & Drama is a lower-floor room, but the only way in is the little
-  // stairwell by the cafeteria -- "down on the lower floor" sends kids to
-  // the basement hallway, which has no door to it
+  // Dance & Drama sits at the far end of the middle floor, tucked around the
+  // corner by the cafeteria -- the landmark saves a lot of wandering
   var WHERE_OVERRIDE = {
-    'b-dance': 'down the stairs by the cafeteria'
+    'b-dance': 'on the middle floor, right by the cafeteria'
   };
   // "in the Dance & Drama" reads like a missing word
   var PLACE_OVERRIDE = {
@@ -209,17 +206,17 @@ var G = window.G = window.G || {};
     });
     // shuffle
     shuffle(eligible);
-    // ONE letter always waits downstairs (the gym, the music room or Mrs.
-    // Oldham's) -- 27 of the 35 rooms are upstairs, so a blind draw skips
-    // the lower floor about two games in three and nobody ever goes down
+    // ONE letter always waits downstairs (the gym or the music room) -- most
+    // of the roster is upstairs, so a blind draw skips the lower floor most
+    // games and nobody ever goes down there
     var downstairs = eligible.filter(function (id) {
       return G.ROOMS[id].floor === 'basement';
     });
     var picks = [];
     if (downstairs.length) picks.push(downstairs[Math.floor(Math.random() * downstairs.length)]);
     // the other three come from anywhere ELSE: exactly one downstairs, never
-    // two -- the lower floor is only three rooms wide and stacking it there
-    // makes the hunt feel lopsided
+    // two -- the lower floor is only the gym and the music room, and stacking
+    // letters there makes the hunt feel lopsided
     eligible.forEach(function (id) {
       if (picks.length < LETTERS.length && picks.indexOf(id) < 0 &&
           G.ROOMS[id].floor !== 'basement') picks.push(id);
@@ -629,7 +626,7 @@ var G = window.G = window.G || {};
     'b-dance': [
       'I teach Dance AND Drama -- jazz hands, everyone!',
       'In our class we move, act, and put on little shows!',
-      'Our stage is right upstairs in the gym!',
+      'Our stage is downstairs in the gym!',
       'Warm-ups, stretches, and BIG dramatic feelings. That is drama class!',
       'Freeze like a statue... now MELT like ice cream! That is a drama game.',
       'Every story needs actors. This year, that is YOU.',
@@ -875,7 +872,7 @@ var G = window.G = window.G || {};
     if (countFound() + 1 === 4) {
       pages.push({
         name: name,
-        text: "That's all four letters! S... O... A... R! Hurry and take them to Mrs. Walker's office on the ground floor!"
+        text: "That's all four letters! S... O... A... R! Hurry and take them to Mrs. Walker's office on the middle floor!"
       });
     } else {
       var lead = leadPage(letter, name);
@@ -968,18 +965,18 @@ var G = window.G = window.G || {};
       hello.push({ name: name, text: 'Oh good, Eddie sent you! He told me ALL about dropping our four golden letters. Here is how we get them back...' });
       hello.push({ name: name, text: 'Talk to the teachers in their rooms -- they keep spotting the letters while they set up for the new year!' });
       hello.push({ name: name, text: 'But the teachers will QUIZ you before they help, so learn our SOAR expectations first!' });
+      hello.push({ name: name, text: 'Not sure where to go? Just follow the big YELLOW ARROW -- Eddie keeps it pointed right at whoever you need to talk to next.' });
       hello.push({ name: name, text: 'S is for SAFETY AT WORK AND PLAY.' });
       hello.push({ name: name, text: 'O is for ON TASK EVERY DAY.' });
       hello.push({ name: name, text: 'A is for ACCOUNTABLE FOR ALL WE DO.' });
       hello.push({ name: name, text: 'And R is for RESPECT FOR ME AND YOU. That is how Eagles SOAR!' });
-      hello.push({ name: name, text: 'Not sure where to go? Follow the golden arrow -- Eddie keeps it pointed wherever you are needed next.' });
       hello.push({ name: name, text: 'Take your time and explore, though! Every teacher has a story, and this old building is FULL of little secrets. You never know what you might find!' });
       hello.push({ name: name, text: suggestTeacher() });
     } else if (metEddie) {
       hello.push({ name: name, text: 'Any luck finding those golden letters?' });
       hello.push({ name: name, text: suggestTeacher() });
     } else {
-      hello.push({ name: name, text: 'See that empty banner up on my wall? Our four golden letters -- S, O, A, R -- are MISSING! Have you talked to EDDIE THE EAGLE yet? He is waddling around the hallway near the front doors. Go hear his story!' });
+      hello.push({ name: name, text: 'See that empty banner up on my wall? Our four golden letters -- S, O, A, R -- are MISSING! Have you talked to EDDIE THE EAGLE yet? He is waddling around the hallway near the front doors, right here on the MIDDLE FLOOR. Go hear his story!' });
     }
     G.Dialogue.start(hello, { onDone: onClose });
   }
@@ -1236,19 +1233,19 @@ var G = window.G = window.G || {};
       { name: 'EDDIE THE EAGLE', text: 'SQUAWK! Oh no, oh no... am I glad to see you! I need your help, friend!' },
       { name: 'EDDIE THE EAGLE', text: 'All summer I was flying around the school helping the teachers get their rooms set up for the new year...' },
       { name: 'EDDIE THE EAGLE', text: '...and while I was swooping through the halls, I accidentally DROPPED all four golden letters of our SOAR EXPECTATIONS! S! O! A! R! They scattered EVERYWHERE!' },
-      { name: 'EDDIE THE EAGLE', text: 'Will you help me find them? Go talk to MRS. WALKER, our principal, first -- her office is at the far end of this hallway. She knows how to get them back! SQUAWK!' },
-      { name: 'EDDIE THE EAGLE', text: 'And hey -- not sure where to go? Just follow the golden ARROW! I fly it around from up here so it always points at wherever you need to be next.' },
+      { name: 'EDDIE THE EAGLE', text: 'You are standing on the MIDDLE FLOOR right now. Head to MRS. WALKER\'S OFFICE -- it is right here on this floor, at the far end of this hallway. She is our principal, and she will teach you the SOAR EXPECTATIONS you need to get my letters back! SQUAWK!' },
+      { name: 'EDDIE THE EAGLE', text: 'And do not worry about getting lost! See that big YELLOW ARROW? I fly it around from up here, and it ALWAYS points at wherever you need to go next. Right now it is pointing straight at Mrs. Walker\'s door!' },
       { name: 'EDDIE THE EAGLE', text: 'But do not JUST follow it -- go explore! I have flown every hallway in this school and there are secrets tucked in every corner. You never know what you might find!' }
     ];
     if (allFound()) {
-      pages = [{ name: 'EDDIE THE EAGLE', text: 'SQUAWK! You found all four letters! You are a true Eagle! Hurry to Mrs. Walker\'s office at the far end of this hallway!' }];
+      pages = [{ name: 'EDDIE THE EAGLE', text: 'SQUAWK! You found all four letters! You are a true Eagle! Hurry to Mrs. Walker\'s office on the MIDDLE FLOOR -- just follow the big YELLOW ARROW!' }];
     } else if (countFound() > 0) {
       var still = LETTERS.filter(function (l) { return !found[l]; });
       var list = still.length === 1 ? still[0]
         : still.slice(0, -1).join(', ') + ' and ' + still[still.length - 1];
       pages = [
         { name: 'EDDIE THE EAGLE', text: 'SQUAWK! You have found ' + countFound() + ' of the letters I dropped! You still need ' + list + ' -- keep talking to the teachers!' },
-        { name: 'EDDIE THE EAGLE', text: 'And remember: when you are carrying letters, bring them to Mrs. Walker\'s office at the far end of this hallway!' }
+        { name: 'EDDIE THE EAGLE', text: 'And remember: when you are carrying letters, bring them to Mrs. Walker\'s office on the MIDDLE FLOOR!' }
       ];
     } else if (metWalker) {
       // heard the story already AND been briefed -- just a nudge

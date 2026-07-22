@@ -87,17 +87,15 @@ var G = window.G = window.G || {};
   // stairwell destinations (arrival spots on each floor)
   var DEST = {
     top: { map: 'top', x: 17, y: 9, dir: 'down', label: 'TOP FLOOR' },
-    middle: { map: 'middle', x: 19, y: 12, dir: 'down', label: 'GROUND FLOOR' },
+    middle: { map: 'middle', x: 19, y: 12, dir: 'down', label: 'MIDDLE FLOOR' },
     basement: { map: 'basement', x: 7, y: 22, dir: 'right', label: 'LOWER FLOOR' },
-    dance: { map: 'b-dance', x: 2, y: 2, dir: 'down', label: 'DANCE & DRAMA' },
-    middleAtDance: { map: 'middle', x: 41, y: 4, dir: 'down', label: 'GROUND FLOOR' },
     playground: { map: 'playground', x: 41, y: 12, dir: 'left', label: 'OUTSIDE: THE PLAYGROUND!' }
   };
 
   // ---- MIDDLE FLOOR (spawn) ----------------------------------------------
   function buildMiddle() {
     var m = GB('middle', 54, 30);
-    m.name = 'GROUND FLOOR';
+    m.name = 'MIDDLE FLOOR';
     m.isHall = true;
 
     // hallways
@@ -128,8 +126,6 @@ var G = window.G = window.G || {};
     m.set(22, 10, 'purple');
     m.set(23, 10, 'purple');
 
-    // right-hall stairwell by the cafeteria goes DOWN to Dance & Drama
-    addStairs(m, [[39, 4], [39, 5]], 'stairD', [DEST.dance]);
 
     // purple exterior doors
     for (var px = 42; px <= 47; px++) m.set(px, 0, 'purple');   // top doors to outside
@@ -141,6 +137,7 @@ var G = window.G = window.G || {};
     addDoor(m, 15, 28, 'm-nurse');
     addDoor(m, 23, 28, 'm-front');
     addDoor(m, 41, 28, 'm-eagles');
+    addDoor(m, 39, 4, 'b-dance');   // around the corner from the cafeteria
     addDoor(m, 46, 25, 'm-caf', 0);
     addDoor(m, 46, 26, 'm-caf', 0);
     addDoor(m, 50, 2, 'm-caf', 1);
@@ -155,9 +152,6 @@ var G = window.G = window.G || {};
 
     // Eddie the Eagle mascot hangs out near the spawn point
     m.npcs.push({ kind: 'eagle', x: 33, y: 23 });
-
-    // name sign behind the stairs down to Dance & Drama (no hallway door)
-    m.extraSigns = [{ tiles: [[39, 4], [39, 5]], dir: 'right', roomId: 'b-dance' }];
 
     // start in the main hallway, right in front of the (locked) front doors
     m.spawn = { x: 31, y: 24, dir: 'up' };
@@ -417,7 +411,7 @@ var G = window.G = window.G || {};
   }
 
   function buildDance(room) {
-    // reached by the stairs at the top-right of the middle floor (no hallway door)
+    // a middle-floor room like any other: its door is on the cafeteria hall
     var m = GB(room.id, 16, 12);
     m.rect(1, 1, 14, 10, 'floor');
     wallify(m);
@@ -425,14 +419,10 @@ var G = window.G = window.G || {};
     for (var sx = 5; sx <= 12; sx++) m.set(sx, 0, 'curtain');
     // dance mirrors along the west wall
     m.set(0, 3, 'window'); m.set(0, 5, 'window'); m.set(0, 7, 'window');
-    m.set(15, 4, 'bulletinP'); m.set(15, 8, 'bulletinC');
+    m.set(15, 3, 'bulletinP'); m.set(15, 6, 'bulletinC');
     m.set(14, 1, 'plant');
     m.set(3, 8, 'chair'); m.set(5, 8, 'chair'); m.set(7, 8, 'chair');
-    // stairs back up to the middle floor
-    m.set(1, 1, 'stairU'); m.set(2, 1, 'stairU');
-    var back = { options: [DEST.middleAtDance] };
-    m.stairs['1,1'] = back;
-    m.stairs['2,1'] = back;
+    addExit(m, 15, 8);  // back out to the cafeteria hall
     m.set(3, 0, 'lightswitch');
     m.npcs.push({ kind: 'teacher', roomId: room.id, x: 8, y: 3 });
     return m;
@@ -1190,10 +1180,9 @@ var G = window.G = window.G || {};
     G.Maps = { all: maps, returns: returns, entries: entries, hallOf: hallOf };
   }
 
-  // Which hallway a room actually opens onto -- almost always its own floor,
-  // but Dance & Drama sits downstairs behind a private stairwell off the
-  // GROUND floor hall, so routing (and "have they been down there yet?")
-  // by floor alone tells students to go somewhere they can't get in from.
+  // Which hallway a room actually opens onto. Almost always its own floor,
+  // but a room reached through another room's door would route wrong if we
+  // trusted the floor label alone, so ask the saved return point first.
   function hallOf(roomId) {
     var back = (G.Maps.returns || {})[roomId + ':0'];
     if (back && back.map) return back.map;

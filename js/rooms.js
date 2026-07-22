@@ -15,12 +15,15 @@ var G = window.G = window.G || {};
   add('m-front', 'THE OFFICE', 'office', 'middle');
   add('m-eagles', "EAGLE'S NEST", 'office', 'middle');
   add('m-caf', 'CAFETERIA', 'cafeteria', 'middle');
+  // Dance & Drama opens off the cafeteria hall. It keeps its historic 'b-'
+  // id -- the saved room and sign overrides are keyed by it -- but the room
+  // itself is on the middle floor.
+  add('b-dance', 'DANCE & DRAMA', 'dance', 'middle');
 
-  // Basement / downstairs
+  // Lower floor
   add('b-gym', 'BASKETBALL GYM', 'gym', 'basement');
-  R['b-gym'].noInterior = true; // the gym IS part of the basement map
+  R['b-gym'].noInterior = true; // the gym IS part of the lower floor map
   add('b-music', 'MUSIC ROOM', 'music', 'basement');
-  add('b-dance', 'DANCE & DRAMA', 'dance', 'basement');
 
   // Top floor
   add('t-lib', 'LIBRARY / MEDIA ARTS', 'library', 'top');

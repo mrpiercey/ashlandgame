@@ -215,7 +215,7 @@ G.TEACHER_LINES = {
     'Every classroom on this floor is getting ready for YOU.',
     'This year is going to be amazing. I can already tell!'
   ],
-  'staff-stanfield': [ // teacher support, ground floor hallway
+  'staff-stanfield': [ // teacher support, middle floor hallway
     'I support our teachers so they can do their very best for you!',
     'A great school takes a whole team -- and you are on it too!',
     'Ask me anything. If I do not know, I know who does!',

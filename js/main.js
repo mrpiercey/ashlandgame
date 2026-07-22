@@ -1453,9 +1453,9 @@ var G = window.G = window.G || {};
         // its own "floor" -- sunshine has a soundtrack too)
         var mm = G.Maps.all[mapId];
         var floor = (mm.isHall || mm.outdoor) ? mapId : G.ROOMS[mapId].floor;
-        // "have they been downstairs?" means the hallway they walked through,
-        // not the room's label -- Dance & Drama is a basement room you reach
-        // from the ground floor, and it shouldn't tick off the basement
+        // "have they been downstairs?" means the hallway they actually walked
+        // through, not the room's floor label -- a room entered through
+        // another room's door shouldn't tick off a floor they never saw
         floorsSeen[(mm.isHall || mm.outdoor) ? mapId : G.Maps.hallOf(mapId)] = true;
         G.Audio.playFloor(floor);
       }
@@ -2264,12 +2264,13 @@ var G = window.G = window.G || {};
   function startIntro() {
     state = 'play';
     G.Audio.startBgm(); // stops the title theme, starts the floor theme
-    showBanner('GROUND FLOOR');
+    showBanner('MIDDLE FLOOR');
     G.Dialogue.start([
       { text: 'Summer is almost over, and Ashland Elementary is getting ready for the 26/27 school year...' },
       { text: '...but something is WRONG. The four golden letters of the SOAR EXPECTATIONS -- S, O, A, R -- are MISSING!' },
-      { text: 'EDDIE THE EAGLE is racing around the hallway near you, and he looks worried. Walk up to him and press almost any key -- he knows what happened!' },
+      { text: 'EDDIE THE EAGLE is racing around this hallway -- the MIDDLE FLOOR -- and he looks worried. Walk up to him and press almost any key -- he knows what happened!' },
       { text: 'Use the ARROW KEYS (or the d-pad) to walk. Walk into doors to enter rooms!' },
+      { text: 'Lost? Look for the big YELLOW ARROW floating near you. It always points at wherever you need to go next!' },
       { text: 'On a computer you can also use the MOUSE: click a teacher or an object and you will walk right over and check it out!' }
     ]);
   }
@@ -3108,6 +3109,16 @@ var G = window.G = window.G || {};
     return room.name;   // offices, gym, specials: their names already say it
   }
 
+  // what "CURRENT LOCATION" says, for both HUD layouts. A hallway names its
+  // floor -- kids need to know they're on the MIDDLE FLOOR for "up on the top
+  // floor" to mean anything -- and the map already carries that name.
+  function currentPlaceLabel() {
+    var m = G.Maps.all[currentMapId];
+    if (m.outdoor) return 'THE PLAYGROUND';
+    if (!m.isHall) return locationLabel(currentMapId);
+    return inGymArea() ? G.ROOMS['b-gym'].name : m.name + ' HALLWAY';
+  }
+
   // wrap sidebar text into centered lines that fit the panel (max 3)
   function wrapSide(text) {
     var max = SIDE_W - 8;
@@ -3146,12 +3157,7 @@ var G = window.G = window.G || {};
   }
 
   // ---- the same stats, stacked above and below (upright phones) -----------
-  function hudLocation() {
-    var m = G.Maps.all[currentMapId];
-    return m.outdoor ? 'THE PLAYGROUND'
-      : m.isHall ? (inGymArea() ? G.ROOMS['b-gym'].name : 'HALLWAY')
-      : locationLabel(currentMapId);
-  }
+  function hudLocation() { return currentPlaceLabel(); }
   function hudObjective() {
     var m = G.Maps.all[currentMapId];
     var focus = m.isHall ? (inGymArea() ? 'b-gym' : null) : currentMapId;
@@ -3295,10 +3301,7 @@ var G = window.G = window.G || {};
 
     // where the player is right now
     var m = G.Maps.all[currentMapId];
-    var location = m.outdoor ? 'THE PLAYGROUND'
-      : m.isHall
-        ? (inGymArea() ? G.ROOMS['b-gym'].name : 'HALLWAY')
-        : locationLabel(currentMapId);
+    var location = currentPlaceLabel();
     // "CURRENT LOCATION" is wider than the panel, so it stacks -- the same
     // shape as ROOMS / VISITED just above it
     ctx.fillStyle = '#9fd4e8';

@@ -39,10 +39,12 @@ lead outside and are locked until the first day of school.
 Built from the real floor maps:
 
 - **Middle floor** (start): Front Office, Nurse, Mrs. Todd's Office, Mrs. Walker's
-  Office, Eagle's Nest, Cafeteria, the two purple exterior doors, stairs up + down.
+  Office, Eagle's Nest, Cafeteria, Dance & Drama (around the corner from the
+  cafeteria), the two purple exterior doors, stairs up + down.
 - **Top floor**: classrooms 214–235 around the ring hallway; 200, 201, 205, 212,
   213 and the Library/Media Arts in the inner core; four stairwells down.
-- **Basement**: Basketball Gym (with the big red stage curtain) and the Music Room.
+- **Lower floor** (`basement` internally): Basketball Gym (with the big red stage
+  curtain) and the Music Room.
 
 ## Map editor (the easy way to assign teachers)
 
@@ -150,9 +152,9 @@ stairs (rooms play their floor's theme; tracks resume where they left off):
 
 | File | Plays on |
 |---|---|
-| `middlefloor-theme.mp3` | middle floor + its rooms |
+| `middlefloor-theme.mp3` | middle floor + its rooms (including dance & drama) |
 | `topfloor-theme.mp3` | top floor + its rooms |
-| `basement-theme.mp3` | basement, gym, music room, dance & drama |
+| `basement-theme.mp3` | lower floor, gym, music room |
 | `lettermusic.mp3` | letter encounters (see below) |
 
 To change a theme, just replace the mp3 file (keep the same name). If a file is

@@ -79,7 +79,7 @@ var G = window.G = window.G || {};
   T['b-music'] = auto('b-music', 'Dr. Snyder');
   T['b-music'].quirk = 'Music is for EVERYONE! Wait until you hear our first concert of the year!';
   T['b-dance'] = auto('b-dance', 'Mrs. Oldham');
-  T['b-dance'].quirk = 'I teach Dance AND Drama -- jazz hands, everyone! Our stage is right upstairs in the gym!';
+  T['b-dance'].quirk = 'I teach Dance AND Drama -- jazz hands, everyone! Our stage is downstairs in the gym!';
 
   // Top floor - Library / Media Arts
   T['t-lib'] = auto('t-lib', 'Mrs. Basham');
