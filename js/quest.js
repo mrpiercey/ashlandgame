@@ -927,7 +927,7 @@ var G = window.G = window.G || {};
   function celebrateChoices(onClose) {
     return [
       { label: 'YES! Celebrate now!', cb: function () { G.Game.startParty(); } },
-      { label: 'NO -- meet more staff first', cb: onClose }
+      { label: 'I want to go meet more staff first!', cb: onClose }
     ];
   }
 

@@ -2577,8 +2577,8 @@ var G = window.G = window.G || {};
   //   2  11-20  a real crowd now, under green-and-gold lights.
   //   3  21-49  DJ Eddie sets up his decks in the corner.
   //   4  50+    the blowout: front-of-stage rig, speaker stacks, confetti,
-  //             fireworks, glowsticks, green/gold fountains, and five of the
-  //             staff tumbling across the floor.
+  //             fireworks, glowsticks, green/gold fountains, and eight of
+  //             the staff cartwheeling all over the floor.
   //
   // Lights stay kid-safe at every tier: slow sweeps and fades, no hard strobe.
   var party = null;    // {t, savedNpcs, tier, confetti, fireworks}
@@ -2609,13 +2609,22 @@ var G = window.G = window.G || {};
 
   // the tumbling crew at the biggest party. Looked up by name so the roster
   // stays the source of truth -- `hair` picks between same-name teachers
-  // (there are two Mrs. Smiths; the somersaulting one is the black-haired one).
+  // (there are two Mrs. Smiths; the cartwheeling one is the black-haired one).
   var TUMBLERS = [
     { name: 'Mrs. Smith', hair: 0 },
     { name: 'Mrs. Oldham' },
     { name: 'Mrs. Hill' },
     { name: 'Mrs. Messer' },
-    { name: 'Mrs. Brown' }
+    { name: 'Mrs. Brown' },
+    { name: 'Mrs. Slaughter' },
+    { name: 'Mr. Piercey' },
+    { name: 'Mr. Givan' }
+  ];
+  // spread right across the gym rather than lined up: one anchor each, and
+  // whoever is nearest a free tile there gets it
+  var TUMBLE_ANCHORS = [
+    [24, 18], [30, 18], [36, 18], [42, 18],
+    [24, 24], [30, 24], [36, 24], [42, 24]
   ];
   function findStaffId(want) {
     var hits = Object.keys(G.TEACHERS).filter(function (id) {
@@ -2759,17 +2768,6 @@ var G = window.G = window.G || {};
     var ids = Object.keys(G.TEACHERS).filter(function (id) { return met[id]; });
     if (met['__officer__']) ids.push('__officer__');
 
-    // at the blowout, five of them tumble in a row out front of the rig --
-    // reserved first so nobody else is standing where they need to land
-    var tumbleRow = [];
-    var tumblers = {};
-    if (tier >= 4) {
-      TUMBLERS.forEach(function (want, i) {
-        var id = findStaffId(want);
-        if (id && met[id]) { tumblers[id] = i; tumbleRow.push([27 + i * 3, BOOTH.y + 4]); }
-      });
-    }
-
     var slots = [];
     for (var sy = 12; sy <= 26; sy += 2) {
       for (var sx = 22; sx <= 44; sx += 2) {
@@ -2778,19 +2776,42 @@ var G = window.G = window.G || {};
         if (tier >= 4 && sy <= 13 && sx >= BOOTH.x0 - 3 && sx <= BOOTH.x1 + 2) continue; // speaker stacks
         if (tier < 3 && Math.abs(sx - 33) <= 1 && Math.abs(sy - 16) <= 1) continue;      // Eddie's spot
         if (Math.abs(sx - 23) <= 1 && Math.abs(sy - 21) <= 1) continue;                  // player spawn
-        if (tier >= 4 && sy >= BOOTH.y + 3 && sy <= BOOTH.y + 5 &&
-            sx >= 26 && sx <= 40) continue;                                             // the tumbling lane
         if (m.get(sx, sy) !== 'gymfloor') continue;
         slots.push([sx, sy]);
       }
+    }
+
+    // the cartwheel crew get their pitch first: scattered to their own
+    // corners of the gym, with the tile either side kept clear so a flip
+    // never lands on somebody's head
+    var tumblers = {};
+    if (tier >= 4) {
+      var ti = 0;
+      TUMBLERS.forEach(function (want) {
+        var id = findStaffId(want);
+        if (!id || !met[id] || ti >= TUMBLE_ANCHORS.length || !slots.length) return;
+        var a = TUMBLE_ANCHORS[ti];
+        var best = 0, bestD = Infinity;
+        for (var s = 0; s < slots.length; s++) {
+          var d = Math.abs(slots[s][0] - a[0]) + Math.abs(slots[s][1] - a[1]);
+          if (d < bestD) { bestD = d; best = s; }
+        }
+        var spot = slots.splice(best, 1)[0];
+        tumblers[id] = { x: spot[0], y: spot[1], i: ti };
+        ti++;
+        slots = slots.filter(function (sl) {
+          return !(sl[1] === spot[1] && Math.abs(sl[0] - spot[0]) <= 2);
+        });
+      });
     }
 
     ids.forEach(function (id) {
       var h = 5381;
       for (var k = 0; k < id.length; k++) h = ((h << 5) + h + id.charCodeAt(k)) | 0;
       h = Math.abs(h);
+      var tum = tumblers[id];
       var slot;
-      if (tumblers[id] !== undefined) slot = tumbleRow[tumblers[id]];
+      if (tum) slot = [tum.x, tum.y];
       else if (slots.length) slot = slots.splice(h % slots.length, 1)[0];
       if (!slot) return;
       var d = {
@@ -2801,11 +2822,15 @@ var G = window.G = window.G || {};
         anim: 0,
         dance: { phase: (h % 100) / 100 * Math.PI * 2, style: h % 3, speed: 5 + (h % 4) }
       };
-      if (tumblers[id] !== undefined) {
-        // head over heels, each one starting at a different point in the roll
+      if (tum) {
+        // each one flips on their own clock, so the gym is never in sync
         d.px = slot[0] * TS;
         d.py = slot[1] * TS;
-        d.tumble = { phase: tumblers[id] * 1.15, speed: 3.2 + (tumblers[id] % 3) * 0.35 };
+        d.tumble = {
+          phase: tum.i * 0.43,
+          period: 1.45 + (tum.i % 4) * 0.13,
+          drift: 4 + (tum.i % 3)
+        };
         d.dance.style = 3;
       }
       // glowsticks come out at the blowout
@@ -2833,12 +2858,27 @@ var G = window.G = window.G || {};
     var t = party ? party.t : 0;
     n.anim = (n.anim || 0) + dt * 6;
     if (d.style === 3) {
-      // head over heels, travelling a little way and rolling back again
-      var roll = t * d.speed + n.tumble.phase;
-      n.spin = roll;
+      // A real cartwheel: leap, turn all the way over in the air, land on
+      // your feet. The hop peaks at exactly the moment they are upside down
+      // (half a turn), which is what keeps anyone's head off the gym floor --
+      // at full inversion the sprite's lowest point sits `hop` above the
+      // ground. Then a short breather before they go again.
+      var tm = n.tumble;
+      var u = (((t + tm.phase) % tm.period) + tm.period) % tm.period / tm.period;
+      var AIR = 0.62; // fraction of the cycle actually spent airborne
       n.dir = 'right';
-      n.hop = Math.abs(Math.sin(roll)) * 5;
-      n.px = n.x * TS + Math.round(Math.sin(roll * 0.5) * 10);
+      if (u < AIR) {
+        var a = u / AIR;                          // 0 -> 1 through one turn
+        var lift = Math.sin(a * Math.PI);         // 0 at takeoff and landing
+        n.spin = a * Math.PI * 2;
+        n.hop = lift * 20;
+        n.px = n.x * TS + Math.round(lift * tm.drift);
+      } else {
+        var b = (u - AIR) / (1 - AIR);            // feet down, catching breath
+        n.spin = 0;
+        n.hop = Math.abs(Math.sin(b * Math.PI * 2)) * 2;
+        n.px = n.x * TS;
+      }
       return;
     }
     if (d.style === 0) {
@@ -3578,9 +3618,9 @@ var G = window.G = window.G || {};
     ctx.fillText(G.Quest.countFound() + ' OF 4', 52, y0 + 34);
 
     ctx.fillStyle = '#5fbd87';
-    ctx.fillText('STAFF', 270, y0 + 6);
-    ctx.fillStyle = '#9aa0ac';
-    ctx.fillText('MET', 270, y0 + 18);
+    ctx.fillText('ASHLAND', 270, y0 + 6);
+    ctx.fillStyle = '#f7d84d';
+    ctx.fillText('STAFF', 270, y0 + 18);
     ctx.fillStyle = '#ffffff';
     ctx.fillText(countMet() + '/' + staffTotal(), 270, y0 + 32);
 
@@ -3649,11 +3689,11 @@ var G = window.G = window.G || {};
     ctx.fillText(G.Quest.countFound() + ' OF 4', cx, 86);
     divider(102);
 
-    // staff met -- every hello grows the party waiting in the gym
+    // Ashland staff -- every hello grows the party waiting in the gym
     ctx.fillStyle = '#5fbd87';
-    ctx.fillText('STAFF', cx, 106);
-    ctx.fillStyle = '#9aa0ac';
-    ctx.fillText('MET', cx, 118);
+    ctx.fillText('ASHLAND', cx, 106);
+    ctx.fillStyle = '#f7d84d';
+    ctx.fillText('STAFF', cx, 118);
     ctx.fillStyle = '#ffffff';
     ctx.fillText(countMet() + '/' + staffTotal(), cx, 131);
     divider(142);
@@ -3662,7 +3702,7 @@ var G = window.G = window.G || {};
     var m = G.Maps.all[currentMapId];
     var location = currentPlaceLabel();
     // "CURRENT LOCATION" is wider than the panel, so it stacks -- the same
-    // shape as STAFF / MET just above it
+    // shape as ASHLAND / STAFF just above it
     ctx.fillStyle = '#9fd4e8';
     ctx.fillText('CURRENT', cx, 146);
     ctx.fillText('LOCATION', cx, 157);
