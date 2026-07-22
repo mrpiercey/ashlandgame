@@ -1070,6 +1070,8 @@ var G = window.G = window.G || {};
   }
 
   function onCanvasClick(e) {
+    // stop iOS treating a quick second tap as double-tap-to-zoom
+    if (e.cancelable) e.preventDefault();
     var r = canvas.getBoundingClientRect();
     var gx = (e.clientX - r.left) / r.width * canvas.width;
     var gy = (e.clientY - r.top) / r.height * canvas.height;

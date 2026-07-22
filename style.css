@@ -16,6 +16,11 @@ html, body {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   outline: none;
+  /* iOS Safari ignores user-scalable=no, so two quick taps in one spot --
+     exactly how you pick a student, or an option -- would be read as
+     double-tap-to-zoom. 'manipulation' turns that off while leaving pinch
+     alone, so anyone already stuck zoomed can still pinch back out. */
+  touch-action: manipulation;
 }
 
 #game-wrap {
@@ -24,6 +29,9 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* no double-tap-to-zoom anywhere in the play area, including the black
+     margins around the canvas */
+  touch-action: manipulation;
 }
 
 #game {
