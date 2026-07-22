@@ -13,7 +13,10 @@ var G = window.G = window.G || {};
   add('m-walker', "MRS. WALKER'S OFFICE", 'principal', 'middle');
   add('m-nurse', "NURSE'S OFFICE", 'office', 'middle');
   add('m-front', 'THE OFFICE', 'office', 'middle');
-  add('m-eagles', "EAGLE'S NEST", 'office', 'middle');
+  // Staff only: nobody is in it and students can never go in. Keeps its
+  // historic 'm-eagles' id because the saved room and sign overrides are
+  // keyed by it.
+  add('m-eagles', "BOOKKEEPER'S OFFICE", 'office', 'middle');
   add('m-caf', 'CAFETERIA', 'cafeteria', 'middle');
   // Dance & Drama opens off the cafeteria hall. It keeps its historic 'b-'
   // id -- the saved room and sign overrides are keyed by it -- but the room

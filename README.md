@@ -39,7 +39,8 @@ lead outside and are locked until the first day of school.
 Built from the real floor maps:
 
 - **Middle floor** (start): Front Office, Nurse, Mrs. Todd's Office, Mrs. Walker's
-  Office, Eagle's Nest, Cafeteria, Dance & Drama (around the corner from the
+  Office, Bookkeeper's Office (staff only -- nobody in it, and students can
+  never go in), Cafeteria, Dance & Drama (around the corner from the
   cafeteria), the two purple exterior doors, stairs up + down.
 - **Top floor**: classrooms 214–235 around the ring hallway; 200, 201, 205, 212,
   213 and the Library/Media Arts in the inner core; four stairwells down.

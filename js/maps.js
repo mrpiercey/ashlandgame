@@ -150,6 +150,11 @@ var G = window.G = window.G || {};
     m.set(48, 0, 'exit');
     m.set(17, 10, 'exit');
 
+    // The bookkeeper's office has nobody in it, and the auto door signs are
+    // built from the room's teacher -- so name this one explicitly, or the
+    // one door students can't open would be the only unlabelled one.
+    m.extraSigns = [{ tiles: [[6, 17]], dir: 'right', roomId: 'm-eagles' }];
+
     // Eddie the Eagle mascot hangs out near the spawn point
     m.npcs.push({ kind: 'eagle', x: 33, y: 23 });
 
@@ -334,7 +339,11 @@ var G = window.G = window.G || {};
     m.set(8, 5, 'chair'); m.set(2, 5, 'chair');
     addExit(m, 5, 8);
     m.set(6, 8, 'lightswitch');
-    m.npcs.push({ kind: 'teacher', roomId: room.id, x: 5, y: 2 });
+    // the bookkeeper's office is the one room students are never let into,
+    // so nobody stands in it
+    if (G.TEACHERS[room.id]) {
+      m.npcs.push({ kind: 'teacher', roomId: room.id, x: 5, y: 2 });
+    }
     return m;
   }
 
@@ -934,7 +943,7 @@ var G = window.G = window.G || {};
     placeStaff(maps.top, 'staff-rampulla');
     placeStaff(maps.top, 'staff-perry');
     placeStaff(maps.top, 'staff-kjackson');
-    // support staff wandering the ground-floor hallway
+    // support staff wandering the middle-floor hallway
     placeStaff(maps.middle, 'staff-zimmerman');
     placeStaff(maps.middle, 'staff-stanfield');
     placeStaff(maps.middle, 'staff-seivers');

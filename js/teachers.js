@@ -67,10 +67,8 @@ var G = window.G = window.G || {};
   T['m-todd'] = auto('m-todd', 'Mrs. Todd');
   T['m-nurse'] = auto('m-nurse', 'Nurse Maria');
   T['m-front'] = auto('m-front', 'Mrs. Coleman');
-  T['m-eagles'] = auto('m-eagles', 'Mrs. Wang');
-  T['m-eagles'].noLetter = true;   // students can't enter her room
-  T['m-eagles'].role = 'Bookkeeper';
-  T['m-eagles'].intro = "Hi! I'm Mrs. Wang, Ashland's bookkeeper. The Eagle's Nest is staff-only, but it's lovely to meet you!";
+  // the bookkeeper's office (m-eagles) has no one in it: students can't go in,
+  // so there is nobody to meet and its door sign just names the room
   T['m-caf'] = auto('m-caf', 'Mrs. Adams');
 
   // Basement / downstairs

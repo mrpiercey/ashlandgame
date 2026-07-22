@@ -1473,12 +1473,12 @@ var G = window.G = window.G || {};
       }
       return;
     }
-    // the Eagle's Nest is staff only!
+    // the bookkeeper's office is the one room students are never let into
     if (roomId === 'm-eagles') {
       if (bumpCooldown <= 0) {
         bumpCooldown = 2;
         G.Audio.sfx('locked');
-        G.Dialogue.start([{ text: "Oh... students aren't allowed in that room!" }]);
+        G.Dialogue.start([{ text: "That's the bookkeeper's office -- students aren't allowed in there!" }]);
       }
       return;
     }
@@ -2511,7 +2511,7 @@ var G = window.G = window.G || {};
   var BOOTH = { x0: 41, x1: 43, y: 18 }; // DJ table tiles (gym far right)
 
   // rooms a student can actually walk into: something, somewhere, has a
-  // door or stairway leading to them. The staff-only Eagle's Nest and any
+  // door or stairway leading to them. The staff-only bookkeeper's office and any
   // door-less room (like the PLC room) don't count toward the total.
   var countableCache = null;
   function countableRooms() {
@@ -3287,7 +3287,7 @@ var G = window.G = window.G || {};
     divider(102);
 
     // rooms visited -- only rooms a student can actually reach count
-    // (no staff-only Eagle's Nest, no door-less rooms)
+    // (no staff-only bookkeeper's office, no door-less rooms)
     var countable = countableRooms();
     var total = countable.length;
     var seen = countable.filter(function (id) { return visited[id]; }).length;
