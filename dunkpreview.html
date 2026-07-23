@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mr. Richards Dunk — On-Fire Preview</title>
+<style>
+  :root { --bg:#12141c; --panel:#1b1e2a; --ink:#e8e8f0; --mut:#8a90a8; --acc:#ff8a1e; }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink);
+    font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;
+    display:flex; flex-wrap:wrap; gap:20px; padding:20px; align-items:flex-start;
+  }
+  h1 { font-size:18px; margin:0 0 4px; }
+  h1 span { color:var(--acc); }
+  .sub { color:var(--mut); font-size:12px; margin:0 0 14px; }
+  .stage { flex:0 0 auto; }
+  canvas {
+    image-rendering:pixelated; image-rendering:crisp-edges;
+    background:#000; border:2px solid #2a2e3e; border-radius:6px; display:block;
+  }
+  .bar { display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+  button {
+    background:var(--acc); color:#1c1108; border:0; border-radius:5px;
+    padding:8px 14px; font-weight:700; cursor:pointer; font-size:13px;
+  }
+  button.ghost { background:#2a2e3e; color:var(--ink); }
+  button:active { transform:translateY(1px); }
+  .scrub { flex:1 1 240px; }
+  .scrub input { width:100%; }
+  .clock { font-variant-numeric:tabular-nums; color:var(--mut); min-width:112px; font-size:12px; }
+  .clock b { color:var(--ink); }
+  .phaseName { color:var(--acc); font-weight:700; }
+  .panel {
+    flex:1 1 320px; max-width:420px; background:var(--panel);
+    border:1px solid #2a2e3e; border-radius:8px; padding:14px 16px;
+  }
+  .panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:16px 0 8px; }
+  .panel h2:first-child { margin-top:0; }
+  .row { display:grid; grid-template-columns:96px 1fr 52px; gap:8px; align-items:center; margin:6px 0; }
+  .row label { color:var(--mut); font-size:12px; }
+  .row input[type=range] { width:100%; }
+  .row .val { text-align:right; font-variant-numeric:tabular-nums; font-size:12px; }
+  .hint { color:var(--mut); font-size:11px; margin:10px 0 0; }
+  code { background:#0d0f16; padding:1px 5px; border-radius:3px; color:#c9d3ff; font-size:11px; }
+  a { color:var(--acc); }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <h1>Mr. <span>Richards</span> Dunk — He's On Fire!</h1>
+  <p class="sub">Walk in with the ball → free-throw line → catch fire → spin through the air → BOOMSHAKALAKA. Scrub, play, tweak.</p>
+  <canvas id="c" width="320" height="240" style="width:640px;height:480px;"></canvas>
+  <div class="bar">
+    <button id="play">▶ Play</button>
+    <button id="replay" class="ghost">↺ Replay</button>
+    <div class="scrub"><input id="scrub" type="range" min="0" max="19.7" step="0.01" value="0"></div>
+  </div>
+  <div class="bar">
+    <div class="clock">t=<b id="tval">0.00</b>s &nbsp;·&nbsp; <span class="phaseName" id="phase">—</span></div>
+    <label style="font-size:12px;color:var(--mut)">speed
+      <input id="speed" type="range" min="0.1" max="2" step="0.1" value="1" style="width:90px;vertical-align:middle">
+    </label>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Phase timings (seconds)</h2>
+  <div id="timings"></div>
+
+  <h2>Positions (fraction of screen)</h2>
+  <div id="geo"></div>
+
+  <p class="hint">This mirrors <code>drawDunk</code> in <code>js/main.js</code>. When the numbers feel right,
+  tell me and I'll write them back into the game. Open through the local server
+  (<code>python3 serve.py</code> → <code>/dunkpreview.html</code>) so the sprite modules and
+  <code>richardsslam.png</code> load.</p>
+</div>
+
+<!-- Real game modules: gives us the true Mr. Richards sprite -->
+<script src="js/tiles.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/room-overrides.js"></script>
+<script src="js/sign-overrides.js"></script>
+<script src="js/teachers.js"></script>
+
+<script>
+"use strict";
+(function () {
+  var G = window.G || {};
+  var SW = 320, SH = 240;
+  var canvas = document.getElementById('c');
+  var ctx = canvas.getContext('2d');
+  function font(px) { return px + 'px "Press Start 2P", monospace'; }
+
+  // ---- tunable parameters (bound to the controls) -------------------------
+  var DK = { walk: 3.0, reach: 6.5, ignite: 7.5, launch: 10.5, slam: 12.2, land: 14.0 };
+  var DUNK_FADE = 1.4, JAM_DUCK = 0.34, BOOM_DUR = 5.8;
+  var DONE = DK.slam + BOOM_DUR + DUNK_FADE;   // ends the instant the BOOMSHAKALAKA clip finishes
+  var P = { rimXpct: 0.575, rimYpct: 0.235, launchXpct: 0.30, floorYpct: 0.74, landXpct: 0.56, landYpct: 0.60 };
+
+  // ---- audio: real jam track + one-shots, fired as you play forward ---------
+  var jamA, fireA, whoaA, boomA, audioReady = false;
+  try {
+    jamA = new Audio('jammusic.mp3'); jamA.volume = 0.62;
+    fireA = new Audio('hesonfireclip.mp3'); whoaA = new Audio('whoa.mp3'); boomA = new Audio('boomshakalasound.mp3');
+    audioReady = true;
+  } catch (e) {}
+  var cues = {};
+  function playClip(a) { if (a) { try { a.currentTime = 0; a.play(); } catch (e) {} } }
+  function audioReset() {
+    cues = {};
+    if (audioReady) { [fireA, whoaA, boomA].forEach(function (a) { try { a.pause(); } catch (e) {} }); jamA.volume = 0.62; }
+  }
+  function audioStop() { if (audioReady) [jamA, fireA, whoaA, boomA].forEach(function (a) { try { a.pause(); } catch (e) {} }); }
+  function audioStep(prevT, t) {
+    if (!audioReady) return;
+    if (prevT < DK.ignite && t >= DK.ignite && !cues.fire) { cues.fire = 1; playClip(fireA); jamA.volume = JAM_DUCK; }
+    if (prevT < DK.launch && t >= DK.launch && !cues.whoa) { cues.whoa = 1; playClip(whoaA); }
+    if (prevT < DK.slam && t >= DK.slam && !cues.boom) { cues.boom = 1; playClip(boomA); }
+    if (t > DONE - DUNK_FADE) jamA.volume = JAM_DUCK * Math.max(0, (DONE - t) / DUNK_FADE);
+  }
+
+  // ---- the Mr. Richards sprite frames (green #23 jersey, from the real game) --
+  var richFrames = null, richSkin = '#e0a878';
+  function stampJerseyNumber(cv) {
+    var g = cv.getContext('2d'), W = cv.width, H = cv.height;
+    var y0 = Math.round(H * 0.48), y1 = Math.round(H * 0.66);
+    var px = g.getImageData(0, 0, W, H).data;
+    var minX = W, maxX = -1;
+    for (var y = y0; y <= y1; y++) for (var x = 0; x < W; x++) {
+      if (px[(y * W + x) * 4 + 3] > 40) { if (x < minX) minX = x; if (x > maxX) maxX = x; }
+    }
+    if (maxX < 0) return;
+    var glyphs = { '2': ['111', '001', '111', '100', '111'], '3': ['111', '001', '111', '001', '111'] };
+    var num = '23', gw = 3 * num.length + (num.length - 1);
+    var startX = Math.round((minX + maxX) / 2 - gw / 2);
+    var startY = Math.round((y0 + y1) / 2 - 2);
+    g.fillStyle = '#f4f4ee';
+    for (var d = 0; d < num.length; d++) {
+      var gl = glyphs[num[d]];
+      for (var r = 0; r < 5; r++) for (var c = 0; c < 3; c++) {
+        if (gl[r][c] === '1') g.fillRect(startX + d * 4 + c, startY + r, 1, 1);
+      }
+    }
+  }
+  try {
+    var t216 = G.TEACHERS && G.TEACHERS['t-216'];
+    if (t216 && t216.sprite && G.Sprites) {
+      richSkin = t216.sprite.skin || richSkin;
+      var cfg = {}; for (var k in t216.sprite) cfg[k] = t216.sprite[k];
+      cfg.shirt = '#2fa652'; cfg.tie = null;
+      richFrames = G.Sprites.makeAdult(cfg);
+      ['down', 'up', 'left', 'right'].forEach(function (dir) {
+        (richFrames[dir] || []).forEach(function (cv) { stampJerseyNumber(cv); });
+      });
+    }
+  } catch (e) {}
+
+  var dunkImg = new Image(), dunkImgOk = false;
+  dunkImg.onload = function () { dunkImgOk = dunkImg.width > 0; render(); };
+  dunkImg.src = 'richardsslam.png';
+
+  var dunk = { t: 0 };
+
+  // ==== drawing code — mirrors js/main.js ==================================
+  function drawBasketball(cx, cy, r) {
+    ctx.fillStyle = '#20140a';
+    ctx.beginPath(); ctx.arc(cx, cy + 0.5, r + 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e07a1e';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#1c1108'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx - r, cy, r, -0.9, 0.9); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx + r, cy, r, Math.PI - 0.9, Math.PI + 0.9); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(cx - r * 0.38, cy - r * 0.4, r * 0.24, 0, Math.PI * 2); ctx.fill();
+  }
+
+  var dunkArena = null;
+  function buildDunkArena() {
+    var c = document.createElement('canvas'); c.width = SW; c.height = SH;
+    var x = c.getContext('2d');
+    x.fillStyle = '#05060a'; x.fillRect(0, 0, SW, SH);
+    var fy = Math.floor(SH * 0.6);
+    var g = x.createLinearGradient(0, fy, 0, SH);
+    g.addColorStop(0, '#4a7a44'); g.addColorStop(0.45, '#c9a15a'); g.addColorStop(1, '#8f6a30');
+    x.fillStyle = g; x.fillRect(0, fy, SW, SH - fy);
+    dunkArena = c;
+  }
+
+  function richFrame(dir, walking, step) {
+    if (!richFrames) return null;
+    var set = richFrames[dir] || richFrames.down;
+    if (!walking) return set[0];
+    var sub = (step != null) ? step : Math.floor(dunk.t * 9);
+    return set[1 + (sub % 2)];
+  }
+  function blitRich(frame, cx, cy, scale, squash, rot) {
+    if (!frame) return;
+    var w = frame.width * scale, h = frame.height * scale * (squash || 1);
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.translate(cx, cy); if (rot) ctx.rotate(rot);
+    ctx.drawImage(frame, -w / 2, -h, w, h); ctx.restore();
+    return h;
+  }
+  function blitRichCentered(frame, cx, cy, scale, rot, sx) {
+    if (!frame) return 0;
+    var w = frame.width * scale, h = frame.height * scale;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.translate(cx, cy); if (rot) ctx.rotate(rot);
+    if (sx != null && sx !== 1) ctx.scale(sx, 1);
+    ctx.drawImage(frame, -w / 2, -h / 2, w, h); ctx.restore();
+    return h;
+  }
+  function drawFlameTongue(x, baseY, h, w, sway) {
+    ctx.beginPath();
+    ctx.moveTo(x - w, baseY);
+    ctx.quadraticCurveTo(x - w * 0.8, baseY - h * 0.55, x + sway, baseY - h);
+    ctx.quadraticCurveTo(x + w * 0.8, baseY - h * 0.55, x + w, baseY);
+    ctx.quadraticCurveTo(x, baseY + h * 0.12, x - w, baseY);
+    ctx.closePath(); ctx.fill();
+  }
+  function drawFireAura(cx, footY, bodyW, bodyH, t, intensity) {
+    if (intensity <= 0) return;
+    var top = footY - bodyH, roots = [], i, n = 7;
+    for (i = 0; i < n; i++) roots.push([cx - bodyW / 2 + bodyW * (i / (n - 1)), footY, 1]);
+    for (i = 0; i < 4; i++) {
+      var yy = footY - bodyH * (0.22 + 0.2 * i);
+      roots.push([cx - bodyW * 0.5, yy, 0.7]); roots.push([cx + bodyW * 0.5, yy, 0.7]);
+    }
+    roots.push([cx - bodyW * 0.18, top, 0.6]); roots.push([cx + bodyW * 0.18, top, 0.6]);
+    var layers = [
+      { col: 'rgba(190,40,10,0.85)', hs: 1.18, ws: 1.3 },
+      { col: 'rgba(255,120,20,0.9)', hs: 0.9, ws: 0.95 },
+      { col: 'rgba(255,214,74,0.95)', hs: 0.58, ws: 0.58 }
+    ];
+    for (var L = 0; L < layers.length; L++) {
+      ctx.fillStyle = layers[L].col;
+      for (var r = 0; r < roots.length; r++) {
+        var rt = roots[r];
+        var flick = 0.65 + 0.5 * Math.sin(t * 13 + r * 1.7 + L);
+        var h = bodyH * 0.5 * rt[2] * intensity * flick * layers[L].hs;
+        var w = (2.5 + bodyW * 0.09) * rt[2] * layers[L].ws;
+        drawFlameTongue(rt[0], rt[1], h, w, Math.sin(t * 9 + r) * w * 1.1);
+      }
+    }
+  }
+  function drawFireBall(cx, cy, r, t, intensity) {
+    if (intensity > 0) {
+      var layers = [['rgba(200,50,10,0.8)', r * 2.2], ['rgba(255,130,25,0.85)', r * 1.7], ['rgba(255,222,92,0.9)', r * 1.15]];
+      for (var L = 0; L < layers.length; L++) {
+        ctx.fillStyle = layers[L][0]; ctx.beginPath();
+        for (var i = 0; i <= 8; i++) {
+          var a = i / 8 * Math.PI * 2;
+          var rr = layers[L][1] * (1 + 0.45 * Math.sin(t * 16 + i * 2 + L)) * intensity;
+          var px = cx + Math.cos(a) * rr, py = cy + Math.sin(a) * rr - r * 0.35;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    drawBasketball(cx, cy, r);
+  }
+  function drawNetSwish(rimX, rimY, k) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1;
+    for (var s = 0; s <= 8; s++) {
+      var a = s / 8 * Math.PI * 2, rx = 12;
+      ctx.beginPath();
+      ctx.moveTo(rimX + Math.cos(a) * rx, rimY + Math.sin(a) * 4);
+      ctx.lineTo(rimX + Math.cos(a) * rx * 0.4, rimY + 15 + k * 9);
+      ctx.stroke();
+    }
+    if (k > 0.12) drawBasketball(rimX, rimY + 6 + (1 - k) * 16, 6);
+  }
+  function drawDunkText(t) {
+    if (t >= DK.slam) {
+      var fl = Math.max(0, 1 - (t - DK.slam) / 0.25);
+      if (fl > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (fl * 0.6).toFixed(3) + ')'; ctx.fillRect(0, 0, SW, SH); }
+    }
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    if (t >= DK.ignite && t < DK.slam) {
+      ctx.globalAlpha = Math.min(1, (t - DK.ignite) / 0.25);
+      ctx.font = font(13);
+      var wob = 1 + Math.sin(t * 14) * 0.06;
+      ctx.translate(SW * 0.5, SH * 0.13); ctx.scale(wob, wob);
+      ctx.lineWidth = 5; ctx.strokeStyle = '#1c1108';
+      ctx.strokeText("HE'S ON FIRE!", 0, 0);
+      ctx.fillStyle = '#ffcf3a'; ctx.fillText("HE'S ON FIRE!", 0, 0);
+    } else if (t >= DK.slam) {
+      ctx.font = font(12);
+      var wob2 = 1 + Math.sin(t * 20) * 0.05;
+      ctx.translate(SW * 0.5, SH * 0.18); ctx.scale(wob2, wob2);
+      ctx.lineWidth = 5; ctx.strokeStyle = '#1c1108';
+      ctx.strokeText('BOOMSHAKALAKA!', 0, 0);
+      ctx.fillStyle = '#ff8a1e'; ctx.fillText('BOOMSHAKALAKA!', 0, 0);
+    }
+    ctx.restore();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+
+  function drawDunkHUD(t) {
+    var onFire = t >= DK.ignite && t < DK.land;
+    ctx.save();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.font = font(7);
+    ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = '#4a1c06';
+    ctx.strokeText('TO CONTROL', 5, 4);
+    ctx.strokeText('RICHARDS', 5, 13);
+    ctx.fillStyle = '#f4ad1e';
+    ctx.fillText('TO CONTROL', 5, 4);
+    ctx.fillText('RICHARDS', 5, 13);
+    var bx = 5, by = 24, bw = 74, bh = 6;
+    ctx.fillStyle = 'rgba(8,6,12,0.8)'; ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+    var lvl = onFire ? 1 : 0.7 + 0.06 * Math.sin(t * 4);
+    var fw = Math.max(0, Math.round(bw * lvl));
+    var g = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+    if (onFire) {
+      var s = Math.sin(t * 28) > 0;
+      g.addColorStop(0, s ? '#ffe24a' : '#ff7a1e');
+      g.addColorStop(1, s ? '#ff7a1e' : '#ffe24a');
+    } else {
+      g.addColorStop(0, '#37cf46'); g.addColorStop(0.6, '#e6cf1e'); g.addColorStop(1, '#ff5a1e');
+    }
+    ctx.fillStyle = g; ctx.fillRect(bx, by, fw, bh);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    for (var sx = bx + 8; sx < bx + bw; sx += 8) ctx.fillRect(sx, by, 1, bh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
+    ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, bh + 1);
+    ctx.restore();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+
+  // ---- backboard shatter: deterministic (scrub-friendly) glass shards -------
+  function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  var glassShards = null;
+  function getGlass() {
+    if (glassShards) return glassShards;
+    var bx = Math.round(SW * 0.575), by = Math.round(SH * 0.18);
+    var shades = ['rgba(205,232,255,0.92)', 'rgba(230,246,255,0.88)', 'rgba(170,210,245,0.92)', 'rgba(245,251,255,0.85)'];
+    var rnd = mulberry(90210), arr = [];
+    for (var i = 0; i < 52; i++) {
+      var x0 = bx + (rnd() - 0.5) * 58;
+      arr.push({
+        x0: x0, y0: by + (rnd() - 0.5) * 34,
+        vx: (x0 - bx) * 0.7 + (rnd() - 0.5) * 120, vy: -70 + rnd() * 60,
+        rot0: rnd() * 6.28, vr: (rnd() - 0.5) * 12, size: 1.6 + rnd() * 3.2,
+        restY: 108 + rnd() * 122, shade: shades[i % 4]
+      });
+    }
+    glassShards = arr; return arr;
+  }
+  function drawGlass(t) {
+    if (t < DK.slam) return;
+    var tau = t - DK.slam, GRAV = 540;
+    getGlass().forEach(function (p) {
+      var a = 0.5 * GRAV, disc = p.vy * p.vy - 4 * a * (p.y0 - p.restY);
+      var tl = disc > 0 ? (-p.vy + Math.sqrt(disc)) / (2 * a) : Infinity;
+      var tt = Math.min(tau, tl);
+      var x = p.x0 + p.vx * tt;
+      var y = (tau >= tl) ? p.restY : p.y0 + p.vy * tt + a * tt * tt;
+      var s = p.size;
+      ctx.save();
+      ctx.translate(x, y); ctx.rotate(p.rot0 + p.vr * tt);
+      ctx.fillStyle = p.shade;
+      ctx.beginPath();
+      ctx.moveTo(0, -s); ctx.lineTo(s * 0.72, 0); ctx.lineTo(0, s * 0.85); ctx.lineTo(-s * 0.6, 0);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(-1, -Math.round(s * 0.4), 1, 1);
+      ctx.restore();
+    });
+  }
+  function drawBackboardShatter(t) {
+    var age = t - DK.slam;
+    if (age < 0 || age > 0.6) return;
+    var k = 1 - age / 0.6, bx = Math.round(SW * 0.575), by = Math.round(SH * 0.18);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(235,247,255,' + k.toFixed(2) + ')'; ctx.lineWidth = 1;
+    for (var i = 0; i < 16; i++) {
+      var a = i / 16 * Math.PI * 2 + i * 0.4, r1 = 5 + (1 - k) * 30;
+      ctx.beginPath();
+      ctx.moveTo(bx + Math.cos(a) * 3, by + Math.sin(a) * 3);
+      ctx.lineTo(bx + Math.cos(a) * r1, by + Math.sin(a) * r1);
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,' + (k * 0.7).toFixed(2) + ')';
+    ctx.beginPath(); ctx.arc(bx, by, 4 + (1 - k) * 12, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  function drawDunkFade(t) {
+    var a = 0;
+    if (t < DUNK_FADE) a = 1 - t / DUNK_FADE;
+    else if (t > DONE - DUNK_FADE) a = (t - (DONE - DUNK_FADE)) / DUNK_FADE;
+    a = Math.min(1, Math.max(0, a));
+    if (a > 0) { ctx.fillStyle = 'rgba(0,0,0,' + a.toFixed(3) + ')'; ctx.fillRect(0, 0, SW, SH); }
+  }
+
+  function drawDunk() {
+    var t = dunk.t, scale = 2.1;
+    var rimX = Math.round(SW * P.rimXpct), rimY = Math.round(SH * P.rimYpct);
+    var launchX = Math.round(SW * P.launchXpct), floorY = Math.round(SH * P.floorYpct);
+    var watchX = Math.round(SW * 0.11), landX = Math.round(SW * P.landXpct), landY = Math.round(SH * P.landYpct);
+
+    if (dunkImgOk) ctx.drawImage(dunkImg, 0, 0, SW, SH);
+    else { if (!dunkArena) buildDunkArena(); ctx.drawImage(dunkArena, 0, 0); }
+
+    var ease = function (x) { x = x < 0 ? 0 : x > 1 ? 1 : x; return x * x * (3 - 2 * x); };
+    var lerp = function (a, b, x) { return a + (b - a) * x; };
+
+    var fire = 0;
+    if (t >= DK.ignite && t < DK.land) fire = Math.min(1, (t - DK.ignite) / 0.8);
+    else if (t >= DK.land) fire = Math.max(0, 1 - (t - DK.land) / 1.2);
+
+    var shake = (t >= DK.slam) ? Math.max(0, 1 - (t - DK.slam) / 0.4) * 6 : 0;
+    ctx.save();
+    if (shake) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+
+    var frame0 = richFrame('right', false);
+    var bodyH = ((frame0 && frame0.height) || 29) * scale;
+    var bodyW = ((frame0 && frame0.width) || 16) * scale;
+
+    if (t < DK.launch) {
+      var cx, walking = false;
+      if (t < DK.walk) { cx = watchX; }
+      else if (t < DK.reach) { cx = lerp(watchX, launchX, ease((t - DK.walk) / (DK.reach - DK.walk))); walking = true; }
+      else { cx = launchX; }
+      var squash = 1;
+      if (t >= DK.launch - 0.28) squash = 1 - 0.22 * ((t - (DK.launch - 0.28)) / 0.28);
+      var bodyHs = bodyH * squash;
+      var handY = floorY - bodyHs * 0.55, ballX = cx + bodyW * 0.44, ballY = handY;
+      drawFireAura(cx, floorY, bodyW, bodyHs, t, fire);
+      blitRich(richFrame('right', walking), cx, floorY, scale, squash, 0);
+      drawFireBall(ballX, ballY, 7, t, fire);
+      ctx.restore();
+      drawDunkText(t);
+      drawDunkHUD(t);
+      drawDunkFade(t);
+      return;
+    }
+
+    var cx2, cy2, rot;
+    if (t < DK.slam) {
+      var u = ease((t - DK.launch) / (DK.slam - DK.launch));
+      cx2 = lerp(launchX, rimX, u);
+      cy2 = lerp(floorY - bodyH * 0.5, rimY + bodyH * 0.2, u) - Math.sin(u * Math.PI) * bodyH * 0.55;
+      rot = (t - DK.launch) / (DK.slam - DK.launch) * Math.PI * 4;
+    } else {
+      var d = Math.min(1, (t - DK.slam) / (DK.land - DK.slam));
+      cx2 = lerp(rimX, landX, d);
+      cy2 = lerp(rimY + bodyH * 0.2, landY - bodyH * 0.5, d * d);
+      rot = 0;
+    }
+
+    ctx.save();
+    ctx.translate(cx2, cy2); ctx.rotate(rot);
+    drawFireAura(0, bodyH * 0.5, bodyW, bodyH, t, fire);
+    ctx.restore();
+    blitRichCentered(frame0, cx2, cy2, scale, rot, 1);
+
+    if (t < DK.slam) {
+      var ox = bodyW * 0.44, oy = -bodyH * 0.12;
+      drawFireBall(cx2 + ox * Math.cos(rot) - oy * Math.sin(rot),
+                   cy2 + ox * Math.sin(rot) + oy * Math.cos(rot), 7, t, fire);
+    } else {
+      drawNetSwish(rimX, rimY, Math.max(0, 1 - (t - DK.slam) / 0.5));
+    }
+    ctx.restore();
+
+    drawBackboardShatter(t);
+    drawGlass(t);
+    drawDunkText(t);
+    drawDunkHUD(t);
+    drawDunkFade(t);
+  }
+
+  // ==== phase label =======================================================
+  function phaseAt(t) {
+    if (t < DK.walk) return 'watch the court (jam music)';
+    if (t < DK.reach) return 'stride to the line';
+    if (t < DK.ignite) return 'set on the line';
+    if (t < DK.launch) return 'HE\'S ON FIRE! (pause)';
+    if (t < DK.slam) return 'WHOA! soar + spin';
+    if (t < DK.land) return 'BOOMSHAKALAKA! shatter';
+    if (t < DONE - DUNK_FADE) return 'celebrate amid the glass';
+    return 'fade out';
+  }
+
+  // ==== render loop / clock ===============================================
+  var playing = false, last = 0, speed = 1;
+  var scrub = document.getElementById('scrub');
+  var tval = document.getElementById('tval');
+  var phaseEl = document.getElementById('phase');
+  var playBtn = document.getElementById('play');
+
+  function render() {
+    ctx.clearRect(0, 0, SW, SH);
+    if (!richFrames) {
+      ctx.fillStyle = '#05060a'; ctx.fillRect(0, 0, SW, SH);
+      ctx.fillStyle = '#ff8a1e'; ctx.font = font(8); ctx.textAlign = 'center';
+      ctx.fillText('sprite modules not loaded —', SW / 2, SH / 2 - 8);
+      ctx.fillText('open via python3 serve.py', SW / 2, SH / 2 + 6);
+      ctx.textAlign = 'left';
+      return;
+    }
+    drawDunk();
+    tval.textContent = dunk.t.toFixed(2);
+    phaseEl.textContent = phaseAt(dunk.t);
+    scrub.value = dunk.t.toFixed(2);
+  }
+
+  function startJam() {
+    if (!audioReady) return;
+    audioReset();
+    // resume the jam track from the current scrub position so it stays in sync
+    try { jamA.currentTime = Math.min(dunk.t, 19.9); jamA.volume = dunk.t >= DK.ignite ? JAM_DUCK : 0.62; jamA.play(); } catch (e) {}
+  }
+
+  function frame(ts) {
+    if (playing) {
+      if (!last) last = ts;
+      var prevT = dunk.t;
+      dunk.t += (ts - last) / 1000 * speed;
+      last = ts;
+      audioStep(prevT, dunk.t);
+      if (dunk.t >= DONE) { dunk.t = DONE; playing = false; playBtn.textContent = '▶ Play'; audioStop(); }
+      render();
+    } else { last = 0; }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  playBtn.onclick = function () {
+    if (dunk.t >= DONE) dunk.t = 0;
+    playing = !playing; last = 0;
+    if (playing) startJam(); else audioStop();
+    playBtn.textContent = playing ? '❚❚ Pause' : '▶ Play';
+  };
+  document.getElementById('replay').onclick = function () {
+    dunk.t = 0; playing = true; last = 0; startJam(); playBtn.textContent = '❚❚ Pause';
+  };
+  scrub.oninput = function () { playing = false; playBtn.textContent = '▶ Play'; audioStop(); dunk.t = parseFloat(scrub.value); render(); };
+  document.getElementById('speed').oninput = function (e) { speed = parseFloat(e.target.value); };
+
+  // ==== control panels ====================================================
+  function slider(host, key, obj, min, max, step, label) {
+    var row = document.createElement('div'); row.className = 'row';
+    var lab = document.createElement('label'); lab.textContent = label; row.appendChild(lab);
+    var inp = document.createElement('input'); inp.type = 'range';
+    inp.min = min; inp.max = max; inp.step = step; inp.value = obj[key];
+    var val = document.createElement('span'); val.className = 'val'; val.textContent = (+obj[key]).toFixed(2);
+    inp.oninput = function () {
+      obj[key] = parseFloat(inp.value); val.textContent = obj[key].toFixed(2); render();
+    };
+    row.appendChild(inp); row.appendChild(val); host.appendChild(row);
+  }
+
+  var tHost = document.getElementById('timings');
+  ['walk', 'reach', 'ignite', 'launch', 'slam', 'land'].forEach(function (k) {
+    slider(tHost, k, DK, 0, 20, 0.05, k);
+  });
+
+  var gHost = document.getElementById('geo');
+  slider(gHost, 'rimXpct', P, 0.3, 0.8, 0.005, 'rim X');
+  slider(gHost, 'rimYpct', P, 0.1, 0.5, 0.005, 'rim Y');
+  slider(gHost, 'launchXpct', P, 0.05, 0.6, 0.005, 'launch X');
+  slider(gHost, 'floorYpct', P, 0.5, 0.9, 0.005, 'floor Y');
+  slider(gHost, 'landXpct', P, 0.3, 0.7, 0.005, 'land X');
+  slider(gHost, 'landYpct', P, 0.4, 0.85, 0.005, 'land Y');
+
+  render();
+})();
+</script>
+</body>
+</html>

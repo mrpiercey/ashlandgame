@@ -170,8 +170,10 @@ var G = window.G = window.G || {};
   staff('staff-hurt', 'Mrs. Hurt', { style: 1, skin: 1, hairColor: 3, outfit: 2 }, { roomOf: 't-lib' });
   staff('staff-farmer', 'Mr. Farmer', { style: 8, skin: 9, hairColor: 0, outfit: 9 },
     { roomOf: 't-234', tall: true });
-  staff('staff-jackson', 'Mr. Jackson', { style: 8, skin: 6, hairColor: 1, outfit: 4 }, { roomOf: 'b-gym' });
-  staff('staff-elshaarawy', 'Mr. El-Shaarawy', { style: 0, skin: 5, hairColor: 0, outfit: 7 }, { roomOf: 'b-gym' });
+  staff('staff-jackson', 'Mr. Jackson', { style: 8, skin: 6, hairColor: 1, outfit: 4 },
+    { intro: "Hi there! I'm Mr. Jackson. I help out with PE and keep things moving around the school!" });
+  staff('staff-elshaarawy', 'Mr. El-Shaarawy', { style: 0, skin: 5, hairColor: 0, outfit: 7 },
+    { intro: "Hello! I'm Mr. El-Shaarawy. You'll spot me all over Ashland, lending a hand wherever it's needed!" });
   staff('staff-zimmerman', 'Mrs. Zimmermann', { style: 6, skin: 1, hairColor: 3, outfit: 9 },
     { intro: "Hi there! I'm Mrs. Zimmermann. You'll see me all around the building helping wherever I'm needed!" });
   staff('staff-marsh', 'Mrs. Marsh', { style: 2, skin: 2, hairColor: 1, outfit: 5 }, { roomOf: 'm-caf' });

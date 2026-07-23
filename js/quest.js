@@ -291,6 +291,25 @@ var G = window.G = window.G || {};
   function hintPage(hinterRoomId) {
     var missing = LETTERS.filter(function (l) { return !found[l]; });
     if (!missing.length) return null;
+    // COIN FLIP, stable per hinter: half the hinters are simply mistaken -- they
+    // send you somewhere with no letter (tipTarget), the same 50/50 as the leads.
+    // Eddie's stuck-timer still rescues anyone who chases too many dead ends.
+    if (hinterRoomId && (chash(hinterRoomId + 'sure') % 2 === 1)) {
+      var dud = dudLeadRoom(hinterRoomId + 'dud', hinterRoomId);
+      if (dud) {
+        pendingHint = null;
+        tipTarget = dud;
+        var dd = describeTeacherPlace(dud);
+        var dpp = G.pronounsFor(dud);
+        var dPlace = dd.num ? dpp.poss + ' room (Room ' + dd.num + ')' : dd.ownedPlace;
+        var dudLines = [
+          'I THINK ' + dd.who + ' might have found something? Maybe peek into ' + dPlace + ', ' + dd.where + '.',
+          'Someone said there MIGHT be a golden letter in ' + dd.place + ', ' + dd.where + ' -- worth a shot!',
+          'You could try ' + dd.place + ', ' + dd.where + " -- I'm not totally sure, though!"
+        ];
+        return { text: dudLines[chash(hinterRoomId + 'dl') % dudLines.length] };
+      }
+    }
     // each hinter always points at the SAME letter (until it is found), so
     // repeat chats never contradict themselves
     var letter = hinterRoomId
@@ -852,8 +871,22 @@ var G = window.G = window.G || {};
   var leadIdx = 0;
   var pendingFlyby = null; // Eddie can't fly during the battle -- see main.js
 
+  // a room to send them to that does NOT have an unfound letter waiting: the
+  // "false alarm" half of every lead -- a teacher who only THINKS they saw one.
+  // seed (optional) keeps a given hinter's mistaken guess stable across visits.
+  function dudLeadRoom(seed, exclude) {
+    var ids = Object.keys(G.TEACHERS).filter(function (id) {
+      return id !== 'm-walker' && id !== exclude && !G.TEACHERS[id].noLetter &&
+        !G.TEACHERS[id].roomOf && G.ROOMS[id] && !letterHeldBy(id);
+    });
+    if (!ids.length) return null;
+    return seed != null ? ids[chash(seed) % ids.length]
+      : ids[Math.floor(Math.random() * ids.length)];
+  }
+
   // which letter to send them after: prefer a floor they have never set foot
-  // on, so following the leads walks them through the whole school
+  // on, so following the leads walks them through the whole school. But only
+  // HALF of all leads are real -- see the coin flip below.
   function nextLeadTarget(justCaught) {
     var left = LETTERS.filter(function (l) {
       // the catch is not recorded until the fanfare page draws, so the
@@ -861,6 +894,18 @@ var G = window.G = window.G || {};
       return l !== justCaught && !found[l] && holders[l] && G.ROOMS[holders[l]] && G.TEACHERS[holders[l]];
     });
     if (!left.length) return null;
+    // COIN FLIP: half of every lead is a false alarm. A real lead sets
+    // pendingHint (the arrow follows it, clears when caught); a dud sets
+    // tipTarget at a letterless room, so the trip may come up empty. Eddie's
+    // stuck-timer still rescues a player who keeps chasing dead ends.
+    if (Math.random() < 0.5) {
+      var dud = dudLeadRoom(null, holders[justCaught]);   // don't send them back where they just were
+      if (dud) {
+        pendingHint = null;
+        tipTarget = dud;
+        return { letter: null, real: false, roomId: dud, d: describeTeacherPlace(dud) };
+      }
+    }
     var unseen = left.filter(function (l) {
       var hall = (G.Maps && G.Maps.hallOf) ? G.Maps.hallOf(holders[l]) : G.ROOMS[holders[l]].floor;
       return !G.Game || !G.Game.hasSeenFloor || !G.Game.hasSeenFloor(hall);
@@ -869,7 +914,7 @@ var G = window.G = window.G || {};
     var letter = pool[Math.floor(Math.random() * pool.length)];
     pendingHint = { letter: letter, roomId: holders[letter] };
     tipTarget = null; // a real lead replaces whatever gossip was live
-    return { letter: letter, roomId: holders[letter], d: describeTeacherPlace(holders[letter]) };
+    return { letter: letter, real: true, roomId: holders[letter], d: describeTeacherPlace(holders[letter]) };
   }
 
   // returns the extra dialogue page for this catch, or null. An Eddie lead
@@ -880,26 +925,49 @@ var G = window.G = window.G || {};
     if (!t) return null;
     var who = leadOrder[leadIdx % leadOrder.length];
     leadIdx++;
+    if (t.real) {
+      if (who === 'eddie') {
+        // main.js prefixes the SQUAWK! when he opens his beak
+        pendingFlyby = 'You found the ' + justCaught + ' I dropped! I think I dropped another one in ' +
+          t.d.place + ', ' + t.d.where + '!';
+        return null;
+      }
+      if (who === 'pa') {
+        // the principal or her assistant, whoever is nearer the microphone
+        var vid = Math.random() < 0.5 ? 'm-walker' : 'm-todd';
+        var voice = (G.TEACHERS[vid] && G.TEACHERS[vid].name) || 'Mrs. Walker';
+        return {
+          name: 'INTERCOM',
+          pa: true,
+          text: 'Attention Eagles, this is ' + voice + '. A golden letter was just spotted in ' +
+            t.d.place + ', ' + t.d.where + '!'
+        };
+      }
+      return {
+        name: teacherName,
+        text: 'You found it! Now go see ' + t.d.who + ' in ' + t.d.place + ', ' + t.d.where + '!'
+      };
+    }
+    // a FALSE ALARM -- hedged, so coming up empty still feels fair
     if (who === 'eddie') {
-      // main.js prefixes the SQUAWK! when he opens his beak
-      pendingFlyby = 'You found the ' + justCaught + ' I dropped! I think I dropped another one in ' +
-        t.d.place + ', ' + t.d.where + '!';
+      pendingFlyby = 'You found the ' + justCaught + '! I MIGHT have dropped another near ' +
+        t.d.place + ', ' + t.d.where + ' -- give it a look!';
       return null;
     }
     if (who === 'pa') {
-      // the principal or her assistant, whoever is nearer the microphone
-      var vid = Math.random() < 0.5 ? 'm-walker' : 'm-todd';
-      var voice = (G.TEACHERS[vid] && G.TEACHERS[vid].name) || 'Mrs. Walker';
+      var vid2 = Math.random() < 0.5 ? 'm-walker' : 'm-todd';
+      var voice2 = (G.TEACHERS[vid2] && G.TEACHERS[vid2].name) || 'Mrs. Walker';
       return {
         name: 'INTERCOM',
         pa: true,
-        text: 'Attention Eagles, this is ' + voice + '. A golden letter was just spotted in ' +
-          t.d.place + ', ' + t.d.where + '!'
+        text: 'Attention Eagles, this is ' + voice2 + '. We are hearing a letter MIGHT be near ' +
+          t.d.place + ', ' + t.d.where + ' -- can someone check?'
       };
     }
     return {
       name: teacherName,
-      text: 'You found it! Now go see ' + t.d.who + ' in ' + t.d.place + ', ' + t.d.where + '!'
+      text: 'You found it! Someone THOUGHT they saw another over by ' + t.d.who + ' in ' +
+        t.d.place + ', ' + t.d.where + '. Might be worth a look!'
     };
   }
 

@@ -38,6 +38,26 @@ var G = window.G = window.G || {};
     o.stop(t0 + dur + 0.02);
   }
 
+  // a band-passed noise burst - the raw material for crowd roar, whoosh and
+  // net swish. cut0 -> cut1 sweeps the centre frequency across the burst.
+  function noiseBurst(t0, dur, vol, cut0, cut1, dest) {
+    if (!ctx) return;
+    var n = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    var buf = ctx.createBuffer(1, n, ctx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+    var src = ctx.createBufferSource(); src.buffer = buf;
+    var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 0.8;
+    f.frequency.setValueAtTime(cut0, t0);
+    if (cut1 && cut1 !== cut0) f.frequency.exponentialRampToValueAtTime(cut1, t0 + dur);
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(vol, t0 + dur * 0.3);
+    g.gain.linearRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(f); f.connect(g); g.connect(dest || master);
+    src.start(t0); src.stop(t0 + dur + 0.02);
+  }
+
   // ---- background music: a cheerful little school march -------------------
   // lead (square) and bass (triangle); note = [midi, beats], rest = [0, beats]
   var LEAD = [
@@ -308,6 +328,71 @@ var G = window.G = window.G || {};
     if (p && p.catch) p.catch(function () {});
   }
 
+  // ---- Mr. Richards's dunk crowd roar --------------------------------------
+  // plays a real crowd-roar clip if dunkroar.mp3 is dropped in the repo root;
+  // otherwise falls back to the synthesized 'crowdRoar' swell. Either way the
+  // per-beat whoosh/jam sfx layer on top from the cutscene.
+  var dunkRoarEl = null;
+  function playDunkRoar() {
+    if (dunkRoarEl === 'missing') { sfx('crowdRoar'); return; }
+    if (!dunkRoarEl) {
+      dunkRoarEl = new Audio('dunkroar.mp3');
+      dunkRoarEl.addEventListener('error', function () { dunkRoarEl = 'missing'; });
+    }
+    dunkRoarEl.volume = muted ? 0 : 0.6;
+    try { dunkRoarEl.currentTime = 0; } catch (e) {}
+    var p = dunkRoarEl.play();
+    if (p && p.catch) p.catch(function () { dunkRoarEl = 'missing'; sfx('crowdRoar'); });
+  }
+  function stopDunkRoar() {
+    if (dunkRoarEl && dunkRoarEl !== 'missing') { try { dunkRoarEl.pause(); } catch (e) {} }
+  }
+
+  // ---- Mr. Richards's NBA-Jam dunk soundtrack ------------------------------
+  // jammusic.mp3 is the ~20s backing track for the whole cutscene; it starts a
+  // couple beats before he walks out and ducks quieter once he catches fire.
+  // hesonfireclip / whoa / boomshakalasound are one-shots fired on the beats.
+  var jamEl = null;
+  var jamBaseVol = 0.62;
+  var dunkClips = {};
+  function playJamMusic() {
+    if (bgmEl) { try { bgmEl.pause(); } catch (e) {} }   // hush the floor theme
+    if (jamEl === 'missing') return 0;
+    if (!jamEl) {
+      jamEl = new Audio('jammusic.mp3');
+      jamEl.addEventListener('error', function () { jamEl = 'missing'; });
+    }
+    jamEl.volume = muted ? 0 : jamBaseVol;
+    try { jamEl.currentTime = 0; } catch (e) {}
+    var p = jamEl.play(); if (p && p.catch) p.catch(function () {});
+    var d = jamEl.duration;
+    return (d && isFinite(d) && d > 0) ? d : 20;
+  }
+  function setJamVolume(v) {
+    if (jamEl && jamEl !== 'missing') jamEl.volume = muted ? 0 : Math.max(0, v);
+  }
+  function playDunkClip(file, vol) {
+    var el = dunkClips[file];
+    if (el === 'missing') return;
+    if (!el) {
+      el = new Audio(file);
+      el.addEventListener('error', function () { dunkClips[file] = 'missing'; });
+      dunkClips[file] = el;
+    }
+    el.volume = muted ? 0 : (vol || 0.85);
+    try { el.currentTime = 0; } catch (e) {}
+    var p = el.play(); if (p && p.catch) p.catch(function () {});
+  }
+  function stopDunkMusic() {
+    if (jamEl && jamEl !== 'missing') { try { jamEl.pause(); } catch (e) {} }
+    Object.keys(dunkClips).forEach(function (k) {
+      var el = dunkClips[k];
+      if (el && el !== 'missing') { try { el.pause(); } catch (e) {} }
+    });
+    // bring the floor theme back
+    if (bgmEl && !fellBack) { var p = bgmEl.play(); if (p && p.catch) p.catch(function () { armRetry(); }); }
+  }
+
   // ---- footsteps on the stairwell ------------------------------------------
   // Plays over the whole fade-out / fade-in, so the student lands on the new
   // floor as the last step dies away. Returns how long the clip runs (or 0 if
@@ -388,6 +473,28 @@ var G = window.G = window.G || {};
         note(midi(n[0]), t + n[1], 0.16, 'square', 0.3);
         note(midi(n[0] - 12), t + n[1], 0.16, 'triangle', 0.35);
       });
+    },
+    // ---- Mr. Richards's Double Dribble dunk ----
+    // a swelling arena crowd (two layered noise beds) - the synth stand-in
+    // used until a real dunkroar.mp3 is dropped in the repo
+    crowdRoar: function (t) {
+      noiseBurst(t, 2.6, 0.42, 480, 820);
+      noiseBurst(t + 0.25, 2.3, 0.26, 1300, 1700);
+    },
+    // the whoosh as he blasts up out of the room into the graphic
+    whoosh: function (t) {
+      noiseBurst(t, 0.34, 0.5, 2000, 320);
+    },
+    // the two-hand JAM: rim clank + net swish + the crowd erupting + a cheer
+    jam: function (t) {
+      note(midi(52), t, 0.05, 'square', 0.5);          // metallic rim clank
+      note(midi(64), t, 0.06, 'square', 0.4);
+      note(midi(59), t + 0.02, 0.09, 'triangle', 0.4);
+      noiseBurst(t + 0.04, 0.22, 0.4, 5200, 1100);      // net swish
+      noiseBurst(t + 0.05, 1.2, 0.55, 700, 1300);       // crowd erupts
+      [[72, 0.05], [79, 0.17], [84, 0.30]].forEach(function (n) {
+        note(midi(n[0]), t + n[1], 0.2, 'square', 0.3); // triumphant cheer motif
+      });
     }
   };
 
@@ -409,6 +516,11 @@ var G = window.G = window.G || {};
     if (partyEl && partyEl !== 'missing') partyEl.volume = m ? 0 : 0.55;
     if (dollyEl) dollyEl.volume = m ? 0 : 0.65;
     if (rimshotEl && rimshotEl !== 'missing') rimshotEl.volume = m ? 0 : 0.6;
+    if (dunkRoarEl && dunkRoarEl !== 'missing') dunkRoarEl.volume = m ? 0 : 0.6;
+    if (jamEl && jamEl !== 'missing') jamEl.volume = m ? 0 : jamBaseVol;
+    Object.keys(dunkClips).forEach(function (k) {
+      if (dunkClips[k] && dunkClips[k] !== 'missing') dunkClips[k].volume = m ? 0 : 0.85;
+    });
     if (stairEl && stairEl !== 'missing') stairEl.volume = m ? 0 : 0.65;
     var btn = document.getElementById('mute-btn');
     if (btn) btn.classList.toggle('muted', m);
@@ -429,6 +541,12 @@ var G = window.G = window.G || {};
     playDolly: playDolly,
     stopDolly: stopDolly,
     playRimshot: playRimshot,
+    playDunkRoar: playDunkRoar,
+    stopDunkRoar: stopDunkRoar,
+    playJamMusic: playJamMusic,
+    setJamVolume: setJamVolume,
+    playDunkClip: playDunkClip,
+    stopDunkMusic: stopDunkMusic,
     playStairs: playStairs,
     stopStairs: stopStairs,
     playVictory: playVictory,

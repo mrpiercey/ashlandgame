@@ -328,13 +328,13 @@ var G = window.G = window.G || {};
 
   // Mr. Richards's running joke: talk to him ten times and he offers to dunk
   var richardsTalks = 0;
-  var dunk = null;          // the Double Dribble-style dunk cutscene: {t, from}
-  // an optional real arena screenshot; if dunk.jpg is dropped in the repo it
-  // is used as-is, otherwise we draw a look-alike arena in code
+  var dunk = null;          // the NBA-Jam "on fire" dunk cutscene: {t, ...}
+  // the real arena backdrop; if it loads we play the cutscene over it, else we
+  // fall back to a look-alike arena drawn in code
   var dunkImg = new Image();
   var dunkImgOk = false;
   dunkImg.onload = function () { dunkImgOk = dunkImg.width > 0; };
-  dunkImg.src = 'dunk.jpg';
+  dunkImg.src = 'richardsslam.png';
 
   // the cafeteria "hdd" sushi secret: plays secretsound.mp3 if present
   var secretAudio = null;
@@ -3239,9 +3239,17 @@ var G = window.G = window.G || {};
     });
   }
 
-  // ---- Mr. Richards's Double Dribble dunk cutscene ------------------------
-  // phase boundaries, in seconds
-  var DK = { approach: 1.6, pickup: 2.3, load: 2.9, launch: 3.6, cut: 3.9, flyin: 5.3, slam: 6.4, done: 8.3 };
+  // ---- Mr. Richards's NBA-Jam "he's on fire" dunk cutscene ----------------
+  // phase boundaries, in seconds, all paced to the ~20s jammusic.mp3:
+  //   0..walk    fade in; he stands watching the court, the jam music playing
+  //   ..reach    strides out to the free-throw line, ball hovering
+  //   ..ignite   plants on the line -> flames erupt ("HE'S ON FIRE!", music ducks)
+  //   ..launch   a long beat on fire, then crouch + JUMP ("WHOA!")
+  //   ..slam     soars, spinning, and SLAMS -> "BOOMSHAKALAKA!", backboard shatters
+  //   ..land     drops back down through the raining glass
+  //   ..(done)   celebrates amid the broken glass until the music fades out
+  //              (dunk.done is set from the real track length in startDunk)
+  var DK = { walk: 3.0, reach: 6.5, ignite: 7.5, launch: 10.5, slam: 12.2, land: 14.0 };
 
   function maybeRichardsDunk() {
     richardsTalks++;
@@ -3250,25 +3258,70 @@ var G = window.G = window.G || {};
       { name: 'MR. RICHARDS', text: 'You again, champ! I like your hustle. Tell you what... want to watch me DUNK this basketball?' }
     ], { choices: [
       { label: 'YES!', cb: function () { startDunk(); } },
-      { label: 'Maybe later', cb: null }
+      { label: 'Maybe later', cb: function () { G.Quest.teacherDialogue('t-216', null); } }
     ] });
     return true;
   }
 
+  // the tall tale he spins after every dunk, before pointing you onward
+  var RICHARDS_BRAGS = [
+    'Yeah, if coach had put me in in the fourth quarter, we\'d be state champions. No doubt.',
+    'You know... back in 2002, I used to be able to shoot a basketball from a quarter mile away?',
+    'I used to be able to shoot a basketball over the school. Man. We could\'ve won state...'
+  ];
+  // after the dunk he brags, THEN gives his usual hint (or sends you to Mrs.
+  // Walker if you've already got the letters -- exactly like his normal chat)
+  function richardsAfterDunk() {
+    var brag = RICHARDS_BRAGS[Math.floor(Math.random() * RICHARDS_BRAGS.length)];
+    G.Dialogue.start([{ name: 'MR. RICHARDS', text: brag }], {
+      onDone: function () { G.Quest.teacherDialogue('t-216', null); }
+    });
+  }
+
+  var JAM_DUCK = 0.34;   // how far the jam music drops once he's on fire
+  var DUNK_FADE = 1.4;   // screen/sound fade-in and fade-out length, seconds
+  var BOOM_DUR = 5.8;    // length of boomshakalasound.mp3 -- the scene ends when it does
+
   function startDunk() {
-    dunk = { t: 0 };
+    // the jam track backs the whole thing; the scene fades out the moment the
+    // BOOMSHAKALAKA clip finishes (slam + its length), then the fade tail.
+    G.Audio.playJamMusic();
+    dunk = { t: 0, done: DK.slam + BOOM_DUR + DUNK_FADE, glass: null };
     state = 'dunk';
     G.Input.clearEdges();
-    G.Audio.sfx('blip');
   }
 
   function updateDunk(dt) {
     dunk.t += dt;
-    // one whoosh as he launches, a fanfare on the slam
-    if (!dunk.launched && dunk.t >= DK.launch) { dunk.launched = true; G.Audio.sfx('tick'); }
-    if (!dunk.slammed && dunk.t >= DK.slam) { dunk.slammed = true; G.Audio.sfx('fanfare'); }
-    if (dunk.t >= DK.done || (dunk.t > 0.6 && G.Input.consumeAction())) {
-      transition = { phase: 'out', t: 0, onMid: function () { dunk = null; state = 'play'; } };
+    var t = dunk.t, DONE = dunk.done;
+    // beat-synced one-shots over the jam track
+    if (!dunk.fired && t >= DK.ignite) {
+      dunk.fired = true;
+      G.Audio.playDunkClip('hesonfireclip.mp3', 0.95);
+      G.Audio.setJamVolume(JAM_DUCK);                 // duck the music once he's lit
+    }
+    if (!dunk.whoaed && t >= DK.launch) { dunk.whoaed = true; G.Audio.playDunkClip('whoa.mp3', 0.95); }
+    if (!dunk.slammed && t >= DK.slam) {
+      dunk.slammed = true;
+      G.Audio.playDunkClip('boomshakalasound.mp3', 0.95);
+      spawnGlass();                                    // shatter the backboard
+    }
+    if (dunk.glass) updateGlass(dt);
+    // ride the music down as the whole scene fades out at the end
+    if (t > DONE - DUNK_FADE) {
+      G.Audio.setJamVolume(JAM_DUCK * Math.max(0, (DONE - t) / DUNK_FADE));
+    }
+    var skipped = t > 0.6 && G.Input.consumeAction();
+    if (t >= DONE || skipped) {
+      G.Audio.stopDunkMusic();
+      if (skipped) {
+        transition = { phase: 'out', t: 0, onMid: function () { dunk = null; state = 'play'; richardsAfterDunk(); } };
+      } else {
+        // the scene already faded itself to black -> bring gameplay back up, and
+        // he brags + points you onward back in the room
+        dunk = null; state = 'play'; transition = { phase: 'in', t: 0 };
+        richardsAfterDunk();
+      }
     }
   }
 
@@ -3304,37 +3357,51 @@ var G = window.G = window.G || {};
     dunkArena = c;
   }
 
-  // a side-on hoop: backboard + pole on the RIGHT, the rim projecting LEFT
-  // toward the incoming dunker, with the net hanging in front
-  function drawDunkHoop(rimX, rimY, netSwish) {
-    var bx = rimX + 20;                      // backboard sits to the right
-    // support arm + pole up to the ceiling
-    ctx.strokeStyle = '#3a4048'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(rimX + 4, rimY - 3); ctx.lineTo(bx, rimY - 3); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(bx + 3, rimY - 28); ctx.lineTo(bx + 3, 0); ctx.stroke();
-    // backboard (white with a dark frame + orange target square)
-    ctx.fillStyle = '#12151a'; ctx.fillRect(bx - 2, rimY - 28, 12, 48);
-    ctx.fillStyle = '#f4f2ea'; ctx.fillRect(bx, rimY - 26, 8, 44);
-    ctx.strokeStyle = '#e07a1e'; ctx.lineWidth = 2;
-    ctx.strokeRect(bx + 1, rimY - 12, 6, 12);
-    // rim: an orange ellipse seen at an angle
-    ctx.strokeStyle = '#ff8a1e'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.ellipse(rimX, rimY, 15, 5, 0, 0, Math.PI * 2); ctx.stroke();
-    // net: strands hanging from the rim, swinging out on the slam
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1;
-    var netH = 16 + netSwish * 8;
-    for (var s = 0; s <= 8; s++) {
-      var a = (s / 8) * Math.PI * 2;
-      var tx = rimX + Math.cos(a) * 15, ty = rimY + Math.sin(a) * 5;
-      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(rimX + Math.cos(a) * 6, rimY + netH); ctx.stroke();
+  // for the dunk he suits up: a green #23 basketball jersey. Built once from his
+  // real sprite config -- shirt recolored green, tie dropped, and "23" stamped
+  // onto the chest of every frame.
+  var dunkFrames = null;
+  function stampJerseyNumber(cv) {
+    var g = cv.getContext('2d'), W = cv.width, H = cv.height;
+    var y0 = Math.round(H * 0.48), y1 = Math.round(H * 0.66);   // the shirt band
+    var px = g.getImageData(0, 0, W, H).data;
+    var minX = W, maxX = -1;
+    for (var y = y0; y <= y1; y++) for (var x = 0; x < W; x++) {
+      if (px[(y * W + x) * 4 + 3] > 40) { if (x < minX) minX = x; if (x > maxX) maxX = x; }
+    }
+    if (maxX < 0) return;
+    var glyphs = { '2': ['111', '001', '111', '100', '111'], '3': ['111', '001', '111', '001', '111'] };
+    var num = '23', gw = 3 * num.length + (num.length - 1);     // 3px digits, 1px gap
+    var startX = Math.round((minX + maxX) / 2 - gw / 2);
+    var startY = Math.round((y0 + y1) / 2 - 2);
+    g.fillStyle = '#f4f4ee';
+    for (var d = 0; d < num.length; d++) {
+      var gl = glyphs[num[d]];
+      for (var r = 0; r < 5; r++) for (var c = 0; c < 3; c++) {
+        if (gl[r][c] === '1') g.fillRect(startX + d * 4 + c, startY + r, 1, 1);
+      }
     }
   }
-
-  function richFrame(dir, walking) {
-    var tf = teacherFrames['t-216'];
+  function getDunkFrames() {
+    if (dunkFrames) return dunkFrames;
+    var base = G.TEACHERS['t-216'] && G.TEACHERS['t-216'].sprite;
+    if (!base || !G.Sprites) return teacherFrames['t-216'] || null;
+    var cfg = {}; for (var k in base) cfg[k] = base[k];
+    cfg.shirt = '#2fa652'; cfg.tie = null;                      // green jersey, no tie
+    var f = G.Sprites.makeAdult(cfg);
+    ['down', 'up', 'left', 'right'].forEach(function (dir) {
+      (f[dir] || []).forEach(function (cv) { stampJerseyNumber(cv); });
+    });
+    dunkFrames = f;
+    return dunkFrames;
+  }
+  function richFrame(dir, walking, step) {
+    var tf = getDunkFrames();
     if (!tf) return null;
     var set = tf[dir] || tf.down;
-    return walking ? set[1 + (Math.floor(dunk.t * 9) % 2)] : set[0];
+    if (!walking) return set[0];
+    var sub = (step != null) ? step : Math.floor(dunk.t * 9);
+    return set[1 + (sub % 2)];
   }
   // draw a Richards frame anchored at his FEET (cx, cy), scaled and optionally
   // squashed/rotated for drama
@@ -3349,115 +3416,319 @@ var G = window.G = window.G || {};
     ctx.restore();
     return h;
   }
-  // one arm reaching forward/up to the ball -- the leading (right) arm that
-  // cocks the ball back and rams it through. Skin-coloured, dark outline.
-  function drawDunkArm(shoulderX, shoulderY, handX, handY, scale, skin) {
-    var w = Math.max(3, Math.round(scale * 1.4));
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#1c1108'; ctx.lineWidth = w + 2;
-    ctx.beginPath(); ctx.moveTo(shoulderX, shoulderY); ctx.lineTo(handX, handY); ctx.stroke();
-    ctx.strokeStyle = skin; ctx.lineWidth = w;
-    ctx.beginPath(); ctx.moveTo(shoulderX, shoulderY); ctx.lineTo(handX, handY); ctx.stroke();
-    ctx.lineCap = 'butt';
+  // draw a Richards frame anchored at his MIDDLE (cx, cy) -- used for the
+  // head-first fall (rot) and the head-spin (sx squashes width to fake a
+  // spin-around; negative sx mirrors him mid-turn)
+  function blitRichCentered(frame, cx, cy, scale, rot, sx) {
+    if (!frame) return 0;
+    var w = frame.width * scale, h = frame.height * scale;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(cx, cy);
+    if (rot) ctx.rotate(rot);
+    if (sx != null && sx !== 1) ctx.scale(sx, 1);
+    ctx.drawImage(frame, -w / 2, -h / 2, w, h);
+    ctx.restore();
+    return h;
+  }
+  // one licking flame tongue -- a wavering teardrop rising from (x, baseY)
+  function drawFlameTongue(x, baseY, h, w, sway) {
+    ctx.beginPath();
+    ctx.moveTo(x - w, baseY);
+    ctx.quadraticCurveTo(x - w * 0.8, baseY - h * 0.55, x + sway, baseY - h);
+    ctx.quadraticCurveTo(x + w * 0.8, baseY - h * 0.55, x + w, baseY);
+    ctx.quadraticCurveTo(x, baseY + h * 0.12, x - w, baseY);
+    ctx.closePath(); ctx.fill();
+  }
+  // NBA-Jam "on fire" aura: layered flames licking up around a body of size
+  // bodyW x bodyH standing on (cx, footY). intensity 0..1 scales it in/out.
+  function drawFireAura(cx, footY, bodyW, bodyH, t, intensity) {
+    if (intensity <= 0) return;
+    var top = footY - bodyH;
+    var roots = [], i, n = 7;
+    for (i = 0; i < n; i++) roots.push([cx - bodyW / 2 + bodyW * (i / (n - 1)), footY, 1]);
+    for (i = 0; i < 4; i++) {                        // flames climbing both flanks
+      var yy = footY - bodyH * (0.22 + 0.2 * i);
+      roots.push([cx - bodyW * 0.5, yy, 0.7]);
+      roots.push([cx + bodyW * 0.5, yy, 0.7]);
+    }
+    roots.push([cx - bodyW * 0.18, top, 0.6]);       // and over the head
+    roots.push([cx + bodyW * 0.18, top, 0.6]);
+    var layers = [
+      { col: 'rgba(190,40,10,0.85)', hs: 1.18, ws: 1.3 },
+      { col: 'rgba(255,120,20,0.9)', hs: 0.9, ws: 0.95 },
+      { col: 'rgba(255,214,74,0.95)', hs: 0.58, ws: 0.58 }
+    ];
+    for (var L = 0; L < layers.length; L++) {
+      ctx.fillStyle = layers[L].col;
+      for (var r = 0; r < roots.length; r++) {
+        var rt = roots[r];
+        var flick = 0.65 + 0.5 * Math.sin(t * 13 + r * 1.7 + L);
+        var h = bodyH * 0.5 * rt[2] * intensity * flick * layers[L].hs;
+        var w = (2.5 + bodyW * 0.09) * rt[2] * layers[L].ws;
+        drawFlameTongue(rt[0], rt[1], h, w, Math.sin(t * 9 + r) * w * 1.1);
+      }
+    }
+  }
+  // the basketball, wreathed in fire when he's lit up
+  function drawFireBall(cx, cy, r, t, intensity) {
+    if (intensity > 0) {
+      var layers = [['rgba(200,50,10,0.8)', r * 2.2], ['rgba(255,130,25,0.85)', r * 1.7], ['rgba(255,222,92,0.9)', r * 1.15]];
+      for (var L = 0; L < layers.length; L++) {
+        ctx.fillStyle = layers[L][0];
+        ctx.beginPath();
+        for (var i = 0; i <= 8; i++) {
+          var a = i / 8 * Math.PI * 2;
+          var rr = layers[L][1] * (1 + 0.45 * Math.sin(t * 16 + i * 2 + L)) * intensity;
+          var px = cx + Math.cos(a) * rr, py = cy + Math.sin(a) * rr - r * 0.35;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    drawBasketball(cx, cy, r);
+  }
+  // the ball punching down through the backdrop's net at the rim
+  function drawNetSwish(rimX, rimY, k) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1;
+    for (var s = 0; s <= 8; s++) {
+      var a = s / 8 * Math.PI * 2, rx = 12;
+      ctx.beginPath();
+      ctx.moveTo(rimX + Math.cos(a) * rx, rimY + Math.sin(a) * 4);
+      ctx.lineTo(rimX + Math.cos(a) * rx * 0.4, rimY + 15 + k * 9);
+      ctx.stroke();
+    }
+    if (k > 0.12) drawBasketball(rimX, rimY + 6 + (1 - k) * 16, 6);
+  }
+  // the big callout text + impact flash
+  function drawDunkText(t) {
+    if (t >= DK.slam) {
+      var fl = Math.max(0, 1 - (t - DK.slam) / 0.25);
+      if (fl > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (fl * 0.6).toFixed(3) + ')'; ctx.fillRect(0, 0, SW, SH); }
+    }
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    if (t >= DK.ignite && t < DK.slam) {
+      ctx.globalAlpha = Math.min(1, (t - DK.ignite) / 0.25);
+      ctx.font = font(13);
+      var wob = 1 + Math.sin(t * 14) * 0.06;
+      ctx.translate(SW * 0.5, SH * 0.13); ctx.scale(wob, wob);
+      ctx.lineWidth = 5; ctx.strokeStyle = '#1c1108';
+      ctx.strokeText("HE'S ON FIRE!", 0, 0);
+      ctx.fillStyle = '#ffcf3a'; ctx.fillText("HE'S ON FIRE!", 0, 0);
+    } else if (t >= DK.slam) {
+      ctx.font = font(12);
+      var wob2 = 1 + Math.sin(t * 20) * 0.05;
+      ctx.translate(SW * 0.5, SH * 0.18); ctx.scale(wob2, wob2);
+      ctx.lineWidth = 5; ctx.strokeStyle = '#1c1108';
+      ctx.strokeText('BOOMSHAKALAKA!', 0, 0);
+      ctx.fillStyle = '#ff8a1e'; ctx.fillText('BOOMSHAKALAKA!', 0, 0);
+    }
+    ctx.restore();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+
+  // the NBA-Jam corner HUD: "TO CONTROL RICHARDS" in the backdrop's gold arcade
+  // lettering, with his turbo meter below (pinned full and strobing while lit up)
+  function drawDunkHUD(t) {
+    var onFire = t >= DK.ignite && t < DK.land;
+    ctx.save();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.font = font(7);
+    ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = '#4a1c06';
+    ctx.strokeText('TO CONTROL', 5, 4);
+    ctx.strokeText('RICHARDS', 5, 13);
+    ctx.fillStyle = '#f4ad1e';
+    ctx.fillText('TO CONTROL', 5, 4);
+    ctx.fillText('RICHARDS', 5, 13);
+    // turbo bar
+    var bx = 5, by = 24, bw = 74, bh = 6;
+    ctx.fillStyle = 'rgba(8,6,12,0.8)'; ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+    var lvl = onFire ? 1 : 0.7 + 0.06 * Math.sin(t * 4);
+    var fw = Math.max(0, Math.round(bw * lvl));
+    var g = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+    if (onFire) {                                     // on fire = unlimited turbo, strobing hot
+      var s = Math.sin(t * 28) > 0;
+      g.addColorStop(0, s ? '#ffe24a' : '#ff7a1e');
+      g.addColorStop(1, s ? '#ff7a1e' : '#ffe24a');
+    } else {
+      g.addColorStop(0, '#37cf46'); g.addColorStop(0.6, '#e6cf1e'); g.addColorStop(1, '#ff5a1e');
+    }
+    ctx.fillStyle = g; ctx.fillRect(bx, by, fw, bh);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';              // segment ticks
+    for (var sx = bx + 8; sx < bx + bw; sx += 8) ctx.fillRect(sx, by, 1, bh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
+    ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, bh + 1);
+    ctx.restore();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+
+  // the backboard, dead centre above the rim -- origin of the shatter
+  function backboardXY() { return [Math.round(SW * 0.575), Math.round(SH * 0.18)]; }
+  // SLAM! -- the backboard explodes into a burst of glass shards that arc out
+  // and rain down all over the court floor
+  function spawnGlass() {
+    var bb = backboardXY(), bx = bb[0], by = bb[1];
+    var shades = ['rgba(205,232,255,0.92)', 'rgba(230,246,255,0.88)', 'rgba(170,210,245,0.92)', 'rgba(245,251,255,0.85)'];
+    var g = [];
+    for (var i = 0; i < 52; i++) {
+      var x = bx + (Math.random() - 0.5) * 58;
+      g.push({
+        x: x, y: by + (Math.random() - 0.5) * 34,
+        vx: (x - bx) * 0.7 + (Math.random() - 0.5) * 120,   // blast outward
+        vy: -70 + Math.random() * 60,                        // up and out first
+        rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 12,
+        size: 1.6 + Math.random() * 3.2,
+        restY: 108 + Math.random() * 122,                    // scatter across the floor depth
+        shade: shades[i % shades.length], rest: false
+      });
+    }
+    dunk.glass = g;
+  }
+  function updateGlass(dt) {
+    var GRAV = 540;
+    for (var i = 0; i < dunk.glass.length; i++) {
+      var p = dunk.glass[i];
+      if (p.rest) continue;
+      p.vy += GRAV * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+      if (p.vy > 0 && p.y >= p.restY) {                       // settle where it lands
+        p.y = p.restY; p.rest = true; p.vx = 0; p.vy = 0; p.vr = 0;
+      }
+    }
+  }
+  function drawGlass() {
+    if (!dunk.glass) return;
+    for (var i = 0; i < dunk.glass.length; i++) {
+      var p = dunk.glass[i], s = p.size;
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = p.shade;
+      ctx.beginPath();
+      ctx.moveTo(0, -s); ctx.lineTo(s * 0.72, 0); ctx.lineTo(0, s * 0.85); ctx.lineTo(-s * 0.6, 0);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';                // a sharp glint
+      ctx.fillRect(-1, -Math.round(s * 0.4), 1, 1);
+      ctx.restore();
+    }
+  }
+  // a white starburst + radiating cracks on the backboard at the instant of impact
+  function drawBackboardShatter(t) {
+    var age = t - DK.slam;
+    if (age < 0 || age > 0.6) return;
+    var k = 1 - age / 0.6, bb = backboardXY(), bx = bb[0], by = bb[1];
+    ctx.save();
+    ctx.strokeStyle = 'rgba(235,247,255,' + k.toFixed(2) + ')'; ctx.lineWidth = 1;
+    for (var i = 0; i < 16; i++) {
+      var a = i / 16 * Math.PI * 2 + i * 0.4;
+      var r1 = 5 + (1 - k) * 30;
+      ctx.beginPath();
+      ctx.moveTo(bx + Math.cos(a) * 3, by + Math.sin(a) * 3);
+      ctx.lineTo(bx + Math.cos(a) * r1, by + Math.sin(a) * r1);
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,' + (k * 0.7).toFixed(2) + ')';
+    ctx.beginPath(); ctx.arc(bx, by, 4 + (1 - k) * 12, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  // the whole scene fades up from black at the start and back to black at the end
+  function drawDunkFade(t) {
+    var a = 0;
+    if (t < DUNK_FADE) a = 1 - t / DUNK_FADE;
+    else if (t > dunk.done - DUNK_FADE) a = (t - (dunk.done - DUNK_FADE)) / DUNK_FADE;
+    a = Math.min(1, Math.max(0, a));
+    if (a > 0) { ctx.fillStyle = 'rgba(0,0,0,' + a.toFixed(3) + ')'; ctx.fillRect(0, 0, SW, SH); }
   }
 
   function drawDunk() {
     var t = dunk.t;
-    var rimX = Math.round(SW * 0.72), rimY = Math.round(SH * 0.34);  // hoop, upper RIGHT
-    var floorY = SH - 26, groundBallX = Math.round(SW * 0.40);
-    var richSkin = (G.TEACHERS['t-216'] && G.TEACHERS['t-216'].sprite && G.TEACHERS['t-216'].sprite.skin) || '#e0a878';
+    var scale = 2.1;
+    var rimX = Math.round(SW * 0.575), rimY = Math.round(SH * 0.235);  // the net in the backdrop
+    var launchX = Math.round(SW * 0.30), floorY = Math.round(SH * 0.74); // free-throw line, foreground
+    var watchX = Math.round(SW * 0.11), landX = Math.round(SW * 0.56), landY = Math.round(SH * 0.60);
 
-    // the hard cut: a beat of black between the jump-out and the graphic
-    if (t >= DK.launch && t < DK.cut) {
-      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, SW, SH);
-      return;
-    }
+    // backdrop: the real arena photo (fallback to the drawn look-alike arena)
+    if (dunkImgOk) ctx.drawImage(dunkImg, 0, 0, SW, SH);
+    else { if (!dunkArena) buildDunkArena(); ctx.drawImage(dunkArena, 0, 0); }
 
-    if (!dunkArena) buildDunkArena();
-    var partTwo = t >= DK.cut;
-    ctx.drawImage(dunkArena, 0, 0);
-    if (!partTwo) { ctx.fillStyle = 'rgba(0,0,10,0.35)'; ctx.fillRect(0, 0, SW, SH); }
+    var ease = function (x) { x = x < 0 ? 0 : x > 1 ? 1 : x; return x * x * (3 - 2 * x); };
+    var lerp = function (a, b, x) { return a + (b - a) * x; };
 
-    if (!partTwo) {
-      // ---- PART 1 (in the room): walk to the ball, grab it, crouch, JUMP out ----
-      var rx, ry = floorY, dir = 'right', walking = false, squash = 1, held = false;
-      if (t < DK.approach) {
-        var p = t / DK.approach;
-        rx = 40 + (groundBallX - 18 - 40) * p; walking = true;
-      } else if (t < DK.pickup) {
-        rx = groundBallX - 18; dir = 'down';
-      } else if (t < DK.load) {
-        rx = groundBallX - 18; dir = 'down'; held = true;
-      } else {
-        var lp = (t - DK.load) / (DK.launch - DK.load);
-        rx = groundBallX - 18; dir = 'up'; held = true;
-        squash = lp < 0.35 ? 1 - lp * 0.5 : 1;           // crouch, then...
-        ry = floorY - Math.max(0, (lp - 0.35) / 0.65) * (floorY + 90); // ...blast up and out
-      }
-      if (!held) drawBasketball(groundBallX, floorY - 6, 7);
-      var fh = blitRich(richFrame(dir, walking), rx, ry, 2, squash, 0) || 40;
-      if (held) drawBasketball(rx, ry - fh - 5, 7);
-      return;
-    }
+    // fire intensity: ramps up quickly once he ignites, holds through the slam,
+    // then dies out as he settles amid the glass
+    var fire = 0;
+    if (t >= DK.ignite && t < DK.land) fire = Math.min(1, (t - DK.ignite) / 0.8);
+    else if (t >= DK.land) fire = Math.max(0, 1 - (t - DK.land) / 1.2);
 
-    // ---- PART 2 (the graphic): SOAR left -> right and SLAM the hoop on the right ----
-    var shake = (t >= DK.slam) ? Math.max(0, 1 - (t - DK.slam) / 0.4) * 4 : 0;
+    // a rim-rattling shake on impact
+    var shake = (t >= DK.slam) ? Math.max(0, 1 - (t - DK.slam) / 0.4) * 6 : 0;
     ctx.save();
     if (shake) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
 
-    var endX = rimX - 30, endY = rimY + 58;   // where he hangs, just left of the rim
-    var scale, px, py, fp = (t - DK.cut) / (DK.flyin - DK.cut);
-    if (t < DK.flyin) {
-      scale = 2.4 + fp * 0.8;
-      px = -44 + (endX - (-44)) * fp;                          // fly in from the left
-      py = (SH + 44) + (endY - (SH + 44)) * (1 - (1 - fp) * (1 - fp)); // soar upward
-      // speed streaks trailing behind him to the LEFT
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
-      for (var sl = 0; sl < 6; sl++) {
-        var ly = py - 12 - sl * 7;
-        ctx.beginPath(); ctx.moveTo(px - 22 - sl * 6, ly); ctx.lineTo(px - 8 - sl * 6, ly); ctx.stroke();
+    var frame0 = richFrame('right', false);
+    var bodyH = ((frame0 && frame0.height) || 29) * scale;
+    var bodyW = ((frame0 && frame0.width) || 16) * scale;
+
+    if (t < DK.launch) {
+      // ---- PART 1: watch the court, stride out to the line, catch fire, load ----
+      var cx, walking = false;
+      if (t < DK.walk) {                              // stand at the edge, watching
+        cx = watchX;
+      } else if (t < DK.reach) {                      // stride out to the free-throw line
+        cx = lerp(watchX, launchX, ease((t - DK.walk) / (DK.reach - DK.walk))); walking = true;
+      } else {                                        // planted on the line
+        cx = launchX;
       }
-    } else {
-      scale = 3.2; px = endX; py = endY - 3 * Math.min(1, (t - DK.flyin) / 0.5);
+      var squash = 1;
+      if (t >= DK.launch - 0.28) squash = 1 - 0.22 * ((t - (DK.launch - 0.28)) / 0.28); // crouch to load
+      var bodyHs = bodyH * squash;
+      var handY = floorY - bodyHs * 0.55, ballX = cx + bodyW * 0.44, ballY = handY;
+      drawFireAura(cx, floorY, bodyW, bodyHs, t, fire);
+      blitRich(richFrame('right', walking), cx, floorY, scale, squash, 0);
+      drawFireBall(ballX, ballY, 7, t, fire);
+      ctx.restore();
+      drawDunkText(t);
+      drawDunkHUD(t);
+      drawDunkFade(t);
+      return;
     }
-    var fh2 = blitRich(richFrame('right', t < DK.flyin), px, py, scale, 1, 0) || 90;
 
-    // the ball rides slightly in FRONT of him (his right hand), reaching for the
-    // rim, then gets rammed straight down through the net
-    var shoulderX = px + scale * 1.4, shoulderY = py - fh2 * 0.60;
-    var bx2, by2;
-    if (t < DK.flyin) {
-      var leadX = px + 14 + scale * 2, leadY = py - fh2 * 0.82;
-      bx2 = leadX + (rimX - leadX) * fp;
-      by2 = leadY + ((rimY - 6) - leadY) * fp;
-    } else if (t < DK.slam) {
-      bx2 = rimX; by2 = rimY - 6;                              // cocked above the rim
-    } else {
-      var d = Math.min(1, (t - DK.slam) / 0.3);
-      bx2 = rimX; by2 = (rimY - 6) + d * ((rimY + 40) - (rimY - 6)); // SLAM down through
+    // ---- PART 2: soar to the rim, spinning, SLAM, shatter the glass, land ----
+    var cx2, cy2, rot;
+    if (t < DK.slam) {                                // flight: an arc up to the rim
+      var u = ease((t - DK.launch) / (DK.slam - DK.launch));
+      cx2 = lerp(launchX, rimX, u);
+      cy2 = lerp(floorY - bodyH * 0.5, rimY + bodyH * 0.2, u) - Math.sin(u * Math.PI) * bodyH * 0.55;
+      rot = (t - DK.launch) / (DK.slam - DK.launch) * Math.PI * 4;   // two full spins
+    } else {                                          // hang a beat, then drop to the floor upright
+      var d = Math.min(1, (t - DK.slam) / (DK.land - DK.slam));
+      cx2 = lerp(rimX, landX, d);
+      cy2 = lerp(rimY + bodyH * 0.2, landY - bodyH * 0.5, d * d);
+      rot = 0;
     }
-    drawDunkArm(shoulderX, shoulderY, bx2, by2, scale, richSkin);
-    drawBasketball(bx2, by2, 9);
 
-    // the rim + net draw IN FRONT of him, so the ball punches through
-    drawDunkHoop(rimX, rimY, t >= DK.slam ? Math.max(0, 1 - (t - DK.slam) / 0.5) : 0);
+    // his flames spin with him
+    ctx.save();
+    ctx.translate(cx2, cy2); ctx.rotate(rot);
+    drawFireAura(0, bodyH * 0.5, bodyW, bodyH, t, fire);
+    ctx.restore();
+    blitRichCentered(frame0, cx2, cy2, scale, rot, 1);
+
+    // the ball rides in his hands until the slam, then it's punched through the net
+    if (t < DK.slam) {
+      var ox = bodyW * 0.44, oy = -bodyH * 0.12;
+      drawFireBall(cx2 + ox * Math.cos(rot) - oy * Math.sin(rot),
+                   cy2 + ox * Math.sin(rot) + oy * Math.cos(rot), 7, t, fire);
+    } else {
+      drawNetSwish(rimX, rimY, Math.max(0, 1 - (t - DK.slam) / 0.5));
+    }
     ctx.restore();
 
-    // SLAM! text + a crowd-flash burst
-    if (t >= DK.slam) {
-      var fl = Math.max(0, 1 - (t - DK.slam) / 0.25);
-      if (fl > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (fl * 0.6).toFixed(3) + ')'; ctx.fillRect(0, 0, SW, SH); }
-      ctx.save();
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = font(22);
-      var wob = 1 + Math.sin(t * 20) * 0.05;
-      ctx.translate(SW * 0.36, SH * 0.30); ctx.scale(wob, wob);
-      ctx.lineJoin = 'round'; ctx.lineWidth = 5; ctx.strokeStyle = '#1c1108';
-      ctx.strokeText('SLAM!!!', 0, 0);
-      ctx.fillStyle = '#ff8a1e'; ctx.fillText('SLAM!!!', 0, 0);
-      ctx.restore();
-      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    }
+    drawBackboardShatter(t);   // the burst at the moment of impact
+    drawGlass();               // shards flying out and settling on the floor
+    drawDunkText(t);
+    drawDunkHUD(t);
+    drawDunkFade(t);
   }
 
   // one bobbing balloon bunch (three balloons + strings)

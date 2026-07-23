@@ -944,7 +944,6 @@ var G = window.G = window.G || {};
       if (sx !== undefined) m.npcs.push({ kind: 'teacher', roomId: id, x: sx, y: sy });
     }
 
-    var inGym = function (x, y, t2) { return x >= 23 && t2 === 'gymfloor'; };
     // the custodial crew (plus Ms. Kay Jackson) roams the top floor
     placeStaff(maps.top, 'staff-mellow');
     placeStaff(maps.top, 'staff-rampulla');
@@ -955,19 +954,21 @@ var G = window.G = window.G || {};
     // support staff wandering the middle-floor hallway
     placeStaff(maps.middle, 'staff-zimmerman');
     placeStaff(maps.middle, 'staff-seivers');
-    // ...and the lower-floor hallway
-    placeStaff(maps.basement, 'staff-shadler');
-    placeStaff(maps.basement, 'staff-helton');
+    // ...and more roaming the upstairs halls (they used to drift into the gym)
+    placeStaff(maps.middle, 'staff-shadler');
+    placeStaff(maps.top, 'staff-helton');
     placeStaff(maps['m-caf'], 'staff-marsh', { x: 2, y: 15 });
     // the kitchen crew works behind the serving counter
     placeStaff(maps['m-caf'], 'staff-haskins', { x: 11, y: 2 });
     placeStaff(maps['m-caf'], 'staff-taylor', { x: 11, y: 4 });
     placeStaff(maps['m-caf'], 'staff-martin', { x: 11, y: 6 });
-    placeStaff(maps.basement, 'staff-jackson', { zone: inGym });
-    placeStaff(maps.basement, 'staff-elshaarawy', { zone: inGym });
-    // band and orchestra set up by the gym stage
-    placeStaff(maps.basement, 'staff-baker', { zone: inGym });
-    placeStaff(maps.basement, 'staff-komprs', { zone: inGym });
+    // Ms. Kirk has the gym to herself now; the rest of the PE/music crew roam
+    // the upstairs hallways with everyone else
+    placeStaff(maps.middle, 'staff-jackson');
+    placeStaff(maps.top, 'staff-elshaarawy');
+    // band and orchestra roam the halls too
+    placeStaff(maps.top, 'staff-baker');
+    placeStaff(maps.middle, 'staff-komprs');
     placeStaff(maps['t-lib'], 'staff-hurt', { x: 10, y: 10 });
     placeStaff(maps['t-234'], 'staff-farmer', { x: 9, y: 4 });
     placeStaff(maps['t-224'], 'staff-garcia', { x: 9, y: 6 });
