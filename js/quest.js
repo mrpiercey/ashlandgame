@@ -328,7 +328,10 @@ var G = window.G = window.G || {};
     ];
     pendingHint = { letter: letter, roomId: roomId };
     noteProgress(); // a real clue counts as making headway
-    return { text: hints[Math.floor(Math.random() * hints.length)] };
+    // stable phrasing per hinter, so a repeat chat reads the same every time
+    var hi = hinterRoomId ? chash(hinterRoomId + 'hint') % hints.length
+      : Math.floor(Math.random() * hints.length);
+    return { text: hints[hi] };
   }
 
   // ---- EASTER EGG: Mrs. Todd loves Dolly Parton ---------------------------
@@ -583,23 +586,31 @@ var G = window.G = window.G || {};
     'Why not ask {who}? You can find {them} {where}.',
     'If I were you, I would go see {who}, {where}.'
   ];
+  // each teacher settles on ONE colleague to send you to and sticks with it,
+  // so talking to them again never contradicts their earlier nudge
+  var referralOf = {};
   function referralLine(selfId) {
     var ids = Object.keys(G.TEACHERS).filter(function (id) {
       return id !== selfId && id !== 'm-walker' && !G.TEACHERS[id].noLetter &&
         !G.TEACHERS[id].roomOf && G.ROOMS[id];
     });
     if (!ids.length) return null;
-    // steer toward rooms they have not tried yet: still just chatter, but
-    // chatter that opens a new door beats chatter that loops them back
-    var fresh = ids.filter(function (id) { return !talkCount[id]; });
-    var pool = fresh.length ? fresh : ids;
-    var id = pool[Math.floor(Math.random() * pool.length)];
+    var id = referralOf[selfId];
+    if (!id || ids.indexOf(id) < 0) {
+      // first time (or their pick is gone): choose once, then keep it. Steer
+      // toward a room they have not tried yet -- a new door beats a loop.
+      var fresh = ids.filter(function (id2) { return !talkCount[id2]; });
+      var pool = fresh.length ? fresh : ids;
+      id = pool[Math.floor(Math.random() * pool.length)];
+      referralOf[selfId] = id;
+    }
     // point the arrow, but do NOT call noteProgress(): being passed around
     // the building is not progress, so Eddie's stuck-timer keeps ticking
     tipTarget = id;
     var d = describeTeacherPlace(id);
     var p = G.pronounsFor(id);
-    return REFERRAL_FORMS[Math.floor(Math.random() * REFERRAL_FORMS.length)]
+    // stable phrasing too, so the whole line reads the same on every visit
+    return REFERRAL_FORMS[chash(selfId + 'refform') % REFERRAL_FORMS.length]
       .replace('{who}', d.who)
       .replace('{place}', d.ownedPlace)
       .replace('{where}', d.where)
