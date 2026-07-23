@@ -10,7 +10,8 @@ var G = window.G = window.G || {};
   var TS = 16;
   var canvas, ctx;
   var visited = {};            // roomIds the player has entered
-  var met = {};                // staff the player has talked to (roomId or '__officer__')
+  var met = {};                // staff the player has talked to (roomId, '__officer__' or '__eddie__')
+  var staffRosterOpen = false; // the "ASHLAND STAFF" roster overlay is up
   var floorsSeen = { middle: true }; // floors walked on (we spawn on the ground)
   var flybyRoom = null;        // room a just-won letter was caught in, or null
 
@@ -233,7 +234,29 @@ var G = window.G = window.G || {};
       return;
     }
 
+    if (state === 'dunk') {
+      updateDunk(dt);
+      return;
+    }
+
     // ---- play ----
+    // the staff roster freezes the world; Enter (or a tap) closes it
+    if (staffRosterOpen) {
+      if (G.Input.consumeAction()) { staffRosterOpen = false; G.Audio.sfx('blip'); }
+      return;
+    }
+
+    // the cafeteria "hdd" sushi secret -- only counts letters typed in here
+    if (currentMapId === 'm-caf') {
+      if (!G.Quest.sushiOn() && G.Input.recentTyped().indexOf('hdd') !== -1) {
+        G.Quest.setSushi();
+        G.Input.clearTyped();
+        playSecretSound();
+      }
+    } else {
+      G.Input.clearTyped();
+    }
+
     if (ceremony) {
       updateCeremony(dt);
       updateNpcs(dt);
@@ -243,6 +266,10 @@ var G = window.G = window.G || {};
     updateFollowers(dt);
     // the party never stops -- not even while you're chatting
     if (party) updateParty(dt);
+    if (playerDance) {
+      playerDance.t += dt;
+      if (!party || playerDance.t > DANCE_LIFE) playerDance = null;
+    }
     if (toddParty) updateToddParty(dt);
     // Eddie keeps flapping while his hint box is on screen
     if (eddieVisit) updateEddieVisit(dt);
@@ -283,7 +310,49 @@ var G = window.G = window.G || {};
     }
     wasInGym = nowInGym;
 
+    // at the party, number keys are dance moves, not "talk" -- catch them
+    // before the action button so pressing 5 doesn't end the celebration
+    if (party) {
+      var dk = G.Input.consumeDanceKey();
+      if (dk !== null) { startPlayerDance(dk); G.Input.consumeAction(); return; }
+    } else {
+      G.Input.consumeDanceKey(); // don't let a stray number leak into the party
+    }
     if (G.Input.consumeAction()) tryInteract();
+  }
+
+  // the player's own dance move at the party: {style 0-9, t}. Number keys
+  // pick a move; tapping your own character rolls a random one.
+  var playerDance = null;
+  var DANCE_LIFE = 2.6;
+
+  // Mr. Richards's running joke: talk to him ten times and he offers to dunk
+  var richardsTalks = 0;
+  var dunk = null;          // the Double Dribble-style dunk cutscene: {t, from}
+  // an optional real arena screenshot; if dunk.jpg is dropped in the repo it
+  // is used as-is, otherwise we draw a look-alike arena in code
+  var dunkImg = new Image();
+  var dunkImgOk = false;
+  dunkImg.onload = function () { dunkImgOk = dunkImg.width > 0; };
+  dunkImg.src = 'dunk.jpg';
+
+  // the cafeteria "hdd" sushi secret: plays secretsound.mp3 if present
+  var secretAudio = null;
+  function playSecretSound() {
+    try {
+      if (!secretAudio) {
+        secretAudio = new Audio('secretsound.mp3');
+        secretAudio.addEventListener('error', function () { secretAudio = 'missing'; });
+      }
+      if (secretAudio === 'missing') return;
+      secretAudio.currentTime = 0;
+      var p = secretAudio.play();
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) { /* no audio, no problem */ }
+  }
+  function startPlayerDance(style) {
+    playerDance = { style: ((style % 10) + 10) % 10, t: 0 };
+    G.Audio.sfx('blip');
   }
 
   var wasInGym = false;
@@ -987,11 +1056,26 @@ var G = window.G = window.G || {};
     return null;
   }
 
+  // a tile is off-limits to wandering staff if it -- or any tile right next
+  // to it -- is a doorway, mat or stairway. That one-tile buffer means a
+  // roaming staff member can never park in front of a door and block it.
+  function nearDoorish(m, x, y) {
+    var D = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (var i = 0; i < D.length; i++) {
+      var t = m.get(x + D[i][0], y + D[i][1]);
+      if (t === 'door' || t === 'mat' || t === 'stairU' || t === 'stairD') return true;
+      var key = (x + D[i][0]) + ',' + (y + D[i][1]);
+      if ((m.doors && m.doors[key]) || (m.stairs && m.stairs[key])) return true;
+    }
+    return false;
+  }
+
   // ---- wandering teachers -------------------------------------------------
   function npcCanWalk(m, x, y) {
     var t = m.get(x, y);
     if (!G.Tiles.isWalkable(t)) return false;
     if (t === 'door' || t === 'mat' || t === 'stairU' || t === 'stairD') return false;
+    if (nearDoorish(m, x, y)) return false; // never block a doorway
     var ptx = Math.floor((player.x + 8) / TS), pty = Math.floor((player.y + 11) / TS);
     if (x === ptx && y === pty) return false;
     for (var i = 0; i < m.npcs.length; i++) {
@@ -1083,6 +1167,13 @@ var G = window.G = window.G || {};
     var gy = (e.clientY - r.top) / r.height * canvas.height;
     // upright, the world sits below the top bar
     if (portrait) gy -= TOP_H;
+    // the staff roster overlay swallows the next tap to close itself
+    if (staffRosterOpen) { staffRosterOpen = false; G.Audio.sfx('blip'); return; }
+    // tapping the "ASHLAND STAFF" readout opens the roster
+    if (state === 'play' && !party && !G.Dialogue.isActive() && !transition &&
+        !ceremony && staffHudHit(gx, gy)) {
+      staffRosterOpen = true; G.Audio.sfx('blip'); return;
+    }
     // picking a student, or an option in a conversation: press the one you
     // want with your finger instead of hunting for the right button
     if (state === 'charselect' && charSelectTap(gx, gy)) return;
@@ -1101,6 +1192,12 @@ var G = window.G = window.G || {};
 
   function clickToWalk(wx, wy) {
     var m = map();
+    // at the party, tapping your OWN character busts a random dance move
+    if (party && wx >= player.x - 3 && wx <= player.x + 19 &&
+        wy >= player.y - 12 && wy <= player.y + 18) {
+      startPlayerDance(Math.floor(Math.random() * 10));
+      return;
+    }
     // a person under the click? (generous box around the sprite)
     var who = null;
     m.npcs.forEach(function (n) {
@@ -2194,13 +2291,16 @@ var G = window.G = window.G || {};
             return;
           }
           if (n.kind === 'eagle') {
-            // Eddie is the DJ, not staff -- he never counts as "met"
+            // Eddie is our mascot AND a staff member: hearing his story
+            // counts him toward the roster
+            met['__eddie__'] = true;
             G.Quest.eagleDialogue(null);
           } else if (n.kind === 'officer') {
             met['__officer__'] = true;
             G.Quest.officerDialogue(null);
           } else {
             met[n.roomId] = true;
+            if (n.roomId === 't-216' && maybeRichardsDunk(n)) return;
             G.Quest.teacherDialogue(n.roomId, null);
           }
           return;
@@ -2586,14 +2686,77 @@ var G = window.G = window.G || {};
   var BOOTH = { x0: 41, x1: 43, y: 18 }; // DJ table tiles; startPartyRoom repositions
 
   // everyone who counts toward STAFF MET: every teacher-record (classroom
-  // teachers, office staff, roaming custodians...) plus Officer Garth.
-  // Eddie is the mascot-slash-DJ and stands outside the count.
-  function staffTotal() { return Object.keys(G.TEACHERS).length + 1; }
+  // teachers, office staff, roaming custodians...) plus Officer Garth AND
+  // Eddie the Eagle -- our mascot is an Ashland staff member too.
+  function staffTotal() { return Object.keys(G.TEACHERS).length + 2; }
   function countMet() { return Object.keys(met).length; }
   function allStaffMet() { return countMet() >= staffTotal(); }
   function debugMeetAll() {
     Object.keys(G.TEACHERS).forEach(function (id) { met[id] = true; });
     met['__officer__'] = true;
+    met['__eddie__'] = true;
+  }
+
+  // the full roster, in a stable order, each flagged met/not-met. Officer
+  // Garth and Eddie the Eagle round out the 60.
+  function staffRosterList() {
+    var list = Object.keys(G.TEACHERS).map(function (id) {
+      return { name: G.TEACHERS[id].name, met: !!met[id] };
+    });
+    list.push({ name: 'Officer Garth', met: !!met['__officer__'] });
+    list.push({ name: 'Eddie the Eagle', met: !!met['__eddie__'] });
+    return list;
+  }
+
+  // is this click on the "ASHLAND STAFF" readout? (gy already has the portrait
+  // top-strip offset removed, so the bottom strip sits at gy >= SH)
+  function staffHudHit(gx, gy) {
+    if (portrait) return gy >= SH && gy <= SH + BOT_H && gx >= 244 && gx <= 300;
+    return gx >= SW && gy >= 100 && gy <= 144;
+  }
+
+  // a tap-to-close panel listing every staff member: bright gold if you have
+  // met them, dim grey if you have not. Names only -- no sprites.
+  function drawStaffRoster() {
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = 'rgba(6,10,24,0.86)';
+    ctx.fillRect(0, 0, SW, SH);
+    var px = 7, py = 6, pw = SW - 14, ph = SH - 12;
+    G.Dialogue.drawWindow(ctx, px, py, pw, ph);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.font = font(9);
+    ctx.fillStyle = '#f7d84d';
+    ctx.fillText('ASHLAND STAFF', SW / 2, py + 5);
+
+    var list = staffRosterList();
+    var metN = 0;
+    for (var i = 0; i < list.length; i++) if (list[i].met) metN++;
+    ctx.font = font(7);
+    ctx.fillStyle = '#5fbd87';
+    ctx.fillText(metN + ' OF ' + list.length + ' MET', SW / 2, py + 17);
+
+    // three columns, filled top-to-bottom so it still reads in order
+    ctx.textAlign = 'left';
+    ctx.font = font(6);
+    var cols = 3;
+    var rows = Math.ceil(list.length / cols);
+    var gridX = px + 8, gridY = py + 30;
+    var colW = (pw - 16) / cols;
+    var rowH = (ph - 44) / rows;
+    list.forEach(function (s, idx) {
+      var c = Math.floor(idx / rows), r = idx % rows;
+      ctx.fillStyle = s.met ? '#f7d84d' : 'rgba(255,255,255,0.24)';
+      ctx.fillText(s.name, gridX + c * colW, gridY + r * rowH);
+    });
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#9fd4e8';
+    ctx.fillText('TAP ANYWHERE TO CLOSE', SW / 2, py + ph - 11);
+    ctx.restore();
+    ctx.textAlign = 'left';
   }
 
   function partyTier() {
@@ -2749,7 +2912,8 @@ var G = window.G = window.G || {};
     visited['b-gym'] = true;
     lastTriggerKey = '23,21';
     var tier = partyTier();
-    party = { t: 0, savedNpcs: m.npcs, tier: tier };
+    // met EVERY staff member? the celebration goes completely over the top
+    party = { t: 0, savedNpcs: m.npcs, tier: tier, perfect: allStaffMet() };
 
     // tier 4 hauls the big rig out in front of the stage; tier 3 is the
     // little table in the far corner; below that there are no decks at all
@@ -2946,12 +3110,14 @@ var G = window.G = window.G || {};
       if (p.y > SH + 4) { p.y = -4; p.x = Math.random() * SW; }
     });
 
-    // fireworks going off over the gym
+    // fireworks going off over the gym -- a full barrage when every last
+    // staff member made it (perfect run)
     if (!party.fireworks) { party.fireworks = []; party.nextFw = 0.2; }
     party.nextFw -= dt;
     if (party.nextFw <= 0) {
-      party.fireworks.push(spawnFirework());
-      party.nextFw = 0.55 + Math.random() * 0.7;
+      var burst = party.perfect ? 3 : 1;
+      for (var fwi = 0; fwi < burst; fwi++) party.fireworks.push(spawnFirework());
+      party.nextFw = party.perfect ? 0.18 + Math.random() * 0.22 : 0.55 + Math.random() * 0.7;
     }
     party.fireworks = party.fireworks.filter(function (f) {
       f.t += dt;
@@ -2976,6 +3142,321 @@ var G = window.G = window.G || {};
           c: Math.random() < 0.5 ? '#5fbd87' : '#f7d84d'
         });
       }
+    }
+  }
+
+  // the player's ten dance moves. Each number key (0-9) maps to a distinct
+  // combination of hop / sway / spin / squash, drawn with the walk frames so
+  // the legs stay busy. Little notes puff off on the beat.
+  function drawDancePlayer(cam, dropShadow) {
+    var d = playerDance, t = d.t;
+    var baseX = Math.round(player.x - cam.x);
+    var footY = Math.round(player.y - cam.y) + 15.5;
+    var fset = playerFrames[player.dir];
+    var frame = fset[1 + (Math.floor(t * 9) % 2)];
+    var hop = 0, dx = 0, rot = 0, sx = 1, sy = 1;
+    switch (d.style) {
+      case 0: hop = Math.abs(Math.sin(t * 8)) * 6; break;                        // bounce
+      case 1: rot = Math.sin(t * 11) * 0.5; break;                               // twist
+      case 2: dx = Math.sin(t * 9) * 6; break;                                   // side shuffle
+      case 3: rot = t * 9; hop = Math.abs(Math.sin(t * 9)) * 3; break;           // spin
+      case 4: sy = 1 + Math.sin(t * 13) * 0.2; sx = 2 - sy; break;               // pump
+      case 5: hop = Math.abs(Math.sin(t * 6)) * 10; break;                       // big jumps
+      case 6: rot = Math.sin(t * 15) * 0.3; dx = Math.sin(t * 7) * 5; break;     // wiggle
+      case 7: rot = (Math.sin(t * 7) > 0 ? 1 : -1) * 0.4; hop = 2; break;        // lean
+      case 8: sx = 1 + Math.sin(t * 10) * 0.22; sy = 1 + Math.cos(t * 10) * 0.22; break; // wobble
+      case 9: rot = -t * 11; hop = Math.abs(Math.sin(t * 11)) * 5; break;        // reverse spin
+    }
+    dropShadow(baseX + 8, footY);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(baseX + 8 + dx, Math.round(player.y - 8 - cam.y) + 12 - hop);
+    if (rot) ctx.rotate(rot);
+    if (sx !== 1 || sy !== 1) ctx.scale(sx, sy);
+    ctx.drawImage(frame, -8, -12);
+    ctx.restore();
+    // musical notes popping off to the beat
+    if (Math.floor(t * 6) % 2 === 0) {
+      ctx.fillStyle = ['#f7d84d', '#5fbd87', '#6ff0ff', '#ff8ad4'][d.style % 4];
+      var nx = baseX + (d.style % 2 ? 16 : -2) + Math.sin(t * 8) * 2;
+      var ny = Math.round(player.y - 10 - cam.y) - (t * 6 % 1) * 6;
+      ctx.fillRect(Math.round(nx), Math.round(ny), 2, 2);
+      ctx.fillRect(Math.round(nx) + 2, Math.round(ny) - 2, 1, 2);
+    }
+  }
+
+  // a single basketball: orange sphere with the classic seams and a shine
+  function drawBasketball(cx, cy, r) {
+    ctx.fillStyle = '#20140a';
+    ctx.beginPath(); ctx.arc(cx, cy + 0.5, r + 0.5, 0, Math.PI * 2); ctx.fill(); // rim shadow
+    ctx.fillStyle = '#e07a1e';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#1c1108';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.stroke();          // equator
+    ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r); ctx.stroke();          // meridian
+    ctx.beginPath(); ctx.arc(cx - r, cy, r, -0.9, 0.9); ctx.stroke();                       // left seam
+    ctx.beginPath(); ctx.arc(cx + r, cy, r, Math.PI - 0.9, Math.PI + 0.9); ctx.stroke();    // right seam
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(cx - r * 0.38, cy - r * 0.4, r * 0.24, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // a little pair of chopsticks resting on a table tile
+  function drawChopsticks(cx, cy) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-0.5);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#c99a5a'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-5, -2); ctx.lineTo(6, -2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-5, 1.5); ctx.lineTo(6, 1.5); ctx.stroke();
+    ctx.strokeStyle = '#7a4a1e'; ctx.lineWidth = 1.5;   // darker eating tips
+    ctx.beginPath(); ctx.moveTo(3.5, -2); ctx.lineTo(6, -2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(3.5, 1.5); ctx.lineTo(6, 1.5); ctx.stroke();
+    ctx.restore();
+    ctx.lineCap = 'butt';
+  }
+  // after Mrs. Adams's sushi announcement, a pair of chopsticks sits on every
+  // cafeteria table tile
+  function drawCafeteriaChopsticks(cam, m) {
+    for (var y = 0; y < m.h; y++) {
+      for (var x = 0; x < m.w; x++) {
+        if (m.get(x, y) !== 'table') continue;
+        drawChopsticks(x * TS + TS / 2 - cam.x, y * TS + TS / 2 - cam.y);
+      }
+    }
+  }
+
+  // Mr. Richards keeps four basketballs scattered around his room. Drawn in
+  // world space so they sit behind the characters like other floor props.
+  function drawRichardsGoal(cam, m) {
+    var balls = [
+      [2.6, m.h - 3.2], [m.w - 3.4, m.h - 3.0],
+      [4.2, m.h - 5.0], [m.w - 4.6, m.h - 4.6]
+    ];
+    balls.forEach(function (b) {
+      drawBasketball(Math.round(b[0] * TS) - cam.x, Math.round(b[1] * TS) - cam.y, 7);
+    });
+  }
+
+  // ---- Mr. Richards's Double Dribble dunk cutscene ------------------------
+  // phase boundaries, in seconds
+  var DK = { approach: 1.6, pickup: 2.3, load: 2.9, launch: 3.6, cut: 3.9, flyin: 5.3, slam: 6.4, done: 8.3 };
+
+  function maybeRichardsDunk() {
+    richardsTalks++;
+    if (richardsTalks < 10) return false;
+    G.Dialogue.start([
+      { name: 'MR. RICHARDS', text: 'You again, champ! I like your hustle. Tell you what... want to watch me DUNK this basketball?' }
+    ], { choices: [
+      { label: 'YES!', cb: function () { startDunk(); } },
+      { label: 'Maybe later', cb: null }
+    ] });
+    return true;
+  }
+
+  function startDunk() {
+    dunk = { t: 0 };
+    state = 'dunk';
+    G.Input.clearEdges();
+    G.Audio.sfx('blip');
+  }
+
+  function updateDunk(dt) {
+    dunk.t += dt;
+    // one whoosh as he launches, a fanfare on the slam
+    if (!dunk.launched && dunk.t >= DK.launch) { dunk.launched = true; G.Audio.sfx('tick'); }
+    if (!dunk.slammed && dunk.t >= DK.slam) { dunk.slammed = true; G.Audio.sfx('fanfare'); }
+    if (dunk.t >= DK.done || (dunk.t > 0.6 && G.Input.consumeAction())) {
+      transition = { phase: 'out', t: 0, onMid: function () { dunk = null; state = 'play'; } };
+    }
+  }
+
+  // a look-alike arena built once (deterministic, so the crowd never flickers)
+  var dunkArena = null;
+  function buildDunkArena(hoopX, hoopY) {
+    var c = document.createElement('canvas'); c.width = SW; c.height = SH;
+    var x = c.getContext('2d');
+    x.fillStyle = '#05060a'; x.fillRect(0, 0, SW, SH);
+    // a bright, speckled crowd fills the upper stands
+    var crowd = ['#d8d0bc', '#8a94a8', '#b0705e', '#6f9068', '#c6a24e', '#7f6c9e', '#a85e7c', '#c9c2b0'];
+    var crowdH = Math.floor(SH * 0.6);
+    for (var i = 0; i < 4200; i++) {
+      var r = (i * 2654435761) >>> 0;
+      var pxv = r % SW;
+      var pyv = ((r >>> 9) % crowdH);
+      x.globalAlpha = 0.45 + ((r >>> 4) % 55) / 100;
+      x.fillStyle = crowd[(r >>> 2) % crowd.length];
+      x.fillRect(pxv, pyv, 1, 1);
+    }
+    x.globalAlpha = 1;
+    // court floor: a warm parquet fading into the baseline
+    var fy = Math.floor(SH * 0.6);
+    var g = x.createLinearGradient(0, fy, 0, SH);
+    g.addColorStop(0, '#4a7a44'); g.addColorStop(0.45, '#c9a15a'); g.addColorStop(1, '#8f6a30');
+    x.fillStyle = g; x.fillRect(0, fy, SW, SH - fy);
+    x.strokeStyle = 'rgba(255,255,255,0.22)'; x.lineWidth = 1;
+    for (var l = -3; l <= 3; l++) {
+      x.beginPath(); x.moveTo(SW / 2 + l * 20, fy); x.lineTo(SW / 2 + l * 90, SH); x.stroke();
+    }
+    x.strokeStyle = 'rgba(255,255,255,0.25)';
+    x.beginPath(); x.ellipse(SW / 2, fy + 4, 34, 8, 0, 0, Math.PI * 2); x.stroke();
+    dunkArena = c;
+  }
+
+  // a side-on hoop: backboard + pole on the RIGHT, the rim projecting LEFT
+  // toward the incoming dunker, with the net hanging in front
+  function drawDunkHoop(rimX, rimY, netSwish) {
+    var bx = rimX + 20;                      // backboard sits to the right
+    // support arm + pole up to the ceiling
+    ctx.strokeStyle = '#3a4048'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(rimX + 4, rimY - 3); ctx.lineTo(bx, rimY - 3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx + 3, rimY - 28); ctx.lineTo(bx + 3, 0); ctx.stroke();
+    // backboard (white with a dark frame + orange target square)
+    ctx.fillStyle = '#12151a'; ctx.fillRect(bx - 2, rimY - 28, 12, 48);
+    ctx.fillStyle = '#f4f2ea'; ctx.fillRect(bx, rimY - 26, 8, 44);
+    ctx.strokeStyle = '#e07a1e'; ctx.lineWidth = 2;
+    ctx.strokeRect(bx + 1, rimY - 12, 6, 12);
+    // rim: an orange ellipse seen at an angle
+    ctx.strokeStyle = '#ff8a1e'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(rimX, rimY, 15, 5, 0, 0, Math.PI * 2); ctx.stroke();
+    // net: strands hanging from the rim, swinging out on the slam
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1;
+    var netH = 16 + netSwish * 8;
+    for (var s = 0; s <= 8; s++) {
+      var a = (s / 8) * Math.PI * 2;
+      var tx = rimX + Math.cos(a) * 15, ty = rimY + Math.sin(a) * 5;
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(rimX + Math.cos(a) * 6, rimY + netH); ctx.stroke();
+    }
+  }
+
+  function richFrame(dir, walking) {
+    var tf = teacherFrames['t-216'];
+    if (!tf) return null;
+    var set = tf[dir] || tf.down;
+    return walking ? set[1 + (Math.floor(dunk.t * 9) % 2)] : set[0];
+  }
+  // draw a Richards frame anchored at his FEET (cx, cy), scaled and optionally
+  // squashed/rotated for drama
+  function blitRich(frame, cx, cy, scale, squash, rot) {
+    if (!frame) return;
+    var w = frame.width * scale, h = frame.height * scale * (squash || 1);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(cx, cy);
+    if (rot) ctx.rotate(rot);
+    ctx.drawImage(frame, -w / 2, -h, w, h);
+    ctx.restore();
+    return h;
+  }
+  // one arm reaching forward/up to the ball -- the leading (right) arm that
+  // cocks the ball back and rams it through. Skin-coloured, dark outline.
+  function drawDunkArm(shoulderX, shoulderY, handX, handY, scale, skin) {
+    var w = Math.max(3, Math.round(scale * 1.4));
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#1c1108'; ctx.lineWidth = w + 2;
+    ctx.beginPath(); ctx.moveTo(shoulderX, shoulderY); ctx.lineTo(handX, handY); ctx.stroke();
+    ctx.strokeStyle = skin; ctx.lineWidth = w;
+    ctx.beginPath(); ctx.moveTo(shoulderX, shoulderY); ctx.lineTo(handX, handY); ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+
+  function drawDunk() {
+    var t = dunk.t;
+    var rimX = Math.round(SW * 0.72), rimY = Math.round(SH * 0.34);  // hoop, upper RIGHT
+    var floorY = SH - 26, groundBallX = Math.round(SW * 0.40);
+    var richSkin = (G.TEACHERS['t-216'] && G.TEACHERS['t-216'].sprite && G.TEACHERS['t-216'].sprite.skin) || '#e0a878';
+
+    // the hard cut: a beat of black between the jump-out and the graphic
+    if (t >= DK.launch && t < DK.cut) {
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, SW, SH);
+      return;
+    }
+
+    if (!dunkArena) buildDunkArena();
+    var partTwo = t >= DK.cut;
+    ctx.drawImage(dunkArena, 0, 0);
+    if (!partTwo) { ctx.fillStyle = 'rgba(0,0,10,0.35)'; ctx.fillRect(0, 0, SW, SH); }
+
+    if (!partTwo) {
+      // ---- PART 1 (in the room): walk to the ball, grab it, crouch, JUMP out ----
+      var rx, ry = floorY, dir = 'right', walking = false, squash = 1, held = false;
+      if (t < DK.approach) {
+        var p = t / DK.approach;
+        rx = 40 + (groundBallX - 18 - 40) * p; walking = true;
+      } else if (t < DK.pickup) {
+        rx = groundBallX - 18; dir = 'down';
+      } else if (t < DK.load) {
+        rx = groundBallX - 18; dir = 'down'; held = true;
+      } else {
+        var lp = (t - DK.load) / (DK.launch - DK.load);
+        rx = groundBallX - 18; dir = 'up'; held = true;
+        squash = lp < 0.35 ? 1 - lp * 0.5 : 1;           // crouch, then...
+        ry = floorY - Math.max(0, (lp - 0.35) / 0.65) * (floorY + 90); // ...blast up and out
+      }
+      if (!held) drawBasketball(groundBallX, floorY - 6, 7);
+      var fh = blitRich(richFrame(dir, walking), rx, ry, 2, squash, 0) || 40;
+      if (held) drawBasketball(rx, ry - fh - 5, 7);
+      return;
+    }
+
+    // ---- PART 2 (the graphic): SOAR left -> right and SLAM the hoop on the right ----
+    var shake = (t >= DK.slam) ? Math.max(0, 1 - (t - DK.slam) / 0.4) * 4 : 0;
+    ctx.save();
+    if (shake) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+
+    var endX = rimX - 30, endY = rimY + 58;   // where he hangs, just left of the rim
+    var scale, px, py, fp = (t - DK.cut) / (DK.flyin - DK.cut);
+    if (t < DK.flyin) {
+      scale = 2.4 + fp * 0.8;
+      px = -44 + (endX - (-44)) * fp;                          // fly in from the left
+      py = (SH + 44) + (endY - (SH + 44)) * (1 - (1 - fp) * (1 - fp)); // soar upward
+      // speed streaks trailing behind him to the LEFT
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
+      for (var sl = 0; sl < 6; sl++) {
+        var ly = py - 12 - sl * 7;
+        ctx.beginPath(); ctx.moveTo(px - 22 - sl * 6, ly); ctx.lineTo(px - 8 - sl * 6, ly); ctx.stroke();
+      }
+    } else {
+      scale = 3.2; px = endX; py = endY - 3 * Math.min(1, (t - DK.flyin) / 0.5);
+    }
+    var fh2 = blitRich(richFrame('right', t < DK.flyin), px, py, scale, 1, 0) || 90;
+
+    // the ball rides slightly in FRONT of him (his right hand), reaching for the
+    // rim, then gets rammed straight down through the net
+    var shoulderX = px + scale * 1.4, shoulderY = py - fh2 * 0.60;
+    var bx2, by2;
+    if (t < DK.flyin) {
+      var leadX = px + 14 + scale * 2, leadY = py - fh2 * 0.82;
+      bx2 = leadX + (rimX - leadX) * fp;
+      by2 = leadY + ((rimY - 6) - leadY) * fp;
+    } else if (t < DK.slam) {
+      bx2 = rimX; by2 = rimY - 6;                              // cocked above the rim
+    } else {
+      var d = Math.min(1, (t - DK.slam) / 0.3);
+      bx2 = rimX; by2 = (rimY - 6) + d * ((rimY + 40) - (rimY - 6)); // SLAM down through
+    }
+    drawDunkArm(shoulderX, shoulderY, bx2, by2, scale, richSkin);
+    drawBasketball(bx2, by2, 9);
+
+    // the rim + net draw IN FRONT of him, so the ball punches through
+    drawDunkHoop(rimX, rimY, t >= DK.slam ? Math.max(0, 1 - (t - DK.slam) / 0.5) : 0);
+    ctx.restore();
+
+    // SLAM! text + a crowd-flash burst
+    if (t >= DK.slam) {
+      var fl = Math.max(0, 1 - (t - DK.slam) / 0.25);
+      if (fl > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (fl * 0.6).toFixed(3) + ')'; ctx.fillRect(0, 0, SW, SH); }
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = font(22);
+      var wob = 1 + Math.sin(t * 20) * 0.05;
+      ctx.translate(SW * 0.36, SH * 0.30); ctx.scale(wob, wob);
+      ctx.lineJoin = 'round'; ctx.lineWidth = 5; ctx.strokeStyle = '#1c1108';
+      ctx.strokeText('SLAM!!!', 0, 0);
+      ctx.fillStyle = '#ff8a1e'; ctx.fillText('SLAM!!!', 0, 0);
+      ctx.restore();
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     }
   }
 
@@ -3118,13 +3599,15 @@ var G = window.G = window.G || {};
     ctx.fillRect(bnx - 44, bny + 8, 88, 1);
     G.Tiles.drawTinyText(ctx, 'GO EAGLES!', bnx - 24, bny + 1, '#14522f', 1);
 
-    // giant golden S-O-A-R bobbing above the banner
+    // giant golden S-O-A-R bobbing above the banner -- and MASSIVE, spanning
+    // the whole top of the gym, on a perfect (everyone-met) run
     var SOAR = ['S', 'O', 'A', 'R'];
-    var ls = 28, lgap = 5;
+    var ls = party.perfect ? 54 : 28, lgap = party.perfect ? 12 : 5;
     var lw = SOAR.length * ls + (SOAR.length - 1) * lgap;
+    var soarBase = party.perfect ? bny - 4 : bny - 10;
     for (var li = 0; li < SOAR.length; li++) {
       var glx = Math.round(bnx - lw / 2 + li * (ls + lgap));
-      var gly = Math.round(bny - 10 - ls + Math.sin(t * 2 + li * 0.9) * 2.5);
+      var gly = Math.round(soarBase - ls + Math.sin(t * 2 + li * 0.9) * (party.perfect ? 4 : 2.5));
       ctx.drawImage(G.Quest.icons[SOAR[li]], glx, gly, ls, ls);
       // the followers' twinkle, supersized
       if ((Math.floor(t * 6) + li * 3) % 9 === 0) {
@@ -3237,6 +3720,60 @@ var G = window.G = window.G || {};
         ctx.fillRect(Math.round(p.x), Math.round(p.y), p.s, p.s);
       });
     }
+
+    // the perfect-run spectacle: laser beams raking the room and a couple of
+    // ridiculous giant beach balls bouncing right over the crowd
+    if (party.perfect) drawPerfectExtras(cam, t);
+  }
+
+  // sweeping laser fan + oversized bouncing beach balls (stateless: positions
+  // come straight off the clock, so there is nothing to update or reset)
+  function drawPerfectExtras(cam, t) {
+    // lasers fan out from the disco ball and sweep across the whole gym
+    var ox = 33 * TS - cam.x, oy = 10 * TS + 4 - cam.y;
+    var LZ = ['#ff3a6e', '#3aff8a', '#3a9dff', '#f7ff3a', '#c46aff', '#ff8a3a'];
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineWidth = 1.5;
+    for (var i = 0; i < 6; i++) {
+      var ang = Math.PI * 0.28 + Math.sin(t * 1.6 + i * 1.05) * 0.9 + i * 0.06;
+      ctx.globalAlpha = 0.45 + 0.25 * Math.sin(t * 6 + i);
+      ctx.strokeStyle = LZ[i % LZ.length];
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + Math.cos(ang) * 260, oy + Math.sin(ang) * 260);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
+
+    // three big beach balls arcing across the gym floor, spinning as they go
+    var BALL = [
+      { c: '#f7d84d', c2: '#5fbd87', spd: 40, ph: 0, r: 9 },
+      { c: '#ff8ad4', c2: '#6ff0ff', spd: -33, ph: 2.1, r: 11 },
+      { c: '#ffae4a', c2: '#3a63c4', spd: 27, ph: 4.2, r: 8 }
+    ];
+    var gx0 = 22 * TS, gx1 = 45 * TS, span = gx1 - gx0;
+    BALL.forEach(function (b) {
+      var wx = gx0 + (((b.ph * 90 + t * b.spd) % span) + span) % span;
+      var groundY = 25 * TS;
+      var wy = groundY - Math.abs(Math.sin(t * 2.2 + b.ph)) * 60;
+      var sx = Math.round(wx - cam.x), sy = Math.round(wy - cam.y);
+      // striped ball: two colours split down a spinning axis
+      var a = t * 5 + b.ph;
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(a);
+      ctx.fillStyle = b.c;
+      ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = b.c2;
+      ctx.beginPath(); ctx.arc(0, 0, b.r, -0.5, 0.5); ctx.arc(0, 0, 0, 0, 0); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, 0, b.r, Math.PI - 0.5, Math.PI + 0.5); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath(); ctx.arc(-b.r * 0.35, -b.r * 0.35, b.r * 0.28, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    });
   }
 
   function finishParty() {
@@ -3353,6 +3890,12 @@ var G = window.G = window.G || {};
       G.drawCourtLines(ctx, TS);
       ctx.restore();
     }
+    // Mr. Richards keeps four basketballs scattered around his room
+    if (currentMapId === 't-216') drawRichardsGoal(cam, m);
+    // once Mrs. Adams announces sushi day, chopsticks appear on every table
+    if (currentMapId === 'm-caf' && G.Quest.sushiSpoken && G.Quest.sushiSpoken()) {
+      drawCafeteriaChopsticks(cam, m);
+    }
     // the big playground structure over its platform tiles
     if (m.playset) {
       ctx.save();
@@ -3388,6 +3931,7 @@ var G = window.G = window.G || {};
     ents.forEach(function (e) {
       if (e.booth) { drawDjBooth(cam); return; }
       if (e.player) {
+        if (playerDance && party) { drawDancePlayer(cam, dropShadow); return; }
         var fset = playerFrames[player.dir];
         var frame = fset[0];
         if (player.moving) {
@@ -3518,6 +4062,7 @@ var G = window.G = window.G || {};
   // floor -- kids need to know they're on the MIDDLE FLOOR for "up on the top
   // floor" to mean anything -- and the map already carries that name.
   function currentPlaceLabel() {
+    if (party) return "LET'S CELEBRATE THE ASHLAND WAY!";
     var m = G.Maps.all[currentMapId];
     if (m.outdoor) return 'THE PLAYGROUND';
     if (!m.isHall) return locationLabel(currentMapId);
@@ -3999,20 +4544,20 @@ var G = window.G = window.G || {};
     CHARACTERS.forEach(function (ch, i) {
       var box = charBox(i);
       var x = box.x, y = box.y;
-      G.Dialogue.drawWindow(ctx, x, y, BOX_W, BOX_H);
       var sel = i === c.i;
+      G.Dialogue.drawWindow(ctx, x, y, BOX_W, BOX_H);
+      // a brighter panel behind each student so they pop off the dark screen
+      ctx.fillStyle = sel ? 'rgba(247,216,77,0.22)' : 'rgba(120,170,230,0.20)';
+      ctx.fillRect(x + 3, y + 3, BOX_W - 6, BOX_H - 6);
       var bob = sel ? Math.sin(Date.now() / 200) * 1.5 : 0;
       ctx.drawImage(c.frames[i].down[0], 0, 0, G.Sprites.W, G.Sprites.H,
         x + (BOX_W - 32) / 2, Math.round(y + 7 + bob), 32, 48);
-      ctx.font = font(6);
-      ctx.fillStyle = sel ? '#f7d84d' : '#e8e8f4';
-      ctx.fillText(ch.name, x + BOX_W / 2, y + 62);
-      if (sel) {
-        ctx.strokeStyle = '#f7d84d';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x + 1, y + 1, BOX_W - 2, BOX_H - 2);
-      }
+      // a bright frame around every box, gold and thicker on the selected one
+      ctx.strokeStyle = sel ? '#ffe66a' : '#9fd4e8';
+      ctx.lineWidth = sel ? 3 : 2;
+      ctx.strokeRect(x + 1.5, y + 1.5, BOX_W - 3, BOX_H - 3);
     });
+    ctx.lineWidth = 1;
 
     if (Math.floor(Date.now() / 500) % 2 === 0) {
       ctx.font = font(7);
@@ -4034,6 +4579,26 @@ var G = window.G = window.G || {};
   var FLY_FADE = 1.5;      // seconds of logo fade before takeoff
   var FLY_RISE = 1.2;      // seconds of climb off the sign
   var FLY_SPEED = 52;      // cruise, px/s (a lazy, watchable glide)
+
+  // one big golden SOAR tile, drawn crisply at whatever size is asked (the
+  // 16px letter icons look rough scaled up, so the drop draws its own)
+  function drawDropLetter(letter, cx, cy, S) {
+    var x = Math.round(cx - S / 2), y = Math.round(cy - S / 2);
+    var b = Math.max(2, Math.round(S / 12));
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#5a3f0d'; ctx.fillRect(x - 1, y - 1, S + 2, S + 2);   // dark keyline
+    ctx.fillStyle = '#8a6d1a'; ctx.fillRect(x, y, S, S);                    // deep gold rim
+    ctx.fillStyle = '#f7d84d'; ctx.fillRect(x + b, y + b, S - 2 * b, S - 2 * b); // gold face
+    ctx.fillStyle = '#fdf0a8'; ctx.fillRect(x + b, y + b, S - 2 * b, Math.round(S * 0.2)); // top shine
+    ctx.fillStyle = '#c9992a'; ctx.fillRect(x + b, y + S - b - Math.round(S * 0.15), S - 2 * b, Math.round(S * 0.15)); // base shade
+    ctx.fillStyle = '#5a3f0d';
+    ctx.font = Math.round(S * 0.6) + 'px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(letter, x + S / 2, y + S / 2 + Math.round(S * 0.06));
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  }
 
   // the show is over: fade to black, then fade into character select
   function endTitleFly() {
@@ -4139,7 +4704,8 @@ var G = window.G = window.G || {};
     f.letters.forEach(function (L) {
       if (L.mode === 'gone') return;
       if (L.mode === 'trail' && ft - L.delay <= 0.05) return; // still with Eddie
-      ctx.drawImage(G.Quest.icons[L.l], Math.round(L.x), Math.round(L.y), 12, 12);
+      // big, crisp golden tiles (drawn at size, so no upscaling blur)
+      drawDropLetter(L.l, Math.round(L.x + 6), Math.round(L.y + 6), 24);
     });
     f.sparkles.forEach(function (s) {
       ctx.globalAlpha = Math.min(1, s.life * 2.5);
@@ -4243,10 +4809,13 @@ var G = window.G = window.G || {};
       drawEnding();
     } else if (state === 'battle') {
       drawBattle();
+    } else if (state === 'dunk') {
+      drawDunk();
     } else {
       drawWorld();
       drawBanner();
       G.Dialogue.draw(ctx);
+      if (staffRosterOpen) drawStaffRoster();
     }
     if (!portrait) drawSidebar();
 

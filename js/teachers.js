@@ -118,6 +118,10 @@ var G = window.G = window.G || {};
 
   // Mrs. Schaub is the ART teacher (room 221)
   T['t-221'].quirk = "I'm the ART teacher! Wait until you see all the paint, clay and glitter we get to use this year!";
+  // ...and a woman with long hair in a dress
+  T['t-221'].spriteOv.style = 1;      // long hair
+  T['t-221'].spriteOv.outfit = 14;    // Rose dress
+  T['t-221'].sprite = G.Sprites.cfgFrom(T['t-221'].spriteOv);
 
   // Room 233 is team-taught: Mrs. Patel AND Mrs. Songstad share it
   T['t-233'].co = 'Mrs. Songstad';
@@ -128,6 +132,18 @@ var G = window.G = window.G || {};
   // Mrs. Wilson (room 200) designed look
   T['t-200'].spriteOv = { style: 2, skin: 1, hairColor: 0, outfit: 6, glasses: false };
   T['t-200'].sprite = G.Sprites.cfgFrom(T['t-200'].spriteOv);
+
+  // Mrs. Brown (room 232) has light red hair
+  T['t-232'].sprite = G.Sprites.cfgFrom(T['t-232'].spriteOv);
+  T['t-232'].sprite.hair = '#e0705a';   // light red / strawberry
+
+  // Mrs. Patel (room 233) has dark brown hair
+  T['t-233'].spriteOv.hairColor = 1;    // dark brown, not blonde
+  T['t-233'].sprite = G.Sprites.cfgFrom(T['t-233'].spriteOv);
+
+  // Mr. Givan (room 223) has a big gray beard
+  T['t-223'].spriteOv.beard = '#8a8f96';   // gray
+  T['t-223'].sprite = G.Sprites.cfgFrom(T['t-223'].spriteOv);
 
   // ---- support staff: custodians, aides and helpers -----------------------
   // each gets a T entry (dialogue + sprite frames); WHERE they stand is
@@ -148,7 +164,7 @@ var G = window.G = window.G || {};
     { intro: "Hi there! I'm Mr. Mellow, one of Ashland's custodians. I keep this whole floor SHINING!" });
   staff('staff-rampulla', 'Mr. Rampulla', { style: 0, skin: 1, hairColor: 2, outfit: 8 },
     { intro: "Hello! I'm Mr. Rampulla, one of Ashland's custodians. This floor doesn't clean itself!" });
-  staff('staff-perry', 'Mrs. Perry', { style: 5, skin: 0, hairColor: 7, outfit: 8 },
+  staff('staff-perry', 'Mrs. Perry', { style: 5, skin: 0, hairColor: 1, outfit: 8, shirtColor: 1 },
     { intro: "Hi! I'm Mrs. Perry, one of Ashland's custodians. We keep every corner of this school sparkling!" });
   // helpers around the building
   staff('staff-hurt', 'Mrs. Hurt', { style: 1, skin: 1, hairColor: 3, outfit: 2 }, { roomOf: 't-lib' });

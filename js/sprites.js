@@ -910,6 +910,40 @@ var G = window.G = window.G || {};
     return out;
   }
 
+  // ---- beard ----------------------------------------------------------------
+  // a bushy overlay across the lower face; big enough to spill past the jaw
+  // outline and drape over the neck onto the collar. B = beard, b = shadow.
+  // built for 'down' and 'left'; 'right' is mirrored from left, 'up' shows none.
+  var BEARD_DOWN = {
+    9:  '...BB.BBBB.BB...',   // mustache + upper cheeks
+    10: '..bBBBBBBBBBBb..',   // full cheeks, spilling past the outline
+    11: '...bBBBBBBBBb...',   // chin
+    12: '....bBBBBBBb....',   // jaw
+    13: '.....bBBBBb.....',   // draping over the neck
+    14: '.......bBb......'    // a tuft on the collar
+  };
+  var BEARD_SIDE = {
+    9:  '...BBBBBB.......',   // front cheek
+    10: '..bBBBBBBBB.....',   // jaw, past the outline
+    11: '...BBBBBBB......',   // chin
+    12: '....bBBBBb......',   // under the chin
+    13: '.....bBBb.......'    // drape onto the neck
+  };
+  function applyBeard(rows, dir) {
+    if (dir === 'up') return rows;
+    var map = dir === 'down' ? BEARD_DOWN : BEARD_SIDE;
+    var out = rows.slice();
+    Object.keys(map).forEach(function (y) {
+      if (!out[y]) return;
+      var src = map[y], dst = out[y].split('');
+      for (var x = 0; x < W; x++) {
+        if (src[x] && src[x] !== '.') dst[x] = src[x];
+      }
+      out[y] = dst.join('');
+    });
+    return out;
+  }
+
   // ---- suit tie -------------------------------------------------------------
   // a knot under the chin and a short tail down the chest, with two white
   // collar points. Front view only (you can't see a tie from behind, and at
@@ -1007,7 +1041,8 @@ var G = window.G = window.G || {};
       shoes: outfit.shoes,
       dress: !!outfit.dress,
       tie: outfit.tie || null,
-      glasses: !!ov.glasses
+      glasses: !!ov.glasses,
+      beard: ov.beard || null   // hex color, e.g. '#8a8f96' for gray
     };
   }
 
@@ -1058,11 +1093,14 @@ var G = window.G = window.G || {};
       l: shade(cfg.pants || '#3d5c92', 0.72),  // pants shadow
       F: cfg.shoes || '#e8e8e2',
       V: cfg.tie || '#c43a3a',
-      v: shade(cfg.tie || '#c43a3a', 0.7)
+      v: shade(cfg.tie || '#c43a3a', 0.7),
+      B: cfg.beard || '#8a8f96',
+      b: shade(cfg.beard || '#8a8f96', 0.7)   // beard shadow
     };
 
     function prep(rows, dir) {
       var out = applyHair(rows, dir, cfg.style || 'short');
+      if (cfg.beard) out = applyBeard(out, dir);
       if (cfg.glasses) out = applyGlasses(out, dir);
       // ties belong to the tall adult template only (rows 14-17 are the
       // chest there; on the kid template those rows are legs)

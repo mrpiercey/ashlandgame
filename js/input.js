@@ -4,6 +4,8 @@ var G = window.G = window.G || {};
 (function () {
   var held = { up: false, down: false, left: false, right: false, run: false };
   var actionPressed = false;   // edge-triggered
+  var danceKey = null;         // last number key pressed (0-9), for party dance moves
+  var typedBuffer = '';        // recent letter keys, for secret codes (e.g. hdd)
   var dirPressed = { up: false, down: false, left: false, right: false }; // edge, for menus
 
   var KEYMAP = {
@@ -40,6 +42,13 @@ var G = window.G = window.G || {};
     if (d) { press(d); e.preventDefault(); }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyX') held.run = true;
     if (e.code === 'KeyM') G.Audio.toggleMute();
+    // number keys drive the party dance moves (main.js only acts on them
+    // during the celebration; they still double as "advance" elsewhere)
+    var dm = /^(?:Digit|Numpad)(\d)$/.exec(e.code);
+    if (dm) danceKey = parseInt(dm[1], 10);
+    // remember the last few letters typed, for secret codes like "hdd"
+    var lm = /^Key([A-Z])$/.exec(e.code);
+    if (lm) typedBuffer = (typedBuffer + lm[1].toLowerCase()).slice(-8);
     // any other key is the interact button (space, enter, letters --
     // whatever a kid mashes) as long as the browser isn't using it
     if (!d && !NOT_ACTION[e.code] && !/^F\d+$/.test(e.code) &&
@@ -154,6 +163,9 @@ var G = window.G = window.G || {};
     },
     pressAction: function () { actionPressed = true; },
     peekAction: function () { return actionPressed; },
+    consumeDanceKey: function () { var v = danceKey; danceKey = null; return v; },
+    recentTyped: function () { return typedBuffer; },
+    clearTyped: function () { typedBuffer = ''; },
     consumeDir: function (dir) {
       var v = dirPressed[dir];
       dirPressed[dir] = false;

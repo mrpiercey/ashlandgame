@@ -148,14 +148,15 @@ var G = window.G = window.G || {};
   function objective(focusRoomId, curFloor) {
     // (only the win state gets an exclamation point -- the rest stay calm)
     if (partyMode) {
-      var djTier = (G.Game && G.Game.partyTier) ? G.Game.partyTier() : 1;
+      // the celebration screen just flashes its three cheers, over and over
+      var CHEERS = ['THE ASHLAND WAY!', 'S O A R!', "LET'S CELEBRATE, EAGLES!"];
       return {
-        text: djTier >= 3 ? 'DANCE! DJ EDDIE ENDS THE PARTY' : 'DANCE! TALK TO EDDIE TO FINISH',
+        text: CHEERS[Math.floor(Date.now() / 1400) % CHEERS.length],
         color: '#f7d84d'
       };
     }
-    // banner complete: keep meeting staff, then Mrs. Walker starts the party
-    if (allDelivered()) return { text: 'PARTY TIME! SEE MRS. WALKER', color: '#f7d84d' };
+    // banner complete: keep meeting staff, then Mrs. Walker starts the celebration
+    if (allDelivered()) return { text: 'TIME TO CELEBRATE! SEE MRS. WALKER', color: '#f7d84d' };
     if (allFound()) return { text: 'SEE MRS. WALKER', color: '#ff5a4a' };
     if (hunt) {
       if (focusRoomId === hunt.roomId) {
@@ -362,6 +363,27 @@ var G = window.G = window.G || {};
     });
   }
 
+  // ---- the cafeteria "hdd" sushi secret ------------------------------------
+  var sushiMode = false;    // unlocked by typing hdd in the cafeteria
+  var sushiSpoken = false;  // Mrs. Adams has given the big sushi announcement
+  function setSushi() { sushiMode = true; }
+  function sushiOn() { return sushiMode; }
+  function sushiSpeech(name) {
+    return [
+      { name: name, text: "Oh -- and I have some BIG news. I have decided that from now on, every single day will be SUSHI DAY in the Ashland Cafeteria!" },
+      { name: name, text: "I am specially ordering our food from Osaka and Toku. DRAGON ROLLS for everyone!" },
+      { name: name, text: "I am even thinking about giving lessons on how to use chopsticks!" },
+      { name: name, text: "And -- do not tell anyone yet -- I might turn the whole place into a REVOLVING sushi restaurant. I hear some of you students would think that is pretty cool!" }
+    ];
+  }
+  // an excited one-liner for the rest of the cafeteria crew
+  var SUSHI_STAFF = [
+    'Did you hear?! SUSHI every day! I have been practicing my chopsticks ALL summer!',
+    'Dragon rolls?! From Osaka and Toku?! This is the best news the cafeteria has EVER had!',
+    'A REVOLVING sushi restaurant! Can you imagine?! I am SO excited I can barely serve lunch!',
+    'Sushi day, EVERY day! Mrs. Adams is a genius. Grab a plate, it goes round and round!'
+  ];
+
   function teacherDialogue(roomId, onClose) {
     var t = G.TEACHERS[roomId];
     // co-teachers (t-233b) borrow their shared room's info
@@ -371,6 +393,14 @@ var G = window.G = window.G || {};
 
     if (roomId === 'm-walker') {
       walkerDialogue(onClose);
+      return;
+    }
+
+    // the rest of the cafeteria crew is buzzing about the sushi news
+    if (sushiMode && t.roomOf === 'm-caf') {
+      var pick = SUSHI_STAFF[(talkCount[roomId] || 0) % SUSHI_STAFF.length];
+      talkCount[roomId] = (talkCount[roomId] || 0) + 1;
+      G.Dialogue.start([{ name: name, text: pick }], { onDone: onClose });
       return;
     }
 
@@ -394,6 +424,17 @@ var G = window.G = window.G || {};
           (num ? 'my room -- Room ' + num : placeName) +
           '. Welcome to Ashland!')
     };
+
+    // Mrs. Adams reveals the sushi plan the first time you talk after the
+    // secret is unlocked -- her usual hello, the big announcement, THEN she
+    // gets back to checking whether a letter landed in here
+    if (roomId === 'm-caf' && sushiMode && !sushiSpoken) {
+      sushiSpoken = true;
+      G.Dialogue.start([introFirst].concat(sushiSpeech(name)), {
+        onDone: function () { teacherDialogue(roomId, onClose); }
+      });
+      return;
+    }
 
     var letter = letterHeldBy(roomId);
     if (letter) {
@@ -911,15 +952,14 @@ var G = window.G = window.G || {};
       }
     ];
     if (n >= 50) {
-      pages.push({ name: name, text: 'That is almost the WHOLE school, and every one of them is down in the gym!' });
-      pages.push({ name: name, text: 'They are ready to BLOW THE ROOF OFF.' });
+      pages.push({ name: name, text: 'That is almost the WHOLE school, and every one of them is down in the gym ready to celebrate the Ashland Way!' });
     } else {
-      pages.push({ name: name, text: 'Every one of them is down in the gym waiting for you right now!' });
-      pages.push({ name: name, text: '(Psst... the more staff you meet, the BIGGER the party gets!)' });
+      pages.push({ name: name, text: 'Every one of them is down in the gym waiting to celebrate the Ashland Way with you!' });
+      pages.push({ name: name, text: '(Psst... the more staff you meet, the BIGGER our celebration in the gym gets!)' });
     }
     pages.push({
       name: name,
-      text: 'So -- are you ready to celebrate the Ashland Way? Or keep meeting more staff?'
+      text: 'So -- are you ready to celebrate the Ashland Way? Or keep meeting more staff first?'
     });
     return pages;
   }
@@ -1008,7 +1048,7 @@ var G = window.G = window.G || {};
       hello.push({ name: name, text: 'A is for ACCOUNTABLE FOR ALL WE DO.' });
       hello.push({ name: name, text: 'And R is for RESPECT FOR ME AND YOU. That is how Eagles SOAR!' });
       hello.push({ name: name, text: 'Take your time and explore, though! Every teacher has a story, and this old building is FULL of little secrets. You never know what you might find!' });
-      hello.push({ name: name, text: 'And say hello to EVERY staff member you can find -- Ashland Eagles who make friends throw the BEST celebrations!' });
+      hello.push({ name: name, text: 'And say hello to EVERY staff member you can find! When the banner is whole we will celebrate the Ashland Way -- and the more staff you meet, the BIGGER our celebration in the gym will be!' });
       hello.push({ name: name, text: suggestTeacher() });
     } else if (metEddie) {
       hello.push({ name: name, text: 'Any luck finding those golden letters?' });
@@ -1352,6 +1392,9 @@ var G = window.G = window.G || {};
     teacherDialogue: teacherDialogue,
     eagleDialogue: eagleDialogue,
     officerDialogue: officerDialogue,
+    setSushi: setSushi,
+    sushiOn: sushiOn,
+    sushiSpoken: function () { return sushiSpoken; },
     icons: icons,
     startHunt: startHunt,
     getHunt: function () { return hunt; },

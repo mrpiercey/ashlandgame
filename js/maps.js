@@ -905,9 +905,16 @@ var G = window.G = window.G || {};
     function placeStaff(m, id, opts) {
       if (!m || !G.TEACHERS[id]) return;
       opts = opts || {};
+      function doorish(t2) {
+        return t2 === 'mat' || t2 === 'door' || t2 === 'stairU' || t2 === 'stairD';
+      }
       function ok(x, y) {
         var t2 = m.get(x, y);
-        if (!T.isWalkable(t2) || t2 === 'mat' || t2 === 'door' || t2 === 'stairU' || t2 === 'stairD') return false;
+        if (!T.isWalkable(t2) || doorish(t2)) return false;
+        // keep a one-tile buffer around every doorway so a staff member
+        // dropped here can never stand in front of a door and block it
+        if (doorish(m.get(x + 1, y)) || doorish(m.get(x - 1, y)) ||
+            doorish(m.get(x, y + 1)) || doorish(m.get(x, y - 1))) return false;
         if (opts.zone && !opts.zone(x, y, t2)) return false;
         for (var i = 0; i < m.npcs.length; i++) {
           if (m.npcs[i].x === x && m.npcs[i].y === y) return false;
@@ -943,9 +950,10 @@ var G = window.G = window.G || {};
     placeStaff(maps.top, 'staff-rampulla');
     placeStaff(maps.top, 'staff-perry');
     placeStaff(maps.top, 'staff-kjackson');
+    // Mrs. Stanfield roams the top-floor hallway with the custodial crew
+    placeStaff(maps.top, 'staff-stanfield');
     // support staff wandering the middle-floor hallway
     placeStaff(maps.middle, 'staff-zimmerman');
-    placeStaff(maps.middle, 'staff-stanfield');
     placeStaff(maps.middle, 'staff-seivers');
     // ...and the lower-floor hallway
     placeStaff(maps.basement, 'staff-shadler');
