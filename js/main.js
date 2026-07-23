@@ -1099,6 +1099,13 @@ var G = window.G = window.G || {};
         n.timer = 1 + Math.random() * 2;
         n.anim = 0;
       }
+      if (eagle) {
+        // every few seconds Eddie spreads his wings for a beat as he roams --
+        // just a happy stretch, not flying
+        if (n.wingT === undefined) { n.wingT = 1.5 + Math.random() * 2.5; n.wingOpen = 0; }
+        if (n.wingOpen > 0) { n.wingOpen -= dt; }
+        else { n.wingT -= dt; if (n.wingT <= 0) { n.wingOpen = 0.45 + Math.random() * 0.35; n.wingT = 2.5 + Math.random() * 4; } }
+      }
       if (n.tx !== undefined) {
         // mid-step
         var speed = (eagle ? 48 : 34) * dt;
@@ -1585,8 +1592,20 @@ var G = window.G = window.G || {};
       }
       return;
     }
+    // after Eddie, the ONLY room they may enter is Mrs. Walker's office, until
+    // they have actually gone in and talked to her
+    if (roomId !== 'm-walker' && !G.Quest.hasMetWalker()) {
+      if (bumpCooldown <= 0) {
+        bumpCooldown = 2;
+        G.Audio.sfx('locked');
+        G.Dialogue.start([{ text: 'Better see MRS. WALKER in her office first!' }]);
+      }
+      return;
+    }
     var entry = G.Maps.entries[roomId + ':' + exitIndex] || G.Maps.entries[roomId + ':0'];
     if (!entry) return;
+    // leaving the hallway to explore a real room -> the staff may speak up now
+    if (roomId !== 'm-walker') G.Quest.unlockSuggestions();
     rememberReturn();
     visited[roomId] = true;
     warpTo(entry.map, entry.x, entry.y, entry.dir, locationLabel(roomId), 'door');
@@ -1621,6 +1640,17 @@ var G = window.G = window.G || {};
       }
       return;
     }
+    // ...and then until Mrs. Walker has sent them on their way
+    if (!G.Quest.hasMetWalker()) {
+      if (bumpCooldown <= 0) {
+        bumpCooldown = 2;
+        G.Audio.sfx('locked');
+        G.Dialogue.start([{ text: 'Better see MRS. WALKER in her office before you go exploring!' }]);
+      }
+      return;
+    }
+    // leaving the hallway/floor -> the staff may speak up now
+    G.Quest.unlockSuggestions();
     // stairwell doors ask which floor you want
     var choices = st.options.map(function (o) {
       return {
@@ -4234,6 +4264,10 @@ var G = window.G = window.G || {};
             // no decks tonight: Eddie is out on the floor busting a move
             var hop = Math.round(Math.abs(Math.sin(party.t * 5)) * 4);
             ctx.drawImage(eagleSprite, nx, ny - 4 - hop);
+          } else if (n.wingOpen > 0) {
+            // wings spread for a beat -- a single held pose, not a flap (the
+            // fly frames are 32 wide, so center them over his 16-wide body)
+            ctx.drawImage(eagleFlyFrames[0], nx - 8, ny - 4);
           } else {
             ctx.drawImage(eagleSprite, nx, ny - 4);
           }

@@ -447,6 +447,14 @@ var G = window.G = window.G || {};
           '. Welcome to Ashland!')
     };
 
+    // OPENING: until the student has met Mrs. Walker AND left the hallway to
+    // start exploring, staff just say hello -- no clues that might send them
+    // somewhere different than she does
+    if (!suggestionsUnlocked) {
+      G.Dialogue.start([introFirst], { onDone: onClose });
+      return;
+    }
+
     // Mrs. Adams reveals the sushi plan the first time you talk after the
     // secret is unlocked -- her usual hello, the big announcement, THEN she
     // gets back to checking whether a letter landed in here
@@ -621,6 +629,10 @@ var G = window.G = window.G || {};
   var talkCount = {};   // roomId -> how many chats so far
   var metEddie = false;  // has the player heard Eddie's story yet?
   var metWalker = false; // has the player met Mrs. Walker yet?
+  // the middle-floor hallway staff keep quiet about the letters until the
+  // student has met Mrs. Walker AND left the hallway to start exploring, so
+  // nobody contradicts her briefing during the opening
+  var suggestionsUnlocked = false;
 
   function chash(s) {
     var h = 5381;
@@ -1483,9 +1495,11 @@ var G = window.G = window.G || {};
     objective: objective,
     guide: guide,
     hasMetEddie: function () { return metEddie; },
+    hasMetWalker: function () { return metWalker; },
+    unlockSuggestions: function () { suggestionsUnlocked = true; },
     // preview links drop you in front of Mrs. Walker mid-adventure, so she
-    // must not greet you as a stranger
-    setWalkerMet: function (v) { walkerMet = !!v; metWalker = !!v; metEddie = !!v; },
+    // must not greet you as a stranger -- and the staff are already chatty
+    setWalkerMet: function (v) { walkerMet = !!v; metWalker = !!v; metEddie = !!v; suggestionsUnlocked = !!v; },
     idleTick: idleTick,
     needsHint: needsHint,
     // Eddie's post-catch lead: queued here, flown by main.js once the

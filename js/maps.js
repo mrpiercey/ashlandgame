@@ -944,6 +944,9 @@ var G = window.G = window.G || {};
       if (sx !== undefined) m.npcs.push({ kind: 'teacher', roomId: id, x: sx, y: sy });
     }
 
+    // keep middle-floor staff clear of Eddie's corner (33,23), where the
+    // student spawns -- nobody should be crowding the mascot at the start
+    var awayFromEddie = function (x, y) { return Math.max(Math.abs(x - 33), Math.abs(y - 23)) > 7; };
     // the custodial crew (plus Ms. Kay Jackson) roams the top floor
     placeStaff(maps.top, 'staff-mellow');
     placeStaff(maps.top, 'staff-rampulla');
@@ -951,11 +954,11 @@ var G = window.G = window.G || {};
     placeStaff(maps.top, 'staff-kjackson');
     // Mrs. Stanfield roams the top-floor hallway with the custodial crew
     placeStaff(maps.top, 'staff-stanfield');
-    // support staff wandering the middle-floor hallway
-    placeStaff(maps.middle, 'staff-zimmerman');
-    placeStaff(maps.middle, 'staff-seivers');
+    // support staff wandering the middle-floor hallway (away from the spawn)
+    placeStaff(maps.middle, 'staff-zimmerman', { zone: awayFromEddie });
+    placeStaff(maps.middle, 'staff-seivers', { zone: awayFromEddie });
     // ...and more roaming the upstairs halls (they used to drift into the gym)
-    placeStaff(maps.middle, 'staff-shadler');
+    placeStaff(maps.middle, 'staff-shadler', { zone: awayFromEddie });
     placeStaff(maps.top, 'staff-helton');
     placeStaff(maps['m-caf'], 'staff-marsh', { x: 2, y: 15 });
     // the kitchen crew works behind the serving counter
@@ -964,11 +967,11 @@ var G = window.G = window.G || {};
     placeStaff(maps['m-caf'], 'staff-martin', { x: 11, y: 6 });
     // Ms. Kirk has the gym to herself now; the rest of the PE/music crew roam
     // the upstairs hallways with everyone else
-    placeStaff(maps.middle, 'staff-jackson');
+    placeStaff(maps.middle, 'staff-jackson', { zone: awayFromEddie });
     placeStaff(maps.top, 'staff-elshaarawy');
     // band and orchestra roam the halls too
     placeStaff(maps.top, 'staff-baker');
-    placeStaff(maps.middle, 'staff-komprs');
+    placeStaff(maps.middle, 'staff-komprs', { zone: awayFromEddie });
     placeStaff(maps['t-lib'], 'staff-hurt', { x: 10, y: 10 });
     placeStaff(maps['t-234'], 'staff-farmer', { x: 9, y: 4 });
     placeStaff(maps['t-224'], 'staff-garcia', { x: 9, y: 6 });
