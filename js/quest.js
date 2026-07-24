@@ -77,7 +77,7 @@ var G = window.G = window.G || {};
     var roomId = holders[letter];
     pendingHint = { letter: letter, roomId: roomId };
     var d = describeTeacherPlace(roomId);
-    return 'Looking for a hint? Go check with ' + d.who + ' in ' + d.place + ', ' + d.where + '!';
+    return G.Lang.f('Looking for a hint? Go check with {who} in {place}, {where}!', d);
   }
 
   function roomNum(roomId) {
@@ -112,11 +112,12 @@ var G = window.G = window.G || {};
     return {
       who: who,
       num: num,
-      where: WHERE_OVERRIDE[roomId] || FLOOR_WORDS[room.floor],
+      where: G.Lang.t(WHERE_OVERRIDE[roomId] || FLOOR_WORDS[room.floor]),
       // "Room 220" for a classroom, "the Cafeteria" for a named space
-      place: num ? 'Room ' + num : (PLACE_OVERRIDE[roomId] || named),
+      place: num ? G.Lang.f('Room {num}', { num: num }) : G.Lang.t(PLACE_OVERRIDE[roomId] || named),
       // the longer form a gossiping teacher uses
-      ownedPlace: num ? who + "'s room (Room " + num + ')' : (PLACE_OVERRIDE[roomId] || named)
+      ownedPlace: num ? G.Lang.f("{who}'s room (Room {num})", { who: who, num: num })
+        : G.Lang.t(PLACE_OVERRIDE[roomId] || named)
     };
   }
 
@@ -130,8 +131,8 @@ var G = window.G = window.G || {};
   };
   function shortPlace(roomId) {
     var num = roomNum(roomId);
-    if (num) return 'ROOM ' + num;
-    return SHORT_PLACE[roomId] || G.ROOMS[roomId].name;
+    if (num) return G.Lang.f('ROOM {num}', { num: num });
+    return G.Lang.t(SHORT_PLACE[roomId] || G.ROOMS[roomId].name);
   }
 
   function spotPrompt(label) {
@@ -151,27 +152,32 @@ var G = window.G = window.G || {};
       // the celebration screen just flashes its three cheers, over and over
       var CHEERS = ['THE ASHLAND WAY!', 'S O A R!', "LET'S CELEBRATE, EAGLES!"];
       return {
-        text: CHEERS[Math.floor(Date.now() / 1400) % CHEERS.length],
+        text: G.Lang.t(CHEERS[Math.floor(Date.now() / 1400) % CHEERS.length]),
         color: '#f7d84d'
       };
     }
     // banner complete: keep meeting staff, then Mrs. Walker starts the celebration
-    if (allDelivered()) return { text: 'TIME TO CELEBRATE! SEE MRS. WALKER', color: '#f7d84d' };
-    if (allFound()) return { text: 'SEE MRS. WALKER', color: '#ff5a4a' };
+    if (allDelivered()) return { text: G.Lang.t('TIME TO CELEBRATE! SEE MRS. WALKER'), color: '#f7d84d' };
+    if (allFound()) return { text: G.Lang.t('SEE MRS. WALKER'), color: '#ff5a4a' };
     if (hunt) {
       if (focusRoomId === hunt.roomId) {
         return {
-          text: hunt.spot ? 'CHECK ' + spotPrompt(hunt.spot.label) : 'SEARCH THIS ROOM',
+          text: hunt.spot ? G.Lang.f('CHECK {spot}', { spot: spotPrompt(hunt.spot.label) })
+            : G.Lang.t('SEARCH THIS ROOM'),
           color: '#f7d84d'
         };
       }
-      return { text: 'GO TO ' + shortPlace(hunt.roomId), color: '#f7d84d' };
+      return { text: G.Lang.f('GO TO {place}', { place: shortPlace(hunt.roomId) }), color: '#f7d84d' };
     }
     if (pendingHint && !found[pendingHint.letter]) {
       var who = G.TEACHERS[pendingHint.roomId].name.toUpperCase();
       var num = roomNum(pendingHint.roomId);
       // classrooms need the number: there are two Mrs. Smiths!
-      return { text: 'GO FIND ' + who + (num ? ' (ROOM ' + num + ')' : ''), color: '#9fd4e8' };
+      return {
+        text: num ? G.Lang.f('GO FIND {who} (ROOM {num})', { who: who, num: num })
+          : G.Lang.f('GO FIND {who}', { who: who }),
+        color: '#9fd4e8'
+      };
     }
     // Mrs. Walker pointed the student at a specific teacher
     if (tipTarget && G.TEACHERS[tipTarget] && G.ROOMS[tipTarget]) {
@@ -179,17 +185,20 @@ var G = window.G = window.G || {};
       var ORDER = { basement: 0, middle: 1, top: 2 };
       var tFloor = G.ROOMS[tipTarget].floor;
       var stairs = curFloor === undefined || tFloor === curFloor ? ''
-        : ORDER[tFloor] > ORDER[curFloor] ? 'GO UPSTAIRS AND ' : 'GO DOWNSTAIRS AND ';
+        : ORDER[tFloor] > ORDER[curFloor] ? 'up' : 'down';
       var tn = roomNum(tipTarget);
-      return { text: stairs + 'TALK TO ' + tw + (!stairs && tn ? ' (ROOM ' + tn + ')' : ''), color: '#9fd4e8' };
+      var form = stairs === 'up' ? 'GO UPSTAIRS AND TALK TO {who}'
+        : stairs === 'down' ? 'GO DOWNSTAIRS AND TALK TO {who}'
+          : tn ? 'TALK TO {who} (ROOM {num})' : 'TALK TO {who}';
+      return { text: G.Lang.f(form, { who: tw, num: tn }), color: '#9fd4e8' };
     }
     // quest on-ramp: Eddie's story first, then Mrs. Walker's briefing
-    if (!metEddie) return { text: 'TALK TO EDDIE THE EAGLE', color: '#9fd4e8' };
-    if (!metWalker) return { text: 'TALK TO MRS. WALKER', color: '#9fd4e8' };
+    if (!metEddie) return { text: G.Lang.t('TALK TO EDDIE THE EAGLE'), color: '#9fd4e8' };
+    if (!metWalker) return { text: G.Lang.t('TALK TO MRS. WALKER'), color: '#9fd4e8' };
     // exploring: one steady nudge, in Eddie-green so it reads as a tip.
     // Say WHAT to ask about -- "go talk to your teachers" left kids guessing.
     // (Keep it to three sidebar lines: wrapSide crams anything longer.)
-    return { text: 'ASK TEACHERS ABOUT MISSING LETTERS', color: '#5fbd87' };
+    return { text: G.Lang.t('ASK TEACHERS ABOUT MISSING LETTERS'), color: '#5fbd87' };
   }
 
   // what the GTA-style guide arrow should point at right now (semantic
@@ -273,7 +282,7 @@ var G = window.G = window.G || {};
 
   function letterList(arr) {
     return arr.length === 1 ? arr[0]
-      : arr.slice(0, -1).join(', ') + ' and ' + arr[arr.length - 1];
+      : arr.slice(0, -1).join(', ') + ' ' + G.Lang.t('and') + ' ' + arr[arr.length - 1];
   }
 
   // did this room's letter already get caught?
@@ -301,11 +310,13 @@ var G = window.G = window.G || {};
         tipTarget = dud;
         var dd = describeTeacherPlace(dud);
         var dpp = G.pronounsFor(dud);
-        var dPlace = dd.num ? dpp.poss + ' room (Room ' + dd.num + ')' : dd.ownedPlace;
+        // gendered templates keep translations natural: "su salón" needs no
+        // pronoun at all in Spanish, and Swahili has no his/her split
+        var dPlace = dd.num ? G.Lang.f(dpp.poss + ' room (Room {num})', { num: dd.num }) : dd.ownedPlace;
         var dudLines = [
-          'I THINK ' + dd.who + ' might have found something? Maybe peek into ' + dPlace + ', ' + dd.where + '.',
-          'Someone said there MIGHT be a golden letter in ' + dd.place + ', ' + dd.where + ' -- worth a shot!',
-          'You could try ' + dd.place + ', ' + dd.where + " -- I'm not totally sure, though!"
+          G.Lang.f('I THINK {who} might have found something? Maybe peek into {place}, {where}.', { who: dd.who, place: dPlace, where: dd.where }),
+          G.Lang.f('Someone said there MIGHT be a golden letter in {place}, {where} -- worth a shot!', { place: dd.place, where: dd.where }),
+          G.Lang.f("You could try {place}, {where} -- I'm not totally sure, though!", { place: dd.place, where: dd.where })
         ];
         return { text: dudLines[chash(hinterRoomId + 'dl') % dudLines.length] };
       }
@@ -320,11 +331,11 @@ var G = window.G = window.G || {};
     var place = d.ownedPlace, where = d.where;
     // when the teacher was just named, "her room" beats repeating the name
     var pp = G.pronounsFor(roomId);
-    var pronounPlace = d.num ? pp.poss + ' room (Room ' + d.num + ')' : place;
+    var pronounPlace = d.num ? G.Lang.f(pp.poss + ' room (Room {num})', { num: d.num }) : place;
     var hints = [
-      'I heard ' + d.who + ' found something shiny while setting up! Check ' + pronounPlace + ', ' + where + '.',
-      'Psst... someone spotted a golden letter in ' + place + ', ' + where + '!',
-      'Try ' + place + ', ' + where + ' -- Eddie was flying around in there all summer!'
+      G.Lang.f('I heard {who} found something shiny while setting up! Check {place}, {where}.', { who: d.who, place: pronounPlace, where: where }),
+      G.Lang.f('Psst... someone spotted a golden letter in {place}, {where}!', { place: place, where: where }),
+      G.Lang.f('Try {place}, {where} -- Eddie was flying around in there all summer!', { place: place, where: where })
     ];
     pendingHint = { letter: letter, roomId: roomId };
     noteProgress(); // a real clue counts as making headway
@@ -441,10 +452,9 @@ var G = window.G = window.G || {};
       : /^(mrs|mr|ms|dr|the)\b/i.test(room.name) ? roomLabel : 'the ' + roomLabel;
     var introFirst = {
       name: name,
-      text: t.intro ||
-        ("Hi there! I'm " + t.name + ', and this is ' +
-          (num ? 'my room -- Room ' + num : placeName) +
-          '. Welcome to Ashland!')
+      text: t.intro || (num
+        ? G.Lang.f("Hi there! I'm {name}, and this is my room -- Room {num}. Welcome to Ashland!", { name: t.name, num: num })
+        : G.Lang.f("Hi there! I'm {name}, and this is {place}. Welcome to Ashland!", { name: t.name, place: placeName || 'our school' }))
     };
 
     // OPENING: until the student has met Mrs. Walker AND left the hallway to
@@ -476,18 +486,18 @@ var G = window.G = window.G || {};
         pages.push({
           name: name,
           text: hunt.spot
-            ? "Keep looking! I'm SURE I saw it land right by " + hunt.spot.label + '!'
-            : 'Keep looking! The letter ' + hunt.letter + ' is somewhere in this room!'
+            ? G.Lang.f("Keep looking! I'm SURE I saw it land right by {spot}!", { spot: hunt.spot.label })
+            : G.Lang.f('Keep looking! The letter {letter} is somewhere in this room!', { letter: hunt.letter })
         });
       } else {
         // the teacher SAW where Eddie dropped it
         startHunt(roomId);
         var spotText = hunt && hunt.spot
-          ? 'Yes! I saw Eddie drop it -- it landed right by ' + hunt.spot.label + '! Go take a look... but be ready!'
+          ? G.Lang.f('Yes! I saw Eddie drop it -- it landed right by {spot}! Go take a look... but be ready!', { spot: hunt.spot.label })
           : 'It is somewhere in this room... go look around, and be ready!';
         pages.push({
           name: name,
-          text: 'Oh! Eddie the Eagle dropped the golden letter ' + letter + ' in here while he was helping me set up!'
+          text: G.Lang.f('Oh! Eddie the Eagle dropped the golden letter {letter} in here while he was helping me set up!', { letter: letter })
         });
         pages.push({ name: name, text: spotText });
       }
@@ -522,7 +532,7 @@ var G = window.G = window.G || {};
       pages.push({
         name: name,
         text: onward
-          ? 'Keep going -- I heard the next one is in ' + onward.place + ', ' + onward.where + '!'
+          ? G.Lang.f('Keep going -- I heard the next one is in {place}, {where}!', { place: onward.place, where: onward.where })
           : 'Keep going, you are so close! Ask the other teachers about the ones still missing.'
       });
       G.Dialogue.start(pages, { onDone: onClose });
@@ -618,11 +628,9 @@ var G = window.G = window.G || {};
     var d = describeTeacherPlace(id);
     var p = G.pronounsFor(id);
     // stable phrasing too, so the whole line reads the same on every visit
-    return REFERRAL_FORMS[chash(selfId + 'refform') % REFERRAL_FORMS.length]
-      .replace('{who}', d.who)
-      .replace('{place}', d.ownedPlace)
-      .replace('{where}', d.where)
-      .replace('{them}', p.obj);
+    return G.Lang.f(REFERRAL_FORMS[chash(selfId + 'refform') % REFERRAL_FORMS.length], {
+      who: d.who, place: d.ownedPlace, where: d.where, them: p.obj
+    });
   }
   var dryStreak = 0;    // new teachers met since the last real clue
 
@@ -881,7 +889,7 @@ var G = window.G = window.G || {};
       };
     });
     G.Dialogue.start([
-      { name: name, text: 'Quick... what does the letter ' + letter + ' stand for in the SOAR expectations?!' }
+      { name: name, text: G.Lang.f('Quick... what does the letter {letter} stand for in the SOAR expectations?!', { letter: letter }) }
     ], { choices: choices });
   }
 
@@ -951,8 +959,8 @@ var G = window.G = window.G || {};
     if (t.real) {
       if (who === 'eddie') {
         // main.js prefixes the SQUAWK! when he opens his beak
-        pendingFlyby = 'You found the ' + justCaught + ' I dropped! I think I dropped another one in ' +
-          t.d.place + ', ' + t.d.where + '!';
+        pendingFlyby = G.Lang.f('You found the {letter} I dropped! I think I dropped another one in {place}, {where}!',
+          { letter: justCaught, place: t.d.place, where: t.d.where });
         return null;
       }
       if (who === 'pa') {
@@ -962,19 +970,20 @@ var G = window.G = window.G || {};
         return {
           name: 'INTERCOM',
           pa: true,
-          text: 'Attention Eagles, this is ' + voice + '. A golden letter was just spotted in ' +
-            t.d.place + ', ' + t.d.where + '!'
+          text: G.Lang.f('Attention Eagles, this is {voice}. A golden letter was just spotted in {place}, {where}!',
+            { voice: voice, place: t.d.place, where: t.d.where })
         };
       }
       return {
         name: teacherName,
-        text: 'You found it! Now go see ' + t.d.who + ' in ' + t.d.place + ', ' + t.d.where + '!'
+        text: G.Lang.f('You found it! Now go see {who} in {place}, {where}!',
+          { who: t.d.who, place: t.d.place, where: t.d.where })
       };
     }
     // a FALSE ALARM -- hedged, so coming up empty still feels fair
     if (who === 'eddie') {
-      pendingFlyby = 'You found the ' + justCaught + '! I MIGHT have dropped another near ' +
-        t.d.place + ', ' + t.d.where + ' -- give it a look!';
+      pendingFlyby = G.Lang.f('You found the {letter}! I MIGHT have dropped another near {place}, {where} -- give it a look!',
+        { letter: justCaught, place: t.d.place, where: t.d.where });
       return null;
     }
     if (who === 'pa') {
@@ -983,14 +992,14 @@ var G = window.G = window.G || {};
       return {
         name: 'INTERCOM',
         pa: true,
-        text: 'Attention Eagles, this is ' + voice2 + '. We are hearing a letter MIGHT be near ' +
-          t.d.place + ', ' + t.d.where + ' -- can someone check?'
+        text: G.Lang.f('Attention Eagles, this is {voice}. We are hearing a letter MIGHT be near {place}, {where} -- can someone check?',
+          { voice: voice2, place: t.d.place, where: t.d.where })
       };
     }
     return {
       name: teacherName,
-      text: 'You found it! Someone THOUGHT they saw another over by ' + t.d.who + ' in ' +
-        t.d.place + ', ' + t.d.where + '. Might be worth a look!'
+      text: G.Lang.f('You found it! Someone THOUGHT they saw another over by {who} in {place}, {where}. Might be worth a look!',
+        { who: t.d.who, place: t.d.place, where: t.d.where })
     };
   }
 
@@ -1000,9 +1009,10 @@ var G = window.G = window.G || {};
     var roomId = hunt.roomId;
     hunt = null;
     var pages = [
-      { name: name, text: "That's IT! " + letter + ' is for ' + MEANINGS[letter] + '! You caught it!' },
+      // the meaning stays in English in every language -- that's the point
+      { name: name, text: G.Lang.f("That's IT! {letter} is for {meaning}! You caught it!", { letter: letter, meaning: MEANINGS[letter] }) },
       {
-        text: 'You caught the letter ' + letter + '!  (' + (countFound() + 1) + ' of 4)',
+        text: G.Lang.f('You caught the letter {letter}!  ({n} of 4)', { letter: letter, n: countFound() + 1 }),
         icon: icons[letter],
         fanfare: true,
         letter: letter
@@ -1039,7 +1049,9 @@ var G = window.G = window.G || {};
     var pages = [
       {
         name: name,
-        text: 'Whoa! You met ' + n + ' Ashland staff member' + (n === 1 ? '' : 's') + '! Good job!'
+        text: n === 1
+          ? G.Lang.f('Whoa! You met {n} Ashland staff member! Good job!', { n: n })
+          : G.Lang.f('Whoa! You met {n} Ashland staff members! Good job!', { n: n })
       }
     ];
     if (n >= 50) {
@@ -1088,7 +1100,9 @@ var G = window.G = window.G || {};
         name: name,
         text: carried.length === 4
           ? 'My goodness... ALL FOUR golden letters are floating right behind you! S! O! A! R! You wonderful Eagle!'
-          : 'Is that the golden ' + letterList(carried) + ' floating behind you?! You found ' + (carried.length === 1 ? 'it' : 'them') + '!'
+          : carried.length === 1
+            ? G.Lang.f('Is that the golden {letters} floating behind you?! You found it!', { letters: letterList(carried) })
+            : G.Lang.f('Is that the golden {letters} floating behind you?! You found them!', { letters: letterList(carried) })
       });
       pages.push({
         name: name,
@@ -1113,7 +1127,9 @@ var G = window.G = window.G || {};
     if (countDelivered() > 0) {
       var missing = LETTERS.filter(function (l) { return !delivered[l]; });
       G.Dialogue.start([
-        { name: name, text: 'The banner is looking better already... but the golden ' + letterList(missing) + (missing.length === 1 ? ' is' : ' are') + ' still out there somewhere!' },
+        { name: name, text: missing.length === 1
+          ? G.Lang.f('The banner is looking better already... but the golden {letters} is still out there somewhere!', { letters: letterList(missing) })
+          : G.Lang.f('The banner is looking better already... but the golden {letters} are still out there somewhere!', { letters: letterList(missing) }) },
         { name: name, text: 'Bring me any letter you catch -- even one at a time! Eddie the Eagle can always remind you which ones are missing.' }
       ], { onDone: onClose });
       return;
@@ -1160,8 +1176,11 @@ var G = window.G = window.G || {};
     noteProgress(); // a fresh lead from the principal restarts the clock
     var d = describeTeacherPlace(id);
     var p = G.pronounsFor(id);
-    return 'Go see ' + d.who + ' in ' + d.place + ', ' + d.where + '! Maybe ' +
-      p.subj + ' ' + p.has + ' seen something!';
+    // whole sentences per pronoun, so every language reads naturally
+    var maybe = p.subj === 'she' ? 'Maybe she has seen something!'
+      : p.subj === 'he' ? 'Maybe he has seen something!'
+        : 'Maybe they have seen something!';
+    return G.Lang.f('Go see {who} in {place}, {where}!', d) + ' ' + G.Lang.t(maybe);
   }
 
   // Mrs. Walker's reaction right after the letters fly onto the wall
@@ -1182,7 +1201,7 @@ var G = window.G = window.G || {};
       ? 'Only ONE more to go! I can practically hear the whole school cheering already!'
       : left === 2
         ? 'Halfway there -- only 2 more to go! You are on a ROLL!'
-        : 'Only ' + left + ' more to go! Keep it up, super Eagle!';
+        : G.Lang.f('Only {n} more to go! Keep it up, super Eagle!', { n: left });
     G.Dialogue.start([
       { name: name, text: 'Just look at it sparkle up there! Perfect!' },
       { name: name, text: cheer }
@@ -1409,11 +1428,9 @@ var G = window.G = window.G || {};
     if (allFound()) {
       pages = [{ name: 'EDDIE THE EAGLE', text: 'SQUAWK! You found all four letters! You are a true Eagle! Hurry to Mrs. Walker\'s office on the MIDDLE FLOOR -- just follow the big YELLOW ARROW!' }];
     } else if (countFound() > 0) {
-      var still = LETTERS.filter(function (l) { return !found[l]; });
-      var list = still.length === 1 ? still[0]
-        : still.slice(0, -1).join(', ') + ' and ' + still[still.length - 1];
+      var list = letterList(missingLetters());
       pages = [
-        { name: 'EDDIE THE EAGLE', text: 'SQUAWK! You have found ' + countFound() + ' of the letters I dropped! You still need ' + list + ' -- keep talking to the teachers!' },
+        { name: 'EDDIE THE EAGLE', text: G.Lang.f('SQUAWK! You have found {n} of the letters I dropped! You still need {list} -- keep talking to the teachers!', { n: countFound(), list: list }) },
         { name: 'EDDIE THE EAGLE', text: 'And remember: when you are carrying letters, bring them to Mrs. Walker\'s office on the MIDDLE FLOOR!' }
       ];
     } else if (metWalker) {
@@ -1441,7 +1458,7 @@ var G = window.G = window.G || {};
         { name: name, text: 'If you ever need anything, you come find me or Mrs. Coleman right here. Now go help Eddie track down those letters!' }
       ];
       if (countFound() > 0) {
-        pages.splice(3, 0, { name: name, text: 'Hey, I heard you already found ' + countFound() + ' of the letters Eddie dropped! You are on a ROLL!' });
+        pages.splice(3, 0, { name: name, text: G.Lang.f('Hey, I heard you already found {n} of the letters Eddie dropped! You are on a ROLL!', { n: countFound() }) });
       }
     }
     G.Dialogue.start(pages, { onDone: onClose });

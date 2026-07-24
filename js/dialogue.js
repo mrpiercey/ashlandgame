@@ -77,10 +77,23 @@ var G = window.G = window.G || {};
   }
 
   function start(pgs, opts) {
-    pages = pgs.slice();
+    // every page passes through the language layer on its way in; strings
+    // with no dictionary entry (like the SOAR expectations) stay English
+    pages = pgs.map(function (p) {
+      var q = {};
+      for (var k in p) q[k] = p[k];
+      q.text = G.Lang.t(p.text);
+      if (p.name) q.name = G.Lang.t(p.name);
+      return q;
+    });
     pageIdx = 0;
     charCount = 0;
     choices = (opts && opts.choices) || null;
+    if (choices) {
+      choices = choices.map(function (c) {
+        return { label: G.Lang.t(c.label), cb: c.cb };
+      });
+    }
     onDone = (opts && opts.onDone) || null;
     choiceIdx = 0;
     inChoices = false;
@@ -179,7 +192,7 @@ var G = window.G = window.G || {};
       // a titled menu with a lit-up row, so it is obvious these are two
       // buttons the player picks between (and not just more talking)
       ctx.font = font(8);
-      var HEAD = 'PICK ONE:';
+      var HEAD = G.Lang.t('PICK ONE:');
       var rowH = 16;
       var maxLabel = ctx.measureText(HEAD).width;
       choices.forEach(function (c) {

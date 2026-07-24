@@ -201,9 +201,14 @@ var G = window.G = window.G || {};
 
     if (state === 'title') {
       if (G.Input.consumeAction()) {
-        G.Audio.sfx('fanfare');
-        startTitleFly();
+        G.Audio.sfx('blip');
+        startLangSelect();
       }
+      return;
+    }
+
+    if (state === 'langselect') {
+      updateLangSelect();
       return;
     }
 
@@ -448,7 +453,7 @@ var G = window.G = window.G || {};
         battle.phase = 'ask';
         battle.t = 0;
         G.Dialogue.start([
-          { text: 'THE LETTER ' + battle.letter + ' APPEARS!' }
+          { text: G.Lang.f('THE LETTER {letter} APPEARS!', { letter: battle.letter }) }
         ], { onDone: function () { G.Quest.battleAsk(winBattle); } });
       }
     } else if (battle.phase === 'ask') {
@@ -549,10 +554,11 @@ var G = window.G = window.G || {};
       // flashing THAT'S CORRECT!
       ctx.textAlign = 'center';
       ctx.font = font(11);
+      var correct = G.Lang.t("THAT'S CORRECT!");
       ctx.fillStyle = '#000';
-      ctx.fillText("THAT'S CORRECT!", SW / 2 + 1, 172 + 1);
+      ctx.fillText(correct, SW / 2 + 1, 172 + 1);
       ctx.fillStyle = Math.floor(battle.t * 6) % 2 ? '#f7d84d' : '#ffffff';
-      ctx.fillText("THAT'S CORRECT!", SW / 2, 172);
+      ctx.fillText(correct, SW / 2, 172);
       // message window (matches the dialogue style)
       var wx = 6, wy = 182, ww = SW - 12, wh = 52;
       var wg = ctx.createLinearGradient(0, wy, 0, wy + wh);
@@ -566,12 +572,14 @@ var G = window.G = window.G || {};
       ctx.font = font(8);
       ctx.fillStyle = '#fff';
       var msg = battle.remaining <= 0
-        ? 'You found ALL FOUR letters!'
-        : 'Only ' + battle.remaining + (battle.remaining === 1 ? ' letter remains!' : ' letters remain!');
+        ? G.Lang.t('You found ALL FOUR letters!')
+        : battle.remaining === 1
+          ? G.Lang.f('Only {n} letter remains!', { n: battle.remaining })
+          : G.Lang.f('Only {n} letters remain!', { n: battle.remaining });
       ctx.fillText(msg, SW / 2, wy + 22);
       if (Math.floor(battle.t * 2.5) % 2 === 0) {
         ctx.fillStyle = '#f7d84d';
-        ctx.fillText('- PRESS ENTER -', SW / 2, wy + 40);
+        ctx.fillText(G.Lang.t('- PRESS ENTER -'), SW / 2, wy + 40);
       }
       ctx.textAlign = 'left';
     }
@@ -1183,6 +1191,7 @@ var G = window.G = window.G || {};
     }
     // picking a student, or an option in a conversation: press the one you
     // want with your finger instead of hunting for the right button
+    if (state === 'langselect') { langSelectTap(gx, gy); return; }
     if (state === 'charselect' && charSelectTap(gx, gy)) return;
     if (G.Dialogue.tapChoice(gx, gy)) return;
     // outside free play (title, dialogue, battle, menus...) a click is
@@ -1668,7 +1677,7 @@ var G = window.G = window.G || {};
   }
 
   function showBanner(text) {
-    banner = { text: text, timer: 2.4 };
+    banner = { text: G.Lang.t(text), timer: 2.4 };
   }
 
   // ---- interaction --------------------------------------------------------
@@ -2759,14 +2768,14 @@ var G = window.G = window.G || {};
     ctx.textBaseline = 'top';
     ctx.font = font(9);
     ctx.fillStyle = '#f7d84d';
-    ctx.fillText('ASHLAND STAFF', SW / 2, py + 5);
+    ctx.fillText(G.Lang.t('ASHLAND STAFF'), SW / 2, py + 5);
 
     var list = staffRosterList();
     var metN = 0;
     for (var i = 0; i < list.length; i++) if (list[i].met) metN++;
     ctx.font = font(7);
     ctx.fillStyle = '#5fbd87';
-    ctx.fillText(metN + ' OF ' + list.length + ' MET', SW / 2, py + 17);
+    ctx.fillText(G.Lang.f('{n} OF {total} MET', { n: metN, total: list.length }), SW / 2, py + 17);
 
     // three columns, filled top-to-bottom so it still reads in order
     ctx.textAlign = 'left';
@@ -2784,7 +2793,7 @@ var G = window.G = window.G || {};
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#9fd4e8';
-    ctx.fillText('TAP ANYWHERE TO CLOSE', SW / 2, py + ph - 11);
+    ctx.fillText(G.Lang.t('TAP ANYWHERE TO CLOSE'), SW / 2, py + ph - 11);
     ctx.restore();
     ctx.textAlign = 'left';
   }
@@ -2923,10 +2932,10 @@ var G = window.G = window.G || {};
     ctx.fillStyle = '#f7d84d';
     if (f.t > 1.6 && f.t < 4.1) {
       ctx.font = font(9);
-      ctx.fillText('EDDIE HAS ONE MORE SURPRISE...', SW / 2, 200);
+      ctx.fillText(G.Lang.t('EDDIE HAS ONE MORE SURPRISE...'), SW / 2, 200);
     } else if (f.t >= 4.1 && Math.floor(Date.now() / 300) % 2 === 0) {
       ctx.font = font(12);
-      ctx.fillText('TO THE GYM!', SW / 2, 196);
+      ctx.fillText(G.Lang.t('TO THE GYM!'), SW / 2, 196);
     }
     ctx.textAlign = 'left';
   }
@@ -3544,8 +3553,9 @@ var G = window.G = window.G || {};
       var wob = 1 + Math.sin(t * 14) * 0.06;
       ctx.translate(SW * 0.5, SH * 0.13); ctx.scale(wob, wob);
       ctx.lineWidth = 5; ctx.strokeStyle = '#1c1108';
-      ctx.strokeText("HE'S ON FIRE!", 0, 0);
-      ctx.fillStyle = '#ffcf3a'; ctx.fillText("HE'S ON FIRE!", 0, 0);
+      var onFireMsg = G.Lang.t("HE'S ON FIRE!");
+      ctx.strokeText(onFireMsg, 0, 0);
+      ctx.fillStyle = '#ffcf3a'; ctx.fillText(onFireMsg, 0, 0);
     } else if (t >= DK.slam) {
       ctx.font = font(12);
       var wob2 = 1 + Math.sin(t * 20) * 0.05;
@@ -3566,10 +3576,10 @@ var G = window.G = window.G || {};
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.font = font(7);
     ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = '#4a1c06';
-    ctx.strokeText('TO CONTROL', 5, 4);
+    ctx.strokeText(G.Lang.t('TO CONTROL'), 5, 4);
     ctx.strokeText('RICHARDS', 5, 13);
     ctx.fillStyle = '#f4ad1e';
-    ctx.fillText('TO CONTROL', 5, 4);
+    ctx.fillText(G.Lang.t('TO CONTROL'), 5, 4);
     ctx.fillText('RICHARDS', 5, 13);
     // turbo bar
     var bx = 5, by = 24, bw = 74, bh = 6;
@@ -4355,23 +4365,26 @@ var G = window.G = window.G || {};
     if (t && num) {
       var who = (t.co ? t.name + ' & ' + t.co : t.name).toUpperCase();
       // team-taught rooms skip the possessive: two names is already a mouthful
-      if (t.co) return who + ' (ROOM ' + num[1] + ')';
-      var poss = who + (who.slice(-1) === 'S' ? "'" : "'S");
-      var kind = num[2] && num[2] !== 'PLC ROOM' ? num[2] + ' ROOM' : 'ROOM';
-      return poss + ' ' + kind + ' (' + num[1] + ')';
+      if (t.co) return G.Lang.f('{who} (ROOM {num})', { who: who, num: num[1] });
+      // whole-phrase templates so possessives can move where each language
+      // puts them ("SALON DE MRS. SMITH" instead of "MRS. SMITH'S ROOM")
+      return num[2] && num[2] !== 'PLC ROOM'
+        ? G.Lang.f("{who}'S {kind} ROOM ({num})", { who: who, kind: num[2], num: num[1] })
+        : G.Lang.f("{who}'S ROOM ({num})", { who: who, num: num[1] });
     }
-    return room.name;   // offices, gym, specials: their names already say it
+    return G.Lang.t(room.name);   // offices, gym, specials: their names already say it
   }
 
   // what "CURRENT LOCATION" says, for both HUD layouts. A hallway names its
   // floor -- kids need to know they're on the MIDDLE FLOOR for "up on the top
   // floor" to mean anything -- and the map already carries that name.
   function currentPlaceLabel() {
-    if (party) return "LET'S CELEBRATE THE ASHLAND WAY!";
+    if (party) return G.Lang.t("LET'S CELEBRATE THE ASHLAND WAY!");
     var m = G.Maps.all[currentMapId];
-    if (m.outdoor) return 'THE PLAYGROUND';
+    if (m.outdoor) return G.Lang.t('THE PLAYGROUND');
     if (!m.isHall) return locationLabel(currentMapId);
-    return inGymArea() ? G.ROOMS['b-gym'].name : m.name + ' HALLWAY';
+    return inGymArea() ? G.Lang.t(G.ROOMS['b-gym'].name)
+      : G.Lang.f('{floor} HALLWAY', { floor: m.name });
   }
 
   // wrap sidebar text into centered lines that fit the panel (max 3)
@@ -4444,7 +4457,7 @@ var G = window.G = window.G || {};
     ctx.fillText('ELEMENTARY', 79, 20);
 
     ctx.fillStyle = '#9fd4e8';
-    ctx.fillText('CURRENT LOCATION', 238, 4);
+    ctx.fillText(G.Lang.t('CURRENT LOCATION'), 238, 4);
     ctx.fillStyle = '#ffffff';
     var loc = wrapTo(hudLocation(), 150);
     while (loc.length > 2) loc[1] += ' ' + loc.splice(2, 1)[0];
@@ -4456,7 +4469,7 @@ var G = window.G = window.G || {};
     ctx.fillRect(0, y0, SW, 1);
 
     ctx.fillStyle = '#f7d84d';
-    ctx.fillText('LETTERS', 52, y0 + 6);
+    ctx.fillText(G.Lang.t('LETTERS'), 52, y0 + 6);
     G.Quest.LETTERS.forEach(function (l, i) {
       ctx.fillStyle = G.Quest.delivered[l] ? '#f7d84d'
         : G.Quest.found[l]
@@ -4465,12 +4478,12 @@ var G = window.G = window.G || {};
       ctx.fillText(l, 25 + i * 18, y0 + 20);
     });
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(G.Quest.countFound() + ' OF 4', 52, y0 + 34);
+    ctx.fillText(G.Lang.f('{n} OF 4', { n: G.Quest.countFound() }), 52, y0 + 34);
 
     ctx.fillStyle = '#5fbd87';
     ctx.fillText('ASHLAND', 270, y0 + 6);
     ctx.fillStyle = '#f7d84d';
-    ctx.fillText('STAFF', 270, y0 + 18);
+    ctx.fillText(G.Lang.t('STAFF'), 270, y0 + 18);
     ctx.fillStyle = '#ffffff';
     ctx.fillText(countMet() + '/' + staffTotal(), 270, y0 + 32);
 
@@ -4526,7 +4539,7 @@ var G = window.G = window.G || {};
     // letters found
     ctx.font = font(8);
     ctx.fillStyle = '#f7d84d';
-    ctx.fillText('LETTERS', cx, 54);
+    ctx.fillText(G.Lang.t('LETTERS'), cx, 54);
     G.Quest.LETTERS.forEach(function (l, i) {
       // on the wall: solid gold. following you: gold that gently pulses.
       ctx.fillStyle = G.Quest.delivered[l] ? '#f7d84d'
@@ -4536,14 +4549,14 @@ var G = window.G = window.G || {};
       ctx.fillText(l, x0 + 26 + i * 20, 70);
     });
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(G.Quest.countFound() + ' OF 4', cx, 86);
+    ctx.fillText(G.Lang.f('{n} OF 4', { n: G.Quest.countFound() }), cx, 86);
     divider(102);
 
     // Ashland staff -- every hello grows the party waiting in the gym
     ctx.fillStyle = '#5fbd87';
     ctx.fillText('ASHLAND', cx, 106);
     ctx.fillStyle = '#f7d84d';
-    ctx.fillText('STAFF', cx, 118);
+    ctx.fillText(G.Lang.t('STAFF'), cx, 118);
     ctx.fillStyle = '#ffffff';
     ctx.fillText(countMet() + '/' + staffTotal(), cx, 131);
     divider(142);
@@ -4553,9 +4566,11 @@ var G = window.G = window.G || {};
     var location = currentPlaceLabel();
     // "CURRENT LOCATION" is wider than the panel, so it stacks -- the same
     // shape as ASHLAND / STAFF just above it
+    // two stacked words; each language fills its own pair (e.g. Spanish
+    // maps CURRENT->UBICACION and LOCATION->ACTUAL so the stack reads right)
     ctx.fillStyle = '#9fd4e8';
-    ctx.fillText('CURRENT', cx, 146);
-    ctx.fillText('LOCATION', cx, 157);
+    ctx.fillText(G.Lang.t('CURRENT'), cx, 146);
+    ctx.fillText(G.Lang.t('LOCATION'), cx, 157);
     ctx.fillStyle = '#ffffff';
     var locLines = wrapSide(location);
     var LOC_YS = { 1: [174], 2: [170, 181], 3: [168, 177, 186] };
@@ -4748,6 +4763,103 @@ var G = window.G = window.G || {};
     return c;
   }
 
+  // ---- language select: three boxes right after ENTER ---------------------
+  // the whole game speaks the language picked here (except the SOAR
+  // letters and expectations, which stay in English on purpose)
+  var LANGS = [
+    { code: 'en', label: 'ENGLISH', hello: 'HELLO!' },
+    { code: 'es', label: 'ESPAÑOL', hello: '¡HOLA!' },
+    { code: 'sw', label: 'SWAHILI', hello: 'JAMBO!' }
+  ];
+  var langSel = null;
+
+  function startLangSelect() {
+    langSel = { i: 0 };
+    G.Input.clearEdges(); // the Enter that got us here shouldn't also pick
+    state = 'langselect';
+  }
+
+  var LANG_BOX = { w: 96, h: 48, gap: 8 };
+  function langBox(i) {
+    var left = (SW - (3 * LANG_BOX.w + 2 * LANG_BOX.gap)) / 2;
+    return { x: left + i * (LANG_BOX.w + LANG_BOX.gap), y: 118, w: LANG_BOX.w, h: LANG_BOX.h };
+  }
+
+  function pickLang(i) {
+    G.Lang.set(LANGS[i].code);
+    langSel = null;
+    G.Audio.sfx('fanfare');
+    startTitleFly();
+  }
+
+  // tap selects a box; tapping the selected box confirms (same rhythm as
+  // the character select, so little fingers learn it once)
+  function langSelectTap(gx, gy) {
+    if (!langSel) return false;
+    for (var i = 0; i < LANGS.length; i++) {
+      var b = langBox(i);
+      if (gx >= b.x - 4 && gx <= b.x + b.w + 4 && gy >= b.y - 4 && gy <= b.y + b.h + 6) {
+        if (langSel.i === i) pickLang(i);
+        else { langSel.i = i; G.Audio.sfx('blip'); }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function updateLangSelect() {
+    var c = langSel;
+    if (G.Input.consumeDir('left')) { c.i = (c.i + LANGS.length - 1) % LANGS.length; G.Audio.sfx('blip'); }
+    if (G.Input.consumeDir('right')) { c.i = (c.i + 1) % LANGS.length; G.Audio.sfx('blip'); }
+    if (G.Input.consumeAction()) pickLang(c.i);
+  }
+
+  function drawLangSelect() {
+    if (!titleBg) titleBg = buildTitleBg();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(titleBg, 0, 0);
+    ctx.fillStyle = 'rgba(6,10,24,0.62)';
+    ctx.fillRect(0, 0, SW, SH);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    // the question in all three languages, so every kid can read one
+    ctx.font = font(8);
+    ctx.fillStyle = '#f7d84d';
+    ctx.fillText('CHOOSE YOUR LANGUAGE', SW / 2, 58);
+    ctx.font = font(7);
+    ctx.fillStyle = '#9fd4e8';
+    ctx.fillText('¡ELIGE TU IDIOMA!', SW / 2, 76);
+    ctx.fillText('CHAGUA LUGHA YAKO!', SW / 2, 90);
+
+    for (var i = 0; i < LANGS.length; i++) {
+      var b = langBox(i);
+      var sel = langSel && langSel.i === i;
+      G.Dialogue.drawWindow(ctx, b.x, b.y, b.w, b.h);
+      ctx.fillStyle = sel ? 'rgba(247,216,77,0.22)' : 'rgba(120,170,230,0.16)';
+      ctx.fillRect(b.x + 3, b.y + 3, b.w - 6, b.h - 6);
+      ctx.font = font(8);
+      ctx.fillStyle = sel ? '#f7d84d' : '#f4f4f4';
+      ctx.fillText(LANGS[i].label, b.x + b.w / 2, b.y + 13);
+      ctx.font = font(7);
+      ctx.fillStyle = '#9fd4e8';
+      ctx.fillText(LANGS[i].hello, b.x + b.w / 2, b.y + 30);
+      ctx.strokeStyle = sel ? '#ffe66a' : '#9fd4e8';
+      ctx.lineWidth = sel ? 3 : 2;
+      ctx.strokeRect(b.x + 1.5, b.y + 1.5, b.w - 3, b.h - 3);
+    }
+    ctx.lineWidth = 1;
+
+    if (Math.floor(Date.now() / 500) % 2 === 0) {
+      ctx.font = font(7);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(document.body.classList.contains('touch')
+        ? 'TAP A BOX  -  TAP AGAIN TO START'
+        : 'ARROWS TO PICK  -  ENTER TO START', SW / 2, 196);
+    }
+    ctx.textAlign = 'left';
+  }
+
   // ---- character select: who is exploring Ashland today? ------------------
   // ten students -- a mix of names, hair, skin tones and outfits so every
   // kid can find someone who feels like them
@@ -4839,10 +4951,10 @@ var G = window.G = window.G || {};
     ctx.textBaseline = 'top';
     ctx.font = font(10);
     ctx.fillStyle = '#f7d84d';
-    ctx.fillText('CHOOSE YOUR STUDENT', SW / 2, 10);
+    ctx.fillText(G.Lang.t('CHOOSE YOUR STUDENT'), SW / 2, 10);
     ctx.font = font(7);
     ctx.fillStyle = '#9fd4e8';
-    ctx.fillText('WHO IS EXPLORING ASHLAND TODAY?', SW / 2, 28);
+    ctx.fillText(G.Lang.t('WHO IS EXPLORING ASHLAND TODAY?'), SW / 2, 28);
 
     var BOX_W = CHAR_BOX.w, BOX_H = CHAR_BOX.h;
     ctx.imageSmoothingEnabled = false;
@@ -4867,9 +4979,9 @@ var G = window.G = window.G || {};
     if (Math.floor(Date.now() / 500) % 2 === 0) {
       ctx.font = font(7);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(document.body.classList.contains('touch')
+      ctx.fillText(G.Lang.t(document.body.classList.contains('touch')
         ? 'TAP A STUDENT  -  TAP AGAIN TO START'
-        : 'ARROWS TO PICK  -  ENTER TO START', SW / 2, 226);
+        : 'ARROWS TO PICK  -  ENTER TO START'), SW / 2, 226);
     }
     ctx.textAlign = 'left';
   }
@@ -5062,22 +5174,22 @@ var G = window.G = window.G || {};
     ctx.textBaseline = 'top';
     ctx.font = font(14);
     ctx.fillStyle = '#f7d84d';
-    ctx.fillText('CONGRATULATIONS!', SW / 2, 88);
+    ctx.fillText(G.Lang.t('CONGRATULATIONS!'), SW / 2, 88);
 
     ctx.font = font(10);
     ctx.fillStyle = '#ffffff';
-    ctx.fillText('YOU FOUND  S - O - A - R', SW / 2, 116);
+    ctx.fillText(G.Lang.t('YOU FOUND  S - O - A - R'), SW / 2, 116);
 
     ctx.font = font(8);
     ctx.fillStyle = '#9fd4e8';
-    ctx.fillText('YOU ARE READY TO SOAR', SW / 2, 140);
-    ctx.fillText('INTO THE 26/27 SCHOOL YEAR!', SW / 2, 154);
+    ctx.fillText(G.Lang.t('YOU ARE READY TO SOAR'), SW / 2, 140);
+    ctx.fillText(G.Lang.t('INTO THE 26/27 SCHOOL YEAR!'), SW / 2, 154);
     ctx.fillStyle = '#ffffff';
-    ctx.fillText('SEE YOU ON THE FIRST DAY!', SW / 2, 176);
+    ctx.fillText(G.Lang.t('SEE YOU ON THE FIRST DAY!'), SW / 2, 176);
 
     if (endingTimer > 3 && Math.floor(Date.now() / 500) % 2 === 0) {
       ctx.fillStyle = '#f7d84d';
-      ctx.fillText('PRESS ENTER TO PLAY AGAIN', SW / 2, 210);
+      ctx.fillText(G.Lang.t('PRESS ENTER TO PLAY AGAIN'), SW / 2, 210);
     }
     ctx.textAlign = 'left';
   }
@@ -5104,6 +5216,8 @@ var G = window.G = window.G || {};
 
     if (state === 'title') {
       drawTitle();
+    } else if (state === 'langselect') {
+      drawLangSelect();
     } else if (state === 'charselect') {
       drawCharSelect();
     } else if (state === 'titlefly') {
