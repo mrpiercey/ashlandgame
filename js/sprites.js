@@ -18,10 +18,10 @@ var G = window.G = window.G || {};
     '..OSSSSSSSSSSO..',
     '..OSSSSSSSSSSO..',
     '..OSSSSSSSSSSO..',
-    '..OSWESSSSWESO..',
+    '..OSWESSSSEWSO..',   // eyes: mirror-symmetric, pupils facing forward
     '..OSSSSSSSSSSO..',
-    '..OSSSSSSSSSSO..',
-    '...OSSSssSSSO...',
+    '..OSSSESSESSSO..',   // smile: raised corners (dark)...
+    '...OSSSEESSSO...',   // ...center dips for a clear ‿ curve
     '....OSSSSSSO....'
   ];
 
