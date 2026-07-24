@@ -1082,7 +1082,7 @@ var G = window.G = window.G || {};
       var pages = [];
       if (!walkerMet) {
         walkerMet = true;
-        pages.push({ name: name, text: "Hello! I'm Mrs. Walker, the principal of Ashland Elementary. And you must be the student Eddie has been squawking about!" });
+        pages.push({ name: name, text: "Hello! I'm Mrs. Walker, your principal. Eddie has told me ALL about you!" });
       }
       pages.push({
         name: name,
@@ -1122,7 +1122,7 @@ var G = window.G = window.G || {};
     var hello = [];
     if (!walkerMet) {
       walkerMet = true;
-      hello.push({ name: name, text: "Hello! I'm Mrs. Walker, the principal of Ashland Elementary. I'm SO excited for the 26/27 school year!" });
+      hello.push({ name: name, text: "Hello! I'm Mrs. Walker, your principal. Welcome to Ashland Elementary!" });
     }
     // she knows whether Eddie's story has been heard -- no sending kids
     // back to a conversation they already had
@@ -1130,22 +1130,17 @@ var G = window.G = window.G || {};
       // the one-time briefing: HOW to get the letters back, then she
       // sends the student off to a specific teacher
       walkerBriefed = true;
-      hello.push({ name: name, text: 'Oh good, Eddie sent you! He told me ALL about dropping our four golden letters. Here is how we get them back...' });
-      hello.push({ name: name, text: 'Talk to the teachers in their rooms -- they keep spotting the letters while they set up for the new year!' });
-      hello.push({ name: name, text: 'But the teachers will QUIZ you before they help, so learn our SOAR expectations first!' });
-      hello.push({ name: name, text: 'Not sure where to go? Just follow the big YELLOW ARROW -- Eddie keeps it pointed right at whoever you need to talk to next.' });
-      hello.push({ name: name, text: 'S is for SAFETY AT WORK AND PLAY.' });
-      hello.push({ name: name, text: 'O is for ON TASK EVERY DAY.' });
-      hello.push({ name: name, text: 'A is for ACCOUNTABLE FOR ALL WE DO.' });
-      hello.push({ name: name, text: 'And R is for RESPECT FOR ME AND YOU. That is how Eagles SOAR!' });
-      hello.push({ name: name, text: 'Take your time and explore, though! Every teacher has a story, and this old building is FULL of little secrets. You never know what you might find!' });
-      hello.push({ name: name, text: 'And say hello to EVERY staff member you can find! When the banner is whole we will celebrate the Ashland Way -- and the more staff you meet, the BIGGER our celebration in the gym will be!' });
+      hello.push({ name: name, text: 'Eddie sent you? Wonderful! Let\'s get our golden letters back!' });
+      hello.push({ name: name, text: 'The TEACHERS keep seeing letters in their rooms. But they will QUIZ you first -- so learn our SOAR words!' });
+      hello.push({ name: name, text: 'S is for SAFETY at work and play. O is for ON TASK every day.' });
+      hello.push({ name: name, text: 'A is for ACCOUNTABLE for all we do. R is for RESPECT for me and you. That is how Eagles SOAR!' });
+      hello.push({ name: name, text: 'One more thing: say hello to EVERY staff member you find. More friends means a BIGGER party at the end!' });
       hello.push({ name: name, text: suggestTeacher() });
     } else if (metEddie) {
       hello.push({ name: name, text: 'Any luck finding those golden letters?' });
       hello.push({ name: name, text: suggestTeacher() });
     } else {
-      hello.push({ name: name, text: 'See that empty banner up on my wall? Our four golden letters -- S, O, A, R -- are MISSING! Have you talked to EDDIE THE EAGLE yet? He is waddling around the hallway near the front doors, right here on the MIDDLE FLOOR. Go hear his story!' });
+      hello.push({ name: name, text: 'See my empty banner? Our golden letters are MISSING! Go talk to EDDIE THE EAGLE in the hallway -- he knows what happened!' });
     }
     G.Dialogue.start(hello, { onDone: onClose });
   }
@@ -1406,12 +1401,10 @@ var G = window.G = window.G || {};
     // Eddie tells the story and points at the principal -- Mrs. Walker is
     // the one who explains HOW to get the letters back (quiz briefing etc.)
     var pages = [
-      { name: 'EDDIE THE EAGLE', text: 'SQUAWK! Oh no, oh no... am I glad to see you! I need your help, friend!' },
-      { name: 'EDDIE THE EAGLE', text: 'All summer I was flying around the school helping the teachers get their rooms set up for the new year...' },
-      { name: 'EDDIE THE EAGLE', text: '...and while I was swooping through the halls, I accidentally DROPPED all four golden letters of our SOAR EXPECTATIONS! S! O! A! R! They scattered EVERYWHERE!' },
-      { name: 'EDDIE THE EAGLE', text: 'You are standing on the MIDDLE FLOOR right now. Head to MRS. WALKER\'S OFFICE -- it is right here on this floor, at the far end of this hallway. She is our principal, and she will teach you the SOAR EXPECTATIONS you need to get my letters back! SQUAWK!' },
-      { name: 'EDDIE THE EAGLE', text: 'And do not worry about getting lost! See that big YELLOW ARROW? I fly it around from up here, and it ALWAYS points at wherever you need to go next. Right now it is pointing straight at Mrs. Walker\'s door!' },
-      { name: 'EDDIE THE EAGLE', text: 'But do not JUST follow it -- go explore! I have flown every hallway in this school and there are secrets tucked in every corner. You never know what you might find!' }
+      { name: 'EDDIE THE EAGLE', text: 'SQUAWK! I need your help, friend!' },
+      { name: 'EDDIE THE EAGLE', text: 'I dropped our four GOLDEN LETTERS -- S, O, A, R! They are lost all over the school!' },
+      { name: 'EDDIE THE EAGLE', text: 'Go see MRS. WALKER, our principal. Just follow the big YELLOW ARROW -- it always shows you where to go next!' },
+      { name: 'EDDIE THE EAGLE', text: 'And keep your eyes open... this school is FULL of secrets! SQUAWK!' }
     ];
     if (allFound()) {
       pages = [{ name: 'EDDIE THE EAGLE', text: 'SQUAWK! You found all four letters! You are a true Eagle! Hurry to Mrs. Walker\'s office on the MIDDLE FLOOR -- just follow the big YELLOW ARROW!' }];
