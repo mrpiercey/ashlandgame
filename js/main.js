@@ -4818,8 +4818,16 @@ var G = window.G = window.G || {};
     if (!titleBg) titleBg = buildTitleBg();
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(titleBg, 0, 0);
-    ctx.fillStyle = 'rgba(6,10,24,0.62)';
+    ctx.fillStyle = 'rgba(6,10,24,0.7)';
     ctx.fillRect(0, 0, SW, SH);
+
+    // a solid dark banner behind the prompt so the text never fights the
+    // faint title logo showing through -- all three lines read cleanly
+    ctx.fillStyle = 'rgba(4,7,18,0.95)';
+    ctx.fillRect(0, 50, SW, 52);
+    ctx.fillStyle = '#f7d84d';
+    ctx.fillRect(0, 50, SW, 2);
+    ctx.fillRect(0, 100, SW, 2);
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -4828,8 +4836,9 @@ var G = window.G = window.G || {};
     ctx.fillStyle = '#f7d84d';
     ctx.fillText('CHOOSE YOUR LANGUAGE', SW / 2, 58);
     ctx.font = font(7);
-    ctx.fillStyle = '#9fd4e8';
+    ctx.fillStyle = '#ffffff';
     ctx.fillText('¡ELIGE TU IDIOMA!', SW / 2, 76);
+    ctx.fillStyle = '#8fe0b0';
     ctx.fillText('CHAGUA LUGHA YAKO!', SW / 2, 90);
 
     for (var i = 0; i < LANGS.length; i++) {
