@@ -6,6 +6,7 @@ var G = window.G = window.G || {};
   var actionPressed = false;   // edge-triggered
   var danceKey = null;         // last number key pressed (0-9), for party dance moves
   var typedBuffer = '';        // recent letter keys, for secret codes (e.g. hdd)
+  var rosterKey = false;       // edge-triggered: TAB opens/closes the staff roster
   var dirPressed = { up: false, down: false, left: false, right: false }; // edge, for menus
 
   var KEYMAP = {
@@ -42,6 +43,10 @@ var G = window.G = window.G || {};
     if (d) { press(d); e.preventDefault(); }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyX') held.run = true;
     if (e.code === 'KeyM') G.Audio.toggleMute();
+    // TAB pulls up the ASHLAND STAFF roster (and puts it away again).
+    // preventDefault matters twice over: TAB would otherwise walk the
+    // browser's focus ring off the canvas and the game would go deaf.
+    if (e.code === 'Tab') { rosterKey = true; e.preventDefault(); }
     // number keys drive the party dance moves (main.js only acts on them
     // during the celebration; they still double as "advance" elsewhere)
     var dm = /^(?:Digit|Numpad)(\d)$/.exec(e.code);
@@ -163,6 +168,7 @@ var G = window.G = window.G || {};
     },
     pressAction: function () { actionPressed = true; },
     peekAction: function () { return actionPressed; },
+    consumeRosterKey: function () { var v = rosterKey; rosterKey = false; return v; },
     consumeDanceKey: function () { var v = danceKey; danceKey = null; return v; },
     recentTyped: function () { return typedBuffer; },
     clearTyped: function () { typedBuffer = ''; },
@@ -173,6 +179,7 @@ var G = window.G = window.G || {};
     },
     clearEdges: function () {
       actionPressed = false;
+      rosterKey = false;
       dirPressed.up = dirPressed.down = dirPressed.left = dirPressed.right = false;
     }
   };

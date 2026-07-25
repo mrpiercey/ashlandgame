@@ -245,9 +245,42 @@ var G = window.G = window.G || {};
     }
 
     // ---- play ----
-    // the staff roster freezes the world; Enter (or a tap) closes it
+    // TAB pulls the staff roster up and puts it away again (the same panel
+    // a finger opens by tapping the STAFF readout)
+    if (G.Input.consumeRosterKey()) {
+      if (!party && !G.Dialogue.isActive() && !transition && !ceremony) {
+        if (staffRosterOpen) {
+          staffRosterOpen = false;
+          rosterCursor = -1;
+          G.Audio.sfx('blip');
+        } else {
+          openStaffRoster();
+        }
+        G.Input.consumeAction();   // TAB must not also close what it just opened
+        return;
+      }
+    }
+    // the staff roster freezes the world; a tap, Enter, or TAB closes it.
+    // The arrow keys walk a cursor over the names for anyone without a mouse.
     if (staffRosterOpen) {
-      if (G.Input.consumeAction()) { staffRosterOpen = false; G.Audio.sfx('blip'); }
+      var roster = staffRosterList();
+      var rrows = Math.ceil(roster.length / ROSTER_COLS);
+      var moved = false;
+      var nudge = function (step) {
+        var next = rosterCursor < 0 ? 0 : rosterCursor + step;
+        rosterCursor = Math.max(0, Math.min(roster.length - 1, next));
+        moved = true;
+      };
+      if (G.Input.consumeDir('down')) nudge(1);
+      if (G.Input.consumeDir('up')) nudge(-1);
+      if (G.Input.consumeDir('right')) nudge(rrows);
+      if (G.Input.consumeDir('left')) nudge(-rrows);
+      if (moved) G.Audio.sfx('blip');
+      if (G.Input.consumeAction()) {
+        // a cursor that was never moved means they just want out
+        if (rosterCursor >= 0) pickStaff(roster[rosterCursor].id);
+        else { staffRosterOpen = false; G.Audio.sfx('blip'); }
+      }
       return;
     }
 
@@ -667,6 +700,28 @@ var G = window.G = window.G || {};
     });
   }
 
+  // how to spot a given staff member among a map's npcs
+  function pinMatcher(id) {
+    if (id === '__eddie__') return function (n) { return n.kind === 'eagle'; };
+    if (id === '__officer__') return function (n) { return n.kind === 'officer'; };
+    return function (n) { return n.roomId === id; };
+  }
+
+  // which map is this staff member standing on? Everyone is placed once when
+  // the school is built (see placeStaff in maps.js) and roams only within
+  // their own map, so the answer never changes -- look it up once and keep it.
+  var staffMapCache = {};
+  function mapOfStaff(id) {
+    if (staffMapCache[id]) return staffMapCache[id];
+    var match = pinMatcher(id);
+    var ids = Object.keys(G.Maps.all);
+    for (var i = 0; i < ids.length; i++) {
+      var mm = G.Maps.all[ids[i]];
+      if (mm.npcs && mm.npcs.some(match)) { staffMapCache[id] = ids[i]; return ids[i]; }
+    }
+    return null;
+  }
+
   // ---- guide arrow: points the student toward the current objective -------
   // far away: a gold arrow floats in front of the student, aimed at the
   // target. within a few tiles: it hops above the target and points straight
@@ -726,7 +781,34 @@ var G = window.G = window.G || {};
       if (r && r.map === currentMapId) return { x: r.x * TS + 8, y: r.y * TS + 8 };
       return towardRoom(roomId);
     }
+    // the way to another map entirely: out the door if we are in a room,
+    // otherwise the nearest stairwell that actually serves it
+    function towardHall(mapId) {
+      if (!m.isHall) {
+        return nearestStair(function (st) { return st.exit; }) ||
+               nearestStair(function (st) { return st.goRoom; });
+      }
+      return nearestStair(function (st) {
+        return st.options && st.options.some(function (o) { return o.map === mapId; });
+      });
+    }
+    // ...and the same for a person rather than a place: a staff member
+    // standing inside a room is reached through that room's door
+    function towardNpcMap(mapId) {
+      if (!mapId || mapId === currentMapId) return null;
+      var mm = G.Maps.all[mapId];
+      return (mm && !mm.isHall) ? doorTo(mapId) : towardHall(mapId);
+    }
     if (g.kind === 'eddie') return npcPos(function (n) { return n.kind === 'eagle'; });
+    // the student's own pick off the roster. One path covers everyone:
+    // classroom teachers (through their door), staff tucked inside another
+    // teacher's room, custodians roaming a hallway, Ms. Kirk in the gym,
+    // Officer Garth and Eddie. The moment they share a map with the student
+    // the arrow locks onto the person and follows them as they walk.
+    if (g.kind === 'pin') {
+      var match = pinMatcher(g.id);
+      return npcPos(match) || towardNpcMap(mapOfStaff(g.id));
+    }
     if (g.kind === 'walker') {
       if (currentMapId === 'm-walker') return npcPos(function (n) { return n.roomId === 'm-walker'; });
       return doorTo('m-walker');
@@ -760,7 +842,7 @@ var G = window.G = window.G || {};
     return doorTo(roomId);
   }
 
-  function drawArrowAt(x, y, angle) {
+  function drawArrowAt(x, y, angle, core) {
     ctx.save();
     ctx.translate(Math.round(x), Math.round(y));
     ctx.rotate(angle);
@@ -770,7 +852,7 @@ var G = window.G = window.G || {};
     ctx.moveTo(9, 0); ctx.lineTo(-3, -7); ctx.lineTo(-3, -2.5); ctx.lineTo(-9, -2.5);
     ctx.lineTo(-9, 2.5); ctx.lineTo(-3, 2.5); ctx.lineTo(-3, 7); ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = '#f7d84d';                     // gold
+    ctx.fillStyle = core || '#f7d84d';             // gold (cyan for your own pick)
     ctx.beginPath();
     ctx.moveTo(7, 0); ctx.lineTo(-1.5, -5); ctx.lineTo(-1.5, -1.2); ctx.lineTo(-7.5, -1.2);
     ctx.lineTo(-7.5, 1.2); ctx.lineTo(-1.5, 1.2); ctx.lineTo(-1.5, 5); ctx.closePath();
@@ -782,13 +864,17 @@ var G = window.G = window.G || {};
     if (G.Dialogue.isActive() || ceremony) return;
     var t = guideTargetPos();
     if (!t) return;
+    // a name the student picked off the roster gets the sidebar's blue, so
+    // "where I asked to go" never gets mistaken for "where the quest goes"
+    var g = G.Quest.guide();
+    var core = (g && g.kind === 'pin') ? '#9fd4e8' : null;
     var px = player.x + 8, py = player.y + 8;
     var dx = t.x - px, dy = t.y - py;
     var dist = Math.hypot(dx, dy);
     if (dist < 56) {
       // hover right above the target, pointing down at it
       var bob = Math.sin(Date.now() / 180) * 2.5;
-      drawArrowAt(t.x - cam.x, t.y - 30 - cam.y + bob, Math.PI / 2);
+      drawArrowAt(t.x - cam.x, t.y - 30 - cam.y + bob, Math.PI / 2, core);
     } else {
       // float ahead of the student, aimed at the target
       var a = Math.atan2(dy, dx);
@@ -796,7 +882,8 @@ var G = window.G = window.G || {};
       drawArrowAt(
         px + Math.cos(a) * (22 + pulse) - cam.x,
         py + Math.sin(a) * (22 + pulse) - cam.y - 4,
-        a
+        a,
+        core
       );
     }
   }
@@ -1182,12 +1269,17 @@ var G = window.G = window.G || {};
     var gy = (e.clientY - r.top) / r.height * canvas.height;
     // upright, the world sits below the top bar
     if (portrait) gy -= TOP_H;
-    // the staff roster overlay swallows the next tap to close itself
-    if (staffRosterOpen) { staffRosterOpen = false; G.Audio.sfx('blip'); return; }
+    // a tap on a name in the staff roster points the arrow at them; anywhere
+    // else simply puts the panel away
+    if (staffRosterOpen) {
+      var picked = rosterHit(gx, gy);
+      if (picked) { pickStaff(picked); return; }
+      staffRosterOpen = false; G.Audio.sfx('blip'); return;
+    }
     // tapping the "ASHLAND STAFF" readout opens the roster
     if (state === 'play' && !party && !G.Dialogue.isActive() && !transition &&
         !ceremony && staffHudHit(gx, gy)) {
-      staffRosterOpen = true; G.Audio.sfx('blip'); return;
+      openStaffRoster(); return;
     }
     // picking a student, or an option in a conversation: press the one you
     // want with your finger instead of hunting for the right button
@@ -2740,10 +2832,10 @@ var G = window.G = window.G || {};
   // Garth and Eddie the Eagle round out the 60.
   function staffRosterList() {
     var list = Object.keys(G.TEACHERS).map(function (id) {
-      return { name: G.TEACHERS[id].name, met: !!met[id] };
+      return { id: id, name: G.TEACHERS[id].name, met: !!met[id] };
     });
-    list.push({ name: 'Officer Garth', met: !!met['__officer__'] });
-    list.push({ name: 'Eddie the Eagle', met: !!met['__eddie__'] });
+    list.push({ id: '__officer__', name: 'Officer Garth', met: !!met['__officer__'] });
+    list.push({ id: '__eddie__', name: 'Eddie the Eagle', met: !!met['__eddie__'] });
     return list;
   }
 
@@ -2754,8 +2846,44 @@ var G = window.G = window.G || {};
     return gx >= SW && gy >= 100 && gy <= 144;
   }
 
+  // where each name sits on screen, refreshed every time the panel is drawn,
+  // so a tap can be matched back to a staff id (same trick the dialogue box
+  // uses for its choices -- see G.Dialogue.choiceRects)
+  var rosterRects = [];
+  // keyboard players get a cursor, but only once they press a direction --
+  // until then the action key still just closes the panel, exactly as before
+  var rosterCursor = -1;
+  var ROSTER_COLS = 3;
+
+  // the roster stays shut until Mrs. Walker has given her briefing. Before
+  // that the student cannot get into a single classroom anyway (see
+  // enterRoom), so a list of sixty names -- let alone an arrow to one of
+  // them -- would only pull them away from her office.
+  function openStaffRoster() {
+    if (!G.Quest.hasMetWalker()) {
+      // name whoever they actually owe a visit right now -- the same two
+      // stages the locked doors use (see enterRoom)
+      showBanner(G.Quest.hasMetEddie() ? 'TALK TO MRS. WALKER FIRST' : 'TALK TO EDDIE THE EAGLE');
+      G.Audio.sfx('locked');
+      return false;
+    }
+    staffRosterOpen = true;
+    rosterCursor = -1;
+    G.Audio.sfx('blip');
+    return true;
+  }
+
+  function rosterHit(gx, gy) {
+    for (var i = 0; i < rosterRects.length; i++) {
+      var r = rosterRects[i];
+      if (gx >= r.x && gx <= r.x + r.w && gy >= r.y && gy <= r.y + r.h) return r.id;
+    }
+    return null;
+  }
+
   // a tap-to-close panel listing every staff member: bright gold if you have
-  // met them, dim grey if you have not. Names only -- no sprites.
+  // met them, dim grey if you have not. Tap a name and the guide arrow takes
+  // you to them. Names only -- no sprites.
   function drawStaffRoster() {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
@@ -2780,22 +2908,66 @@ var G = window.G = window.G || {};
     // three columns, filled top-to-bottom so it still reads in order
     ctx.textAlign = 'left';
     ctx.font = font(6);
-    var cols = 3;
+    var pin = G.Quest.getPin();
+    var cols = ROSTER_COLS;
     var rows = Math.ceil(list.length / cols);
     var gridX = px + 8, gridY = py + 30;
     var colW = (pw - 16) / cols;
-    var rowH = (ph - 44) / rows;
+    var rowH = (ph - 52) / rows;
+    rosterRects = [];
     list.forEach(function (s, idx) {
       var c = Math.floor(idx / rows), r = idx % rows;
+      var x = gridX + c * colW, y = gridY + r * rowH;
+      rosterRects.push({ id: s.id, x: x - 3, y: y - 1, w: colW - 3, h: rowH });
+      // where the arrow keys are sitting right now
+      if (idx === rosterCursor) {
+        ctx.strokeStyle = '#f4f4f4';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - 2.5, y - 0.5, colW - 4, rowH - 1);
+      }
+      // the name the arrow is currently chasing wears a cushion of light
+      if (pin && pin === s.id) {
+        ctx.fillStyle = 'rgba(159,212,232,0.22)';
+        ctx.fillRect(x - 3, y - 1, colW - 3, rowH);
+        ctx.fillStyle = '#9fd4e8';
+        ctx.fillText('>', x - 2, y);
+      }
       ctx.fillStyle = s.met ? '#f7d84d' : 'rgba(255,255,255,0.24)';
-      ctx.fillText(s.name, gridX + c * colW, gridY + r * rowH);
+      ctx.fillText(s.name, x + (pin === s.id ? 4 : 0), y);
     });
 
     ctx.textAlign = 'center';
+    ctx.fillStyle = '#5fbd87';
+    ctx.fillText(G.Lang.t('TAP A NAME AND THE ARROW WILL TAKE YOU THERE'), SW / 2, py + ph - 18);
     ctx.fillStyle = '#9fd4e8';
-    ctx.fillText(G.Lang.t('TAP ANYWHERE TO CLOSE'), SW / 2, py + ph - 11);
+    ctx.fillText(G.Lang.t('TAP ANYWHERE ELSE TO CLOSE'), SW / 2, py + ph - 10);
     ctx.restore();
     ctx.textAlign = 'left';
+  }
+
+  // the student picked a name: aim the arrow, say so out loud, and get the
+  // panel out of the way so they can actually see the arrow they asked for
+  function pickStaff(id) {
+    var who = id === '__officer__' ? 'Officer Garth'
+      : id === '__eddie__' ? 'Eddie the Eagle'
+        : (G.TEACHERS[id] || {}).name;
+    var status = G.Quest.setPin(id);
+    if (status === 'locked') {
+      showBanner('TALK TO MRS. WALKER FIRST');   // showBanner translates for us
+      G.Audio.sfx('blip');
+      return;                              // leave the roster up: nothing changed
+    }
+    staffRosterOpen = false;
+    rosterCursor = -1;
+    if (status === 'cleared') {
+      showBanner('ARROW OFF');
+      G.Audio.sfx('blip');
+      return;
+    }
+    showBanner(status === 'hunting'
+      ? G.Lang.f('FIND THE LETTER FIRST, THEN {who}', { who: who })
+      : G.Lang.f('FOLLOW THE ARROW TO {who}', { who: who }));
+    G.Audio.sfx('blip');
   }
 
   function partyTier() {

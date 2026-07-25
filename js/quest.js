@@ -34,6 +34,26 @@ var G = window.G = window.G || {};
   // objective points at it until that letter is found.
   var pendingHint = null;
 
+  // ---- the student's own waypoint -----------------------------------------
+  // picked by tapping a name in the ASHLAND STAFF roster. It clears itself the
+  // moment they reach that person, so whoever THAT teacher sends them to next
+  // (referralLine's tipTarget) takes the arrow from there.
+  var pinTarget = null;   // teacher roomId, '__officer__' or '__eddie__'
+
+  // tapping the same name again cancels. The status tells main.js how to word
+  // the banner, so a tap is never silently swallowed.
+  function setPin(id) {
+    // rooms and stairs stay locked until Mrs. Walker's briefing -- an arrow
+    // pointing at a door that will not open is worse than no arrow at all
+    if (!metWalker) return 'locked';
+    if (pinTarget === id) { pinTarget = null; return 'cleared'; }
+    pinTarget = id;
+    // a live letter hunt keeps the arrow (see guide) -- say so out loud
+    return hunt ? 'hunting' : 'set';
+  }
+  function getPin() { return pinTarget; }
+  function pinReached(id) { if (pinTarget === id) pinTarget = null; }
+
   // ---- the stuck-player clock ---------------------------------------------
   // wander this long without turning up a letter or a clue and Eddie flies in
   // to name a teacher who actually has one. Any real progress restarts it.
@@ -144,6 +164,28 @@ var G = window.G = window.G || {};
       .toUpperCase();
   }
 
+  // "TALK TO MRS. SMITH (ROOM 213)" / "GO UPSTAIRS AND TALK TO MR. PIERCEY".
+  // Shared by Mrs. Walker's tip and the student's own roster pick, so both
+  // read in the same voice. Returns null when there is nobody to name.
+  // Roaming staff, Eddie and Officer Garth have no room, so they get the
+  // plain form -- the arrow does the rest of the work.
+  function tipObjective(id, curFloor) {
+    if (!id) return null;
+    var who = id === '__eddie__' ? 'EDDIE THE EAGLE'
+      : id === '__officer__' ? 'OFFICER GARTH'
+        : G.TEACHERS[id] ? G.TEACHERS[id].name.toUpperCase() : null;
+    if (!who) return null;
+    var room = G.ROOMS[id];
+    var ORDER = { basement: 0, middle: 1, top: 2 };
+    var stairs = !room || curFloor === undefined || room.floor === curFloor ? ''
+      : ORDER[room.floor] > ORDER[curFloor] ? 'up' : 'down';
+    var num = room ? roomNum(id) : null;
+    var form = stairs === 'up' ? 'GO UPSTAIRS AND TALK TO {who}'
+      : stairs === 'down' ? 'GO DOWNSTAIRS AND TALK TO {who}'
+        : num ? 'TALK TO {who} (ROOM {num})' : 'TALK TO {who}';
+    return { text: G.Lang.f(form, { who: who, num: num }), color: '#9fd4e8' };
+  }
+
   // what the blinking sidebar prompt should say right now.
   // focusRoomId is the room the player is standing in (null in a hallway).
   function objective(focusRoomId, curFloor) {
@@ -156,9 +198,8 @@ var G = window.G = window.G || {};
         color: '#f7d84d'
       };
     }
-    // banner complete: keep meeting staff, then Mrs. Walker starts the celebration
-    if (allDelivered()) return { text: G.Lang.t('TIME TO CELEBRATE! SEE MRS. WALKER'), color: '#f7d84d' };
-    if (allFound()) return { text: G.Lang.t('SEE MRS. WALKER'), color: '#ff5a4a' };
+    // a live letter hunt outranks everything: it is the strongest lead the
+    // student has, and losing it mid-search is how kids get stranded
     if (hunt) {
       if (focusRoomId === hunt.roomId) {
         return {
@@ -169,6 +210,12 @@ var G = window.G = window.G || {};
       }
       return { text: G.Lang.f('GO TO {place}', { place: shortPlace(hunt.roomId) }), color: '#f7d84d' };
     }
+    // then the student's own pick from the roster -- they asked for it out loud
+    var pin = tipObjective(pinTarget, curFloor);
+    if (pin) return pin;
+    // banner complete: keep meeting staff, then Mrs. Walker starts the celebration
+    if (allDelivered()) return { text: G.Lang.t('TIME TO CELEBRATE! SEE MRS. WALKER'), color: '#f7d84d' };
+    if (allFound()) return { text: G.Lang.t('SEE MRS. WALKER'), color: '#ff5a4a' };
     if (pendingHint && !found[pendingHint.letter]) {
       var who = G.TEACHERS[pendingHint.roomId].name.toUpperCase();
       var num = roomNum(pendingHint.roomId);
@@ -180,18 +227,8 @@ var G = window.G = window.G || {};
       };
     }
     // Mrs. Walker pointed the student at a specific teacher
-    if (tipTarget && G.TEACHERS[tipTarget] && G.ROOMS[tipTarget]) {
-      var tw = G.TEACHERS[tipTarget].name.toUpperCase();
-      var ORDER = { basement: 0, middle: 1, top: 2 };
-      var tFloor = G.ROOMS[tipTarget].floor;
-      var stairs = curFloor === undefined || tFloor === curFloor ? ''
-        : ORDER[tFloor] > ORDER[curFloor] ? 'up' : 'down';
-      var tn = roomNum(tipTarget);
-      var form = stairs === 'up' ? 'GO UPSTAIRS AND TALK TO {who}'
-        : stairs === 'down' ? 'GO DOWNSTAIRS AND TALK TO {who}'
-          : tn ? 'TALK TO {who} (ROOM {num})' : 'TALK TO {who}';
-      return { text: G.Lang.f(form, { who: tw, num: tn }), color: '#9fd4e8' };
-    }
+    var tip = tipObjective(G.ROOMS[tipTarget] ? tipTarget : null, curFloor);
+    if (tip) return tip;
     // quest on-ramp: Eddie's story first, then Mrs. Walker's briefing
     if (!metEddie) return { text: G.Lang.t('TALK TO EDDIE THE EAGLE'), color: '#9fd4e8' };
     if (!metWalker) return { text: G.Lang.t('TALK TO MRS. WALKER'), color: '#9fd4e8' };
@@ -205,8 +242,12 @@ var G = window.G = window.G || {};
   // target -- main.js resolves it to pixels on the current map)
   function guide() {
     if (partyMode) return null; // free play: just dance
-    if (allDelivered()) return { kind: 'walker' }; // she starts the party
+    // a live letter hunt keeps the arrow -- never yank a student out of a
+    // room they are mid-search in (hunt is always null once all four land)
     if (hunt) return { kind: 'hunt', roomId: hunt.roomId, spot: hunt.spot };
+    // the student's own roster pick beats the game's own nudges
+    if (pinTarget) return { kind: 'pin', id: pinTarget };
+    if (allDelivered()) return { kind: 'walker' }; // she starts the party
     if (allFound()) return { kind: 'walker' };
     if (pendingHint && !found[pendingHint.letter]) return { kind: 'room', roomId: pendingHint.roomId };
     if (tipTarget && G.ROOMS[tipTarget]) return { kind: 'room', roomId: tipTarget };
@@ -439,6 +480,9 @@ var G = window.G = window.G || {};
 
     // reached the teacher Mrs. Walker suggested? mission accomplished
     if (roomId === tipTarget) tipTarget = null;
+    // ...and if the student picked this teacher off the roster themselves,
+    // let go of the pin here so this teacher's own referral takes the arrow
+    pinReached(roomId);
 
     // Dolly Parton watch: only an unbroken streak of Mrs. Todd visits counts
     toddTalks = roomId === 'm-todd' ? toddTalks + 1 : 0;
@@ -1417,6 +1461,7 @@ var G = window.G = window.G || {};
 
   function eagleDialogue(onClose) {
     metEddie = true;
+    pinReached('__eddie__');
     // Eddie tells the story and points at the principal -- Mrs. Walker is
     // the one who explains HOW to get the letters back (quiz briefing etc.)
     var pages = [
@@ -1444,6 +1489,7 @@ var G = window.G = window.G || {};
 
   function officerDialogue(onClose) {
     var name = 'OFFICER GARTH';
+    pinReached('__officer__');
     var pages;
     if (allFound()) {
       pages = [
@@ -1504,6 +1550,10 @@ var G = window.G = window.G || {};
     battleAsk: battleAsk,
     objective: objective,
     guide: guide,
+    // the roster's own waypoint
+    setPin: setPin,
+    getPin: getPin,
+    pinReached: pinReached,
     hasMetEddie: function () { return metEddie; },
     hasMetWalker: function () { return metWalker; },
     unlockSuggestions: function () { suggestionsUnlocked = true; },
