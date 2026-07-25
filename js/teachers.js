@@ -60,8 +60,9 @@ var G = window.G = window.G || {};
   T['m-walker'] = {
     name: 'Mrs. Walker',
     role: 'Principal',
-    sprite: G.Sprites.cfgFrom({ style: 5, skin: 3, hairColor: 7, outfit: 1, glasses: true }),
-    spriteOv: { style: 5, skin: 3, hairColor: 7, outfit: 1, glasses: true },
+    // green (mint) dress, outfit 14
+    sprite: G.Sprites.cfgFrom({ style: 1, skin: 0, hairColor: 2, outfit: 14, glasses: false }),
+    spriteOv: { style: 1, skin: 0, hairColor: 2, outfit: 14, glasses: false },
     quirk: ''
   };
   T['m-todd'] = auto('m-todd', 'Mrs. Todd');
