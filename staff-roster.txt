@@ -11,7 +11,7 @@ Nurse Maria           Nurse's Office                          Nurse
 Mrs. Coleman          The Office                              School Secretary
 Mrs. Adams            Cafeteria                               Cafeteria Manager
 Mrs. Oldham           Dance & Drama                           Dance & Drama teacher ("I teach Dance AND Drama -- jazz hands!")
-Mr. Jackson           Middle floor hallway (roaming)          PE helper ("I help out with PE and keep things moving")
+Mr. Jackson           Middle floor hallway (roaming)          Teacher, works 1:1 with students; basketball coach ("I work one-on-one with students -- and I'm one of the basketball coaches too!")
 Mrs. Zimmermann       Middle floor hallway (roaming)          Building helper ("helping wherever I'm needed")
 Mrs. Marsh            Cafeteria                               Cafeteria staff
 Mrs. Seivers          Middle floor hallway (roaming)          Student helper ("I help students all over this school")
@@ -28,7 +28,7 @@ Officer Garth         The Office, at his desk                 School resource of
 
 Ms. Kirk              Basketball Gym                          PE teacher ("Welcome to MY court! We play basketball...")
 Dr. Snyder            Music Room                              Music teacher ("Music is for EVERYONE!")
-Mrs. Hubbard          Mrs. Hubbard's Office                   Office staff
+Mrs. Hubbard          Mrs. Hubbard's Office                   Student support ("Part of my job is helping every student at Ashland be successful!")
 
 ==== TOP FLOOR ====================================
 
@@ -63,7 +63,7 @@ Mrs. Songstad         Room 233                                Co-teacher with Mr
 Mr. Mellow            Top floor hallway (roaming)             Custodian ("one of Ashland's custodians")
 Mr. Rampulla          Top floor hallway (roaming)             Custodian ("one of Ashland's custodians")
 Mrs. Perry            Top floor hallway (roaming)             Custodian ("we keep every corner sparkling")
-Mrs. Hurt             Library / Media Arts                    Library helper
+Mrs. Hurt             Library / Media Arts                    Teacher ("I help students become even better learners!")
 Mr. Farmer            Room 234                                Classroom helper (Room 234)
 Mr. El-Shaarawy       Top floor hallway (roaming)             Building helper ("lending a hand wherever it's needed")
 Mrs. Helton           Top floor hallway (roaming)             Hallway guide ("if you ever need help finding your way, just ask")

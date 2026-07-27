@@ -168,11 +168,12 @@ var G = window.G = window.G || {};
   staff('staff-perry', 'Mrs. Perry', { style: 5, skin: 0, hairColor: 1, outfit: 8, shirtColor: 1 },
     { intro: "Hi! I'm Mrs. Perry, one of Ashland's custodians. We keep every corner of this school sparkling!" });
   // helpers around the building
-  staff('staff-hurt', 'Mrs. Hurt', { style: 1, skin: 1, hairColor: 3, outfit: 2 }, { roomOf: 't-lib' });
+  staff('staff-hurt', 'Mrs. Hurt', { style: 1, skin: 1, hairColor: 3, outfit: 2 },
+    { roomOf: 't-lib', intro: "Hi! I'm Mrs. Hurt. I'm a teacher who helps students become even better learners!" });
   staff('staff-farmer', 'Mr. Farmer', { style: 8, skin: 9, hairColor: 0, outfit: 9 },
     { roomOf: 't-234', tall: true });
   staff('staff-jackson', 'Mr. Jackson', { style: 8, skin: 6, hairColor: 1, outfit: 4 },
-    { intro: "Hi there! I'm Mr. Jackson. I help out with PE and keep things moving around the school!" });
+    { intro: "Hi there! I'm Mr. Jackson. I'm a teacher who works one-on-one with students -- and I'm one of the basketball coaches too!" });
   staff('staff-elshaarawy', 'Mr. El-Shaarawy', { style: 0, skin: 5, hairColor: 0, outfit: 7 },
     { intro: "Hello! I'm Mr. El-Shaarawy. You'll spot me all over Ashland, lending a hand wherever it's needed!" });
   staff('staff-zimmerman', 'Mrs. Zimmermann', { style: 6, skin: 1, hairColor: 3, outfit: 9 },
@@ -199,6 +200,12 @@ var G = window.G = window.G || {};
   staff('staff-haskins', 'Mrs. Hoskins', { style: 5, skin: 4, hairColor: 7, outfit: 7 }, { roomOf: 'm-caf' });
   staff('staff-taylor', 'Mrs. Taylor', { style: 4, skin: 8, hairColor: 0, outfit: 3 }, { roomOf: 'm-caf' });
   staff('staff-martin', 'Mrs. Martin', { style: 1, skin: 3, hairColor: 0, outfit: 6 }, { roomOf: 'm-caf' });
+
+  // Mrs. Hubbard has her own office downstairs (the editor-made custom-2
+  // room). Defined here so she gets a proper hello; her designed look and
+  // any edited name still come from the override files below.
+  staff('custom-2', 'Mrs. Hubbard', { style: 0, skin: 1, hairColor: 2, outfit: 0, glasses: false },
+    { intro: "Hello! I'm Mrs. Hubbard. Part of my job is helping every student at Ashland be successful!" });
 
   // custom rooms whose teacher is a greeter, not a letter-holder
   var STAFF_NO_LETTER = { 'custom-2': true };
