@@ -33,9 +33,22 @@ var G = window.G = window.G || {};
   // schedule) the first time they speak up, then stable forever
   var hinterSure = {};
 
-  // the most recent hint the player has heard: {letter, roomId}. The sidebar
-  // objective points at it until that letter is found.
+  // the most recent hint the player has heard: {letter, roomId, by}. The
+  // sidebar objective points at it until that letter is found.
   var pendingHint = null;
+
+  // is some earlier "go check that room" lead still unresolved? A lead only
+  // retires when the player catches the letter it pointed at, or talks to
+  // that room's teacher and learns nothing is there (visiting clears
+  // tipTarget) -- until then, nobody else gets to redirect the student.
+  // ignoreLetter: treat a hint about that letter as resolved (used at the
+  // moment of a catch, before the catch is recorded).
+  function liveLead(ignoreLetter) {
+    if (hunt) return true;
+    if (pendingHint && !found[pendingHint.letter] &&
+        pendingHint.letter !== ignoreLetter) return true;
+    return !!(tipTarget && G.ROOMS[tipTarget]);
+  }
 
   // ---- the stuck-player clock ---------------------------------------------
   // wander this long without turning up a letter or a clue and Eddie flies in
@@ -278,6 +291,34 @@ var G = window.G = window.G || {};
     leadIdx = 0;
     suggestionNo = 0;
     hinterSure = {};
+    roomsTried = {};
+    roomsTriedN = 0;
+  }
+
+  // ---- the mercy rule ------------------------------------------------------
+  // Fair is fair: track every letter-eligible room the student talks to a
+  // teacher in. If they have worked through 10 rooms and letters are STILL
+  // missing, the letters stop hiding -- from then on, every teacher room
+  // they try has one of the missing letters waiting in it.
+  var MERCY_ROOMS = 10;
+  var roomsTried = {};
+  var roomsTriedN = 0;
+  function mercyCheck(roomId) {
+    var t = G.TEACHERS[roomId];
+    // only rooms that could hold a letter count as a "try" (co-teachers
+    // defer to their room's main teacher, just like init's draw)
+    if (!t || t.noLetter || t.roomOf || roomId === 'm-walker' || !G.ROOMS[roomId]) return;
+    if (!roomsTried[roomId]) { roomsTried[roomId] = true; roomsTriedN++; }
+    if (roomsTriedN <= MERCY_ROOMS || allFound()) return;
+    if (letterHeldBy(roomId) || letterFoundHere(roomId)) return;
+    // move a missing letter into THIS room -- but never one the student is
+    // actively hunting or holds a live hint about (those leads are real)
+    var movable = missingLetters().filter(function (l) {
+      if (hunt && hunt.letter === l) return false;
+      if (pendingHint && pendingHint.letter === l) return false;
+      return true;
+    });
+    if (movable.length) holders[movable[0]] = roomId;
   }
 
   // ---- the odds a lead is real ---------------------------------------------
@@ -343,6 +384,7 @@ var G = window.G = window.G || {};
       if (dud) {
         pendingHint = null;
         tipTarget = dud;
+        tipBy = hinterRoomId;
         var dd = describeTeacherPlace(dud);
         var dpp = G.pronounsFor(dud);
         // gendered templates keep translations natural: "su salón" needs no
@@ -372,7 +414,7 @@ var G = window.G = window.G || {};
       G.Lang.f('Psst... someone spotted a golden letter in {place}, {where}!', { place: place, where: where }),
       G.Lang.f('Try {place}, {where} -- Eddie was flying around in there all summer!', { place: place, where: where })
     ];
-    pendingHint = { letter: letter, roomId: roomId };
+    pendingHint = { letter: letter, roomId: roomId, by: hinterRoomId };
     noteProgress(); // a real clue counts as making headway
     // stable phrasing per hinter, so a repeat chat reads the same every time
     var hi = hinterRoomId ? chash(hinterRoomId + 'hint') % hints.length
@@ -472,8 +514,9 @@ var G = window.G = window.G || {};
       return;
     }
 
-    // reached the teacher Mrs. Walker suggested? mission accomplished
-    if (roomId === tipTarget) tipTarget = null;
+    // reached the suggested teacher? that lead is resolved -- either the
+    // hunt starts here or the student just learned the room is empty
+    if (roomId === tipTarget) { tipTarget = null; tipBy = null; }
 
     // Dolly Parton watch: only an unbroken streak of Mrs. Todd visits counts
     toddTalks = roomId === 'm-todd' ? toddTalks + 1 : 0;
@@ -510,6 +553,9 @@ var G = window.G = window.G || {};
       });
       return;
     }
+
+    // by the 10th empty-handed room, the letters come to the student
+    mercyCheck(roomId);
 
     var letter = letterHeldBy(roomId);
     if (letter) {
@@ -582,8 +628,12 @@ var G = window.G = window.G || {};
     }
 
     // hinter teachers share their letter tip EVERY chat until that letter
-    // is found -- introduction first, then the clue
-    if (hinters[roomId]) {
+    // is found -- introduction first, then the clue. But an unresolved lead
+    // from someone ELSE keeps the floor: they only speak up when the student
+    // has no live tip, or when the live tip is their own (standing by it).
+    var ownsLead = (pendingHint && !found[pendingHint.letter] && pendingHint.by === roomId) ||
+      (tipTarget && tipBy === roomId);
+    if (hinters[roomId] && (ownsLead || !liveLead())) {
       var hp = hintPage(roomId);
       if (hp) {
         dryStreak = 0;
@@ -643,6 +693,9 @@ var G = window.G = window.G || {};
   // so talking to them again never contradicts their earlier nudge
   var referralOf = {};
   function referralLine(selfId) {
+    // an unresolved lead keeps the floor: teachers don't gossip over it.
+    // (Repeating their OWN live tip is fine -- that's standing by it.)
+    if (liveLead() && !(tipTarget && tipBy === selfId)) return null;
     var ids = Object.keys(G.TEACHERS).filter(function (id) {
       return id !== selfId && id !== 'm-walker' && !G.TEACHERS[id].noLetter &&
         !G.TEACHERS[id].roomOf && G.ROOMS[id];
@@ -976,6 +1029,7 @@ var G = window.G = window.G || {};
       if (dud) {
         pendingHint = null;
         tipTarget = dud;
+        tipBy = null; // a messenger's lead, not any one teacher's gossip
         return { letter: null, real: false, roomId: dud, d: describeTeacherPlace(dud) };
       }
     }
@@ -987,6 +1041,7 @@ var G = window.G = window.G || {};
     var letter = pool[Math.floor(Math.random() * pool.length)];
     pendingHint = { letter: letter, roomId: holders[letter] };
     tipTarget = null; // a real lead replaces whatever gossip was live
+    tipBy = null;
     return { letter: letter, real: true, roomId: holders[letter], d: describeTeacherPlace(holders[letter]) };
   }
 
@@ -994,6 +1049,9 @@ var G = window.G = window.G || {};
   // returns no page -- it is queued for main.js to play once we are back on
   // the map, because the battle screen paints over the world.
   function leadPage(justCaught, teacherName) {
+    // a lead the student has not run down yet stays the objective: catching
+    // a DIFFERENT letter along the way must not yank the arrow somewhere new
+    if (liveLead(justCaught)) return null;
     var t = nextLeadTarget(justCaught);
     if (!t) return null;
     var who = leadOrder[leadIdx % leadOrder.length];
@@ -1209,10 +1267,26 @@ var G = window.G = window.G || {};
   // It is only a nudge, never a promise: nobody who sets this has looked at
   // where the letters actually are, and a real clue (pendingHint) outranks it.
   var tipTarget = null;
+  var tipBy = null;           // who set the live tipTarget (so a teacher may
+                              // repeat their OWN tip without "changing" it)
   var walkerPick = null;      // the teacher she is currently pointing at
   var walkerPickTalks = 0;    // chats that teacher had when she picked them
   var walkerPickCount = 0;    // how many tips she has handed out so far
   function suggestTeacher() {
+    // an unresolved lead -- hers or anybody's -- keeps the floor: she backs
+    // the live tip instead of handing out a competing one
+    var liveRoom = (pendingHint && !found[pendingHint.letter] && G.TEACHERS[pendingHint.roomId])
+      ? pendingHint.roomId
+      : (tipTarget && G.ROOMS[tipTarget] && G.TEACHERS[tipTarget]) ? tipTarget : null;
+    if (liveRoom) {
+      noteProgress();
+      var dl = describeTeacherPlace(liveRoom);
+      var pl = G.pronounsFor(liveRoom);
+      var maybeL = pl.subj === 'she' ? 'Maybe she has seen something!'
+        : pl.subj === 'he' ? 'Maybe he has seen something!'
+          : 'Maybe they have seen something!';
+      return G.Lang.f('Go see {who} in {place}, {where}!', dl) + ' ' + G.Lang.t(maybeL);
+    }
     // she stands by her tip: repeat visits name the SAME teacher until the
     // student has actually gone and talked to them (which either starts the
     // letter hunt or proves the trip a dud -- only then does she move on)
@@ -1233,6 +1307,7 @@ var G = window.G = window.G || {};
     }
     var id = walkerPick;
     tipTarget = id;
+    tipBy = 'm-walker';
     noteProgress(); // a fresh lead from the principal restarts the clock
     var d = describeTeacherPlace(id);
     var p = G.pronounsFor(id);
