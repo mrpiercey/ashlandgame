@@ -802,7 +802,7 @@ var G = window.G = window.G || {};
     if (dist < 56) {
       // hover right above the target, pointing down at it
       var bob = Math.sin(Date.now() / 180) * 2.5;
-      drawArrowAt(t.x - cam.x, t.y - 30 - cam.y + bob, Math.PI / 2, core);
+      drawArrowAt(t.x - cam.x, t.y - 30 - cam.y + bob, Math.PI / 2);
     } else {
       // float ahead of the student, aimed at the target
       var a = Math.atan2(dy, dx);
