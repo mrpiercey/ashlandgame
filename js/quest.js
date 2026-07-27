@@ -630,10 +630,17 @@ var G = window.G = window.G || {};
     if (!ids.length) return null;
     var id = referralOf[selfId];
     if (!id || ids.indexOf(id) < 0) {
-      // first time (or their pick is gone): choose once, then keep it. Steer
-      // toward a room they have not tried yet -- a new door beats a loop.
-      var fresh = ids.filter(function (id2) { return !talkCount[id2]; });
-      var pool = fresh.length ? fresh : ids;
+      // first time (or their pick is gone): choose once, then keep it.
+      // COIN FLIP: half of all referrals point at a room that really holds
+      // a letter, half at an empty one -- same odds as every other lead.
+      var realRooms = ids.filter(function (id2) { return letterHeldBy(id2); });
+      var duds = ids.filter(function (id2) { return !letterHeldBy(id2); });
+      var pool = (Math.random() < 0.5 && realRooms.length) ? realRooms
+        : duds.length ? duds : ids;
+      // within that, steer toward a room they have not tried yet -- a new
+      // door beats a loop
+      var fresh = pool.filter(function (id2) { return !talkCount[id2]; });
+      if (fresh.length) pool = fresh;
       id = pool[Math.floor(Math.random() * pool.length)];
       referralOf[selfId] = id;
     }
@@ -1182,11 +1189,29 @@ var G = window.G = window.G || {};
   // It is only a nudge, never a promise: nobody who sets this has looked at
   // where the letters actually are, and a real clue (pendingHint) outranks it.
   var tipTarget = null;
+  var walkerPick = null;      // the teacher she is currently pointing at
+  var walkerPickTalks = 0;    // chats that teacher had when she picked them
+  var walkerPickCount = 0;    // how many tips she has handed out so far
   function suggestTeacher() {
-    var ids = Object.keys(G.TEACHERS).filter(function (id) {
-      return id !== 'm-walker' && !G.TEACHERS[id].noLetter && !G.TEACHERS[id].roomOf && G.ROOMS[id];
-    });
-    var id = ids[Math.floor(Math.random() * ids.length)];
+    // she stands by her tip: repeat visits name the SAME teacher until the
+    // student has actually gone and talked to them (which either starts the
+    // letter hunt or proves the trip a dud -- only then does she move on)
+    var spent = !walkerPick || !G.ROOMS[walkerPick] ||
+      (talkCount[walkerPick] || 0) > walkerPickTalks;
+    if (spent) {
+      // rooms that really do still hold a letter
+      var realRooms = missingLetters().map(function (l) { return holders[l]; })
+        .filter(function (id2) { return id2 && G.ROOMS[id2] && G.TEACHERS[id2]; });
+      // her FIRST tip is always the real thing -- the opening trip must pay
+      // off. After that she is guessing like everyone else: 50/50.
+      var wantReal = walkerPickCount === 0 || Math.random() < 0.5;
+      walkerPick = (wantReal && realRooms.length)
+        ? realRooms[Math.floor(Math.random() * realRooms.length)]
+        : (dudLeadRoom(null, null) || realRooms[0] || null);
+      walkerPickTalks = talkCount[walkerPick] || 0;
+      walkerPickCount++;
+    }
+    var id = walkerPick;
     tipTarget = id;
     noteProgress(); // a fresh lead from the principal restarts the clock
     var d = describeTeacherPlace(id);
