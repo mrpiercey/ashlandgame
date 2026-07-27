@@ -1,0 +1,74 @@
+ASHLAND ELEMENTARY: THE MISSING LETTERS ADVENTURE
+Character roster -- all 60 staff you can meet in the game
+(name / where they start / their job as they tell it)
+Generated from the game data on 2026-07-27.
+
+==== MIDDLE FLOOR =================================
+
+Mrs. Walker           Mrs. Walker's Office                    Principal ("I'm Mrs. Walker, your principal")
+Mrs. Todd             Mrs. Todd's Office                      Assistant Principal
+Nurse Maria           Nurse's Office                          Nurse
+Mrs. Coleman          The Office                              School Secretary
+Mrs. Adams            Cafeteria                               Cafeteria Manager
+Mrs. Oldham           Dance & Drama                           Dance & Drama teacher ("I teach Dance AND Drama -- jazz hands!")
+Mr. Jackson           Middle floor hallway (roaming)          PE helper ("I help out with PE and keep things moving")
+Mrs. Zimmermann       Middle floor hallway (roaming)          Building helper ("helping wherever I'm needed")
+Mrs. Marsh            Cafeteria                               Cafeteria staff
+Mrs. Seivers          Middle floor hallway (roaming)          Student helper ("I help students all over this school")
+Mrs. Shadler          Middle floor hallway (roaming)          Building helper ("always somewhere in the building lending a hand")
+Mrs. Komprs           Middle floor hallway (roaming)          Orchestra teacher ("I'm Mrs. Komprs, the ORCHESTRA teacher!")
+Mrs. Hoskins          Cafeteria                               Cafeteria crew (serving counter)
+Mrs. Taylor           Cafeteria                               Cafeteria crew (serving counter)
+Mrs. Martin           Cafeteria                               Cafeteria crew (serving counter)
+Mrs. Slaughter        Family Resource Center                  Family Resource Center Coordinator
+Eddie the Eagle       Middle floor hallway (student spawn)    School mascot (flies around dropping hints about the missing letters)
+Officer Garth         The Office, at his desk                 School resource officer ("Ashland's school resource officer... Safety is kind of my whole thing!")
+
+==== LOWER FLOOR ==================================
+
+Ms. Kirk              Basketball Gym                          PE teacher ("Welcome to MY court! We play basketball...")
+Dr. Snyder            Music Room                              Music teacher ("Music is for EVERYONE!")
+Mrs. Hubbard          Mrs. Hubbard's Office                   Office staff
+
+==== TOP FLOOR ====================================
+
+Mrs. Basham           Library / Media Arts                    Librarian (Library / Media Arts)
+Mrs. Wilson           Room 200                                Classroom teacher (Room 200)
+Mrs. Lewis            Room 205                                Guidance Counselor
+Mrs. Myers            Room 212                                Reading Intervention Teacher
+Mrs. Smith            Room 213                                Classroom teacher - 3rd grade
+Mr. Jones             Room 214                                Classroom teacher (Room 214)
+Mrs. Hill             Room 215                                Classroom teacher - 4th grade
+Mr. Richards          Room 216                                Special Education Teacher
+Mr. Piercey           Room 217                                Classroom teacher - 5th grade
+Ms. White             Room 218                                Classroom teacher - 5th grade
+Mrs. Yoo              Room 219                                Social Studies
+Mrs. Laborio          Room 220                                Math
+Mrs. Schaub           Room 221 - Art                          Art teacher ("I'm the ART teacher!")
+Mrs. Gaddis           Room 222                                Science
+Mr. Givan             Room 223                                Reading
+Mrs. Messer           Room 224                                Classroom teacher - kindergarten
+Ms. Mullins           Room 225                                Kindergarten
+Mrs. Goff             Room 226                                Classroom teacher (Room 226)
+Mrs. Little           Room 227                                Classroom teacher - 1st grade
+Mrs. Edelman          Room 228                                Classroom teacher - 1st grade
+Mrs. German           Room 229                                Classroom teacher - 2nd grade
+Mrs. Mulert           Room 230                                Classroom teacher - 2nd grade
+Mrs. Boaz             Room 231                                Classroom teacher - 3rd grade
+Mrs. Brown            Room 232                                Classroom teacher - 3rd grade
+Mrs. Patel            Room 233                                Classroom teacher (Room 233)
+Mrs. Maisy            Room 234                                Classroom teacher (Room 234)
+Mrs. Smith            Room 235                                Classroom teacher - 3rd grade
+Mrs. Songstad         Room 233                                Co-teacher with Mrs. Patel (Room 233)
+Mr. Mellow            Top floor hallway (roaming)             Custodian ("one of Ashland's custodians")
+Mr. Rampulla          Top floor hallway (roaming)             Custodian ("one of Ashland's custodians")
+Mrs. Perry            Top floor hallway (roaming)             Custodian ("we keep every corner sparkling")
+Mrs. Hurt             Library / Media Arts                    Library helper
+Mr. Farmer            Room 234                                Classroom helper (Room 234)
+Mr. El-Shaarawy       Top floor hallway (roaming)             Building helper ("lending a hand wherever it's needed")
+Mrs. Helton           Top floor hallway (roaming)             Hallway guide ("if you ever need help finding your way, just ask")
+Mrs. Garcia           Room 224                                Classroom helper (Room 224)
+Ms. Kay Jackson       Top floor hallway (roaming)             Student & teacher support ("I support students and teachers all over Ashland")
+Mrs. Stanfield        Top floor hallway (roaming)             Teacher support team ("we help make every classroom great")
+Mrs. Baker            Top floor hallway (roaming)             Band teacher ("I'm Mrs. Baker, the BAND teacher!")
+
