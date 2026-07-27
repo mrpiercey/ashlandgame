@@ -29,6 +29,9 @@ var G = window.G = window.G || {};
   // non-holder teachers who volunteer a hint: with the 4 holders, about 1 in 4
   // teachers overall brings up the missing letters on their own
   var hinters = {};
+  // hinter -> was their tip real? rolled once (off the shared lead
+  // schedule) the first time they speak up, then stable forever
+  var hinterSure = {};
 
   // the most recent hint the player has heard: {letter, roomId}. The sidebar
   // objective points at it until that letter is found.
@@ -273,6 +276,20 @@ var G = window.G = window.G || {};
     // each playthrough uses all three messengers, in a different order
     leadOrder = shuffle(['teacher', 'pa', 'eddie']);
     leadIdx = 0;
+    suggestionNo = 0;
+    hinterSure = {};
+  }
+
+  // ---- the odds a lead is real ---------------------------------------------
+  // Every "go check that room" line in the game -- Mrs. Walker's tips, the
+  // post-catch leads, teacher referrals, hinter gossip -- draws from ONE
+  // shared schedule: the first lead of the game is a sure thing, the second
+  // is a coin flip, and every lead after that lands 3 times out of 4.
+  var suggestionNo = 0;
+  function rollLead() {
+    suggestionNo++;
+    var p = suggestionNo === 1 ? 1 : suggestionNo === 2 ? 0.5 : 0.75;
+    return Math.random() < p;
   }
 
   function countFound() {
@@ -315,10 +332,13 @@ var G = window.G = window.G || {};
   function hintPage(hinterRoomId) {
     var missing = LETTERS.filter(function (l) { return !found[l]; });
     if (!missing.length) return null;
-    // COIN FLIP, stable per hinter: half the hinters are simply mistaken -- they
-    // send you somewhere with no letter (tipTarget), the same 50/50 as the leads.
-    // Eddie's stuck-timer still rescues anyone who chases too many dead ends.
-    if (hinterRoomId && (chash(hinterRoomId + 'sure') % 2 === 1)) {
+    // stable per hinter: on their first tip the shared lead schedule decides
+    // whether they are right or simply mistaken -- a mistaken hinter sends
+    // you somewhere with no letter (tipTarget), and repeat chats stand by
+    // whichever it was. Eddie's stuck-timer still rescues anyone who chases
+    // too many dead ends.
+    if (hinterRoomId && !(hinterRoomId in hinterSure)) hinterSure[hinterRoomId] = rollLead();
+    if (hinterRoomId && !hinterSure[hinterRoomId]) {
       var dud = dudLeadRoom(hinterRoomId + 'dud', hinterRoomId);
       if (dud) {
         pendingHint = null;
@@ -631,11 +651,11 @@ var G = window.G = window.G || {};
     var id = referralOf[selfId];
     if (!id || ids.indexOf(id) < 0) {
       // first time (or their pick is gone): choose once, then keep it.
-      // COIN FLIP: half of all referrals point at a room that really holds
-      // a letter, half at an empty one -- same odds as every other lead.
+      // The shared lead schedule decides whether this referral points at a
+      // room that really holds a letter or at an empty one.
       var realRooms = ids.filter(function (id2) { return letterHeldBy(id2); });
       var duds = ids.filter(function (id2) { return !letterHeldBy(id2); });
-      var pool = (Math.random() < 0.5 && realRooms.length) ? realRooms
+      var pool = (rollLead() && realRooms.length) ? realRooms
         : duds.length ? duds : ids;
       // within that, steer toward a room they have not tried yet -- a new
       // door beats a loop
@@ -947,11 +967,11 @@ var G = window.G = window.G || {};
       return l !== justCaught && !found[l] && holders[l] && G.ROOMS[holders[l]] && G.TEACHERS[holders[l]];
     });
     if (!left.length) return null;
-    // COIN FLIP: half of every lead is a false alarm. A real lead sets
-    // pendingHint (the arrow follows it, clears when caught); a dud sets
-    // tipTarget at a letterless room, so the trip may come up empty. Eddie's
-    // stuck-timer still rescues a player who keeps chasing dead ends.
-    if (Math.random() < 0.5) {
+    // the shared lead schedule decides if this one is a false alarm. A real
+    // lead sets pendingHint (the arrow follows it, clears when caught); a dud
+    // sets tipTarget at a letterless room, so the trip may come up empty.
+    // Eddie's stuck-timer still rescues a player who keeps chasing dead ends.
+    if (!rollLead()) {
       var dud = dudLeadRoom(null, holders[justCaught]);   // don't send them back where they just were
       if (dud) {
         pendingHint = null;
@@ -1203,8 +1223,8 @@ var G = window.G = window.G || {};
       var realRooms = missingLetters().map(function (l) { return holders[l]; })
         .filter(function (id2) { return id2 && G.ROOMS[id2] && G.TEACHERS[id2]; });
       // her FIRST tip is always the real thing -- the opening trip must pay
-      // off. After that she is guessing like everyone else: 50/50.
-      var wantReal = walkerPickCount === 0 || Math.random() < 0.5;
+      // off. After that she draws from the shared lead schedule.
+      var wantReal = rollLead() || walkerPickCount === 0;
       walkerPick = (wantReal && realRooms.length)
         ? realRooms[Math.floor(Math.random() * realRooms.length)]
         : (dudLeadRoom(null, null) || realRooms[0] || null);
