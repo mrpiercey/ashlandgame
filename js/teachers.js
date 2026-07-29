@@ -110,7 +110,7 @@ var G = window.G = window.G || {};
     231: 'Mrs. Boaz',
     232: 'Mrs. Brown',
     233: 'Mrs. Patel',
-    234: 'Mrs. Maisy',
+    // 234 is empty until somebody is hired -- see rooms.js and maps.js
     235: 'Mrs. Smith'
   };
   Object.keys(CLASSROOM_NAMES).forEach(function (num) {
@@ -171,7 +171,7 @@ var G = window.G = window.G || {};
   staff('staff-hurt', 'Mrs. Hurt', { style: 1, skin: 1, hairColor: 3, outfit: 2 },
     { roomOf: 't-lib', intro: "Hi! I'm Mrs. Hurt. I'm a teacher who helps students become even better learners!" });
   staff('staff-farmer', 'Mr. Farmer', { style: 8, skin: 9, hairColor: 0, outfit: 9 },
-    { roomOf: 't-234', tall: true });
+    { tall: true });
   staff('staff-jackson', 'Mr. Jackson', { style: 8, skin: 6, hairColor: 1, outfit: 4 },
     { intro: "Hi there! I'm Mr. Jackson. I'm a teacher who works one-on-one with students -- and I'm one of the basketball coaches too!" });
   staff('staff-elshaarawy', 'Mr. El-Shaarawy', { style: 0, skin: 5, hairColor: 0, outfit: 7 },

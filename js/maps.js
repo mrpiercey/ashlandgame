@@ -209,7 +209,8 @@ var G = window.G = window.G || {};
     addDoor(m, 5, 12, 't-224');
     addDoor(m, 5, 17, 't-223');
     // east wall
-    addDoor(m, 53, 12, 't-234');
+    // Room 234 has no teacher yet, so there's no door at (53,12) -- just wall.
+    // Put the door back here when somebody is hired into it.
     addDoor(m, 53, 17, 't-235');
     // south wall of the bottom corridor
     addDoor(m, 14, 26, 't-220');
@@ -435,6 +436,65 @@ var G = window.G = window.G || {};
     m.set(3, 0, 'lightswitch');
     m.npcs.push({ kind: 'teacher', roomId: room.id, x: 8, y: 3 });
     return m;
+  }
+
+  // ---- the ZELDA secret ---------------------------------------------------
+  // Type LINK anywhere on the middle floor and the bulletin board in front
+  // of Eddie opens into a cave. It is deliberately NOT a G.ROOMS room: the
+  // letter hunt, the leads and the staff roster must never know it exists.
+  var SECRET_ID = 'm-secret';
+
+  // Exactly one screenful (20x15 tiles = the 320x240 viewport), so the camera
+  // never scrolls and the whole thing reads as one picture: a two-tile band of
+  // carved figures around a flat black room.
+  function buildSecret() {
+    var m = GB(SECRET_ID, 20, 15);
+    m.rect(0, 0, 20, 15, 'cavewall');
+    m.rect(2, 2, 16, 11, 'caveblack');
+    // the way back out: straight down and through the bottom band
+    m.set(9, 13, 'caveblack');
+    m.set(9, 14, 'caveblack');
+    m.stairs['9,13'] = { secretExit: true };
+    m.stairs['9,14'] = { secretExit: true };
+    m.name = '';
+    m.floor = 'middle';   // the cave is behind a middle-floor wall
+    m.isSecret = true;
+    stockSecret(m);
+    m.spawn = { x: 9, y: 11, dir: 'up' };
+    return m;
+  }
+
+  // Who stands in the cave. Called again every time the student leaves, so
+  // the pencil is always waiting there the next time they drop in -- picking
+  // it up is a moment, not an inventory item.
+  function stockSecret(m) {
+    m.npcs.length = 0;
+    m.npcs.push({ kind: 'oldman', x: 9, y: 6 });
+    m.npcs.push({ kind: 'cavefire', x: 6, y: 6 });
+    m.npcs.push({ kind: 'cavefire', x: 13, y: 6 });
+    m.npcs.push({ kind: 'pencil', x: 9, y: 8 });   // dead centre of the room
+  }
+
+  // Which bulletin board becomes the cave mouth: the one nearest Eddie that
+  // actually faces the hallway. Found by search, not hard-coded, so editing
+  // the hall in the room editor can never leave the secret pointing at a
+  // board that has moved.
+  function findSecretSpot(m) {
+    var eddie = null;
+    m.npcs.forEach(function (n) { if (n.kind === 'eagle' && !eddie) eddie = n; });
+    var ex = eddie ? eddie.x : Math.floor(m.w / 2);
+    var ey = eddie ? eddie.y : Math.floor(m.h / 2);
+    var best = null, bd = Infinity;
+    for (var y = 0; y < m.h; y++) {
+      for (var x = 0; x < m.w; x++) {
+        var t = m.get(x, y);
+        if (t !== 'bulletinC' && t !== 'bulletinP') continue;
+        if (!T.isWalkable(m.get(x, y + 1))) continue;  // hallway must be below it
+        var d = (x - ex) * (x - ex) + (y - ey) * (y - ey);
+        if (d < bd) { bd = d; best = { x: x, y: y, was: t }; }
+      }
+    }
+    return best;
   }
 
   var INTERIOR_BUILDERS = {
@@ -973,7 +1033,8 @@ var G = window.G = window.G || {};
     placeStaff(maps.top, 'staff-baker');
     placeStaff(maps.middle, 'staff-komprs', { zone: awayFromEddie });
     placeStaff(maps['t-lib'], 'staff-hurt', { x: 10, y: 10 });
-    placeStaff(maps['t-234'], 'staff-farmer', { x: 9, y: 4 });
+    // Room 234 is closed until it's staffed, so Mr. Farmer walks the top halls
+    placeStaff(maps.top, 'staff-farmer');
     placeStaff(maps['t-224'], 'staff-garcia', { x: 9, y: 6 });
 
     // if a teacher's start tile is buried under furniture (template says the
@@ -1198,7 +1259,35 @@ var G = window.G = window.G || {};
       });
     });
 
-    G.Maps = { all: maps, returns: returns, entries: entries, hallOf: hallOf };
+    // the ZELDA secret, wired last so nothing above ever walks over it
+    maps[SECRET_ID] = buildSecret();
+    var secretSpot = findSecretSpot(maps.middle);
+    var secretOpen = false;
+
+    G.Maps = {
+      all: maps, returns: returns, entries: entries, hallOf: hallOf,
+      secret: {
+        id: SECRET_ID,
+        // the hallway tile the cave mouth opens in (where the poof goes)
+        at: secretSpot ? { map: 'middle', x: secretSpot.x, y: secretSpot.y } : null,
+        // where the player pops back out: the hallway tile below the board
+        exitTo: secretSpot
+          ? { map: 'middle', x: secretSpot.x, y: secretSpot.y + 1, dir: 'down' }
+          : null,
+        isOpen: function () { return secretOpen; },
+        // put the cave back the way it was found (the pencil returns)
+        restock: function () { stockSecret(maps[SECRET_ID]); },
+        // turn the bulletin board into a cave mouth. Returns false if the
+        // secret is already open (or there was no board to open).
+        reveal: function () {
+          if (secretOpen || !secretSpot) return false;
+          secretOpen = true;
+          maps.middle.set(secretSpot.x, secretSpot.y, 'zeldahole');
+          maps.middle.stairs[secretSpot.x + ',' + secretSpot.y] = { secretIn: true };
+          return true;
+        }
+      }
+    };
   }
 
   // Which hallway a room actually opens onto. Almost always its own floor,

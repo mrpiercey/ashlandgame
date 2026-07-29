@@ -144,6 +144,8 @@ var G = window.G = window.G || {};
 
   function playFloor(floor) {
     if (!started || fellBack || !FLOOR_TRACKS[floor] || floor === currentFloor) return;
+    clearInterval(fadeTimer);   // a duck in progress belongs to the old floor
+    fadeTimer = null;
     currentFloor = floor;
     if (bgmEl) bgmEl.pause();
     var el = trackEls[floor];
@@ -157,6 +159,51 @@ var G = window.G = window.G || {};
     bgmEl = el;
     var p = el.play();
     if (p && p.catch) p.catch(function () { armRetry(); });
+  }
+
+  // A stinger (the LINK door, or the rupee fanfare) wants the floor music out
+  // of its way. It FADES out and back in rather than cutting, and it pauses
+  // where it stands -- so the theme picks up mid-phrase instead of restarting
+  // from the top every time a secret fires.
+  var BGM_VOL = 0.55;
+  var fadeTimer = null;
+
+  // The fade holds onto the element it started on, so changing floors partway
+  // through can never leave the new track stuck at the old one's volume.
+  function fadeBgm(to, ms, then) {
+    var el = bgmEl;
+    if (!el) { if (then) then(); return; }
+    clearInterval(fadeTimer);
+    var from = el.volume;
+    var steps = Math.max(1, Math.round(ms / 25));
+    var i = 0;
+    fadeTimer = setInterval(function () {
+      i++;
+      try { el.volume = Math.max(0, Math.min(1, from + (to - from) * (i / steps))); }
+      catch (e) {}
+      if (i >= steps) {
+        clearInterval(fadeTimer);
+        fadeTimer = null;
+        if (then) then(el);
+      }
+    }, 25);
+  }
+
+  function pauseBgm() {
+    if (!bgmEl) return;
+    fadeBgm(0, 260, function (el) {
+      try { el.pause(); } catch (e) {}
+    });
+  }
+
+  function resumeBgm() {
+    if (!bgmEl) return;
+    try {
+      bgmEl.volume = 0;                 // come back up from silence...
+      var p = bgmEl.play();             // ...at the point it left off
+      if (p && p.catch) p.catch(function () { armRetry(); });
+    } catch (e) { return; }
+    fadeBgm(muted ? 0 : BGM_VOL, 420);
   }
 
   function startBgm() {
@@ -506,6 +553,8 @@ var G = window.G = window.G || {};
 
   function setMuted(m) {
     muted = m;
+    clearInterval(fadeTimer);   // a fade in flight must not undo the mute
+    fadeTimer = null;
     localStorage.setItem('ashland-mute', m ? '1' : '0');
     if (master) master.gain.value = m ? 0 : 0.16;
     Object.keys(trackEls).forEach(function (f) { trackEls[f].volume = m ? 0 : 0.55; });
@@ -530,6 +579,8 @@ var G = window.G = window.G || {};
 
   G.Audio = {
     startBgm: startBgm,
+    pauseBgm: pauseBgm,
+    resumeBgm: resumeBgm,
     playTitle: playTitle,
     stopTitle: stopTitle,
     playFloor: playFloor,

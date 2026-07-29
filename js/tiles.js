@@ -257,6 +257,66 @@ var G = window.G = window.G || {};
     speckle(ctx, rnd, 8, ['#cfcfc7', '#e2e2da', '#d4d4cc']);
   }
 
+  // ---- the ZELDA secret ---------------------------------------------------
+  // A cave mouth punched through the hallway wall: the same cinderblock as
+  // its neighbours, with a dark arch opened in the middle of it.
+  function pZeldaHole(ctx, rnd) {
+    pWall(ctx, rnd);
+    // crumbled rim, one pixel proud of the opening all the way round
+    ctx.fillStyle = '#6b6b66';
+    var rim = [[2, 5, 6], [3, 4, 8], [4, 3, 10], [5, 2, 12]];
+    rim.forEach(function (r) { ctx.fillRect(r[1], r[0], r[2], 1); });
+    ctx.fillRect(1, 6, 14, 10);
+    // the dark inside -- black at the top, never quite black at the floor
+    ctx.fillStyle = '#0a0a0e';
+    var arch = [[3, 6, 4], [4, 5, 6], [5, 4, 8], [6, 3, 10], [7, 3, 10]];
+    arch.forEach(function (a) { ctx.fillRect(a[1], a[0], a[2], 1); });
+    ctx.fillRect(2, 8, 12, 8);
+    ctx.fillStyle = '#141420';
+    ctx.fillRect(3, 13, 10, 3);
+  }
+
+  // The secret room's walls: a red guardian carved over and over on black,
+  // the way an old dungeon wall repeats one hunched figure forever: dark red
+  // on flat black, one to a tile, so a two-tile border reads as two rows.
+  var CAVE_PAL = { D: '#6d1400', M: '#a82a08', L: '#c84410' };
+  var CAVE_ROWS = [
+    '.....DDDDDD.....',
+    '....DMMMMMMD....',
+    '...DMMMMMMMMD...',
+    '...DMMLLLLMMD...',
+    '...DMMMMMMMMD...',
+    '..DMMMMMMMMMMD..',
+    '.DMMMMMMMMMMMMD.',
+    'DMMD.MMMMMM.DMMD',
+    'DMMD.MMMMMM.DMMD',
+    'DMMD.MMMMMM.DMMD',
+    '.DD..MMMMMM..DD.',
+    '.....MMMMMM.....',
+    '....DMMMMMMD....',
+    '...DMMMMMMMMD...',
+    '..DMMMMMMMMMMD..',
+    '..DDDDDDDDDDDD..'
+  ];
+  function pCaveWall(ctx, rnd) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, TS, TS);
+    for (var y = 0; y < TS; y++) {
+      for (var x = 0; x < TS; x++) {
+        var ch = CAVE_ROWS[y][x];
+        if (ch === '.') continue;
+        ctx.fillStyle = CAVE_PAL[ch];
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+  }
+
+  // the floor of the secret room: flat black, exactly as dark as the original
+  function pCaveFloor(ctx, rnd) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, TS, TS);
+  }
+
   function pBulletin(ctx, rnd, frame, paper) {
     pWall(ctx, rnd);
     ctx.fillStyle = frame;
@@ -1806,6 +1866,9 @@ var G = window.G = window.G || {};
     'voidwall': pVoidWall,
     'bulletinP': function (ctx, rnd) { pBulletin(ctx, rnd, '#e8628c', '#9fd4e8'); },
     'bulletinC': function (ctx, rnd) { pBulletin(ctx, rnd, '#8a5a33', '#c9a063'); },
+    'zeldahole': pZeldaHole,
+    'cavewall': pCaveWall,
+    'caveblack': pCaveFloor,
     'exit': pExitSign,
     'fountain': pFountain,
     'whiteboard': pWhiteboard,
@@ -1932,7 +1995,8 @@ var G = window.G = window.G || {};
     'gymfloor': 1, 'gymlineH': 1, 'gymlineV': 1,
     'gymkey': 1, 'gymcirTL': 1, 'gymcirTR': 1, 'gymcirBL': 1, 'gymcirBR': 1,
     'door': 1, 'stairU': 1, 'stairD': 1, 'mat': 1,
-    'mulch': 1, 'concrete': 1, 'woodstage': 1
+    'mulch': 1, 'concrete': 1, 'woodstage': 1,
+    'zeldahole': 1, 'caveblack': 1
   };
 
   G.Tiles = {

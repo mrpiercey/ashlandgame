@@ -199,6 +199,12 @@ var G = window.G = window.G || {};
 
     if (banner && banner.timer > 0) banner.timer -= dt;
 
+    if (secretSay > 0) secretSay -= dt;
+    if (secretPuff) {
+      secretPuff.t += dt;
+      if (secretPuff.t >= PUFF_TIME) secretPuff = null;
+    }
+
     if (state === 'title') {
       if (G.Input.consumeAction()) {
         G.Audio.sfx('blip');
@@ -272,6 +278,19 @@ var G = window.G = window.G || {};
         G.Input.clearTyped();
         playSecretSound();
       }
+    } else if (currentMapId === 'middle') {
+      // "link" typed in the middle-floor hallway: the bulletin board in
+      // front of Eddie crumbles into a cave mouth
+      if (G.Input.recentTyped().indexOf('link') !== -1) {
+        G.Input.clearTyped();
+        if (G.Maps.secret.reveal()) {
+          // the poof, the door and the sound all land on the same frame
+          var at = G.Maps.secret.at;
+          if (at) secretPuff = { map: at.map, x: at.x, y: at.y, t: 0 };
+          // the hallway theme steps aside for the door, then starts over
+          playSecretSound('secretdoor.mp3', true);
+        }
+      }
     } else {
       G.Input.clearTyped();
     }
@@ -298,8 +317,10 @@ var G = window.G = window.G || {};
       return;
     }
 
-    movePlayer(dt);
+    // holding the pencil aloft: the student stands still until the fanfare ends
+    if (!pencilHold) movePlayer(dt);
     updateNpcs(dt);
+    checkPencilStep();
 
     // the lead Eddie queued during the battle. Only if the student is still
     // standing in the room where they caught it -- walk out and the moment
@@ -355,19 +376,44 @@ var G = window.G = window.G || {};
   dunkImg.onload = function () { dunkImgOk = dunkImg.width > 0; };
   dunkImg.src = 'richardsslam.png';
 
-  // the cafeteria "hdd" sushi secret: plays secretsound.mp3 if present
-  var secretAudio = null;
-  function playSecretSound() {
+  // The secret stingers, each played straight off disk if the file is there:
+  // secretsound.mp3 for the cafeteria "hdd" sushi secret, secretdoor.mp3 when
+  // the LINK code opens the cave. A missing file is remembered and skipped.
+  // duckMusic holds the floor theme while the stinger plays, then starts it
+  // again from the top. The timer is a safety net: if the clip never fires
+  // 'ended' (missing file, blocked autoplay) the music still comes back.
+  var secretAudio = {};
+  var duckTimer = null;
+  function unduck() {
+    clearTimeout(duckTimer);
+    duckTimer = null;
+    G.Audio.resumeBgm();
+  }
+  // returns the audio element (so a caller can time itself off the clip's
+  // length), or null when there is no sound to play
+  function playSecretSound(file, duckMusic) {
+    file = file || 'secretsound.mp3';
     try {
-      if (!secretAudio) {
-        secretAudio = new Audio('secretsound.mp3');
-        secretAudio.addEventListener('error', function () { secretAudio = 'missing'; });
+      if (!secretAudio[file]) {
+        secretAudio[file] = new Audio(file);
+        secretAudio[file].addEventListener('error', function () {
+          secretAudio[file] = 'missing';
+          if (duckTimer) unduck();
+        });
       }
-      if (secretAudio === 'missing') return;
-      secretAudio.currentTime = 0;
-      var p = secretAudio.play();
-      if (p && p.catch) p.catch(function () {});
-    } catch (e) { /* no audio, no problem */ }
+      if (secretAudio[file] === 'missing') return null;
+      var el = secretAudio[file];
+      el.onended = function () { if (duckMusic) unduck(); };
+      if (duckMusic) {
+        G.Audio.pauseBgm();
+        clearTimeout(duckTimer);
+        duckTimer = setTimeout(unduck, 8000);
+      }
+      el.currentTime = 0;
+      var p = el.play();
+      if (p && p.catch) p.catch(function () { if (duckTimer) unduck(); });
+      return el;
+    } catch (e) { return null; /* no audio, no problem */ }
   }
   function startPlayerDance(style) {
     playerDance = { style: ((style % 10) + 10) % 10, t: 0 };
@@ -1067,9 +1113,11 @@ var G = window.G = window.G || {};
     }
     var t = m.get(tx, ty);
     if (!G.Tiles.isWalkable(t)) return t || 'void';
-    // NPCs are solid (their body, plus the tile they're stepping into)
+    // NPCs are solid (their body, plus the tile they're stepping into) --
+    // except pickups like the secret room's pencil, which you walk right over
     for (var i = 0; i < m.npcs.length; i++) {
       var n = m.npcs[i];
+      if (n.kind === 'pencil') continue;
       var nx = (n.px !== undefined) ? n.px : n.x * TS;
       var ny = (n.py !== undefined) ? n.py : n.y * TS;
       if (px >= nx && px < nx + TS && py >= ny && py < ny + TS) return 'npc';
@@ -1477,8 +1525,145 @@ var G = window.G = window.G || {};
       warpTo(currentMapId, st.passTo.x, st.passTo.y, player.dir, G.Maps.all[currentMapId].name, 'door');
     }
     else if (st.goRoom) goCustomDoor(st.goRoom, st.pairIndex);
+    else if (st.secretIn) enterSecret();
+    else if (st.secretExit) leaveSecret();
     else if (st.exit) leaveRoom(st.roomId, st.exitIndex);
     else takeStairs(st);
+  }
+
+  // ---- the ZELDA secret ---------------------------------------------------
+  // Everything the cave needs: getting in and out, the one line the old man
+  // ever says, and the pencil on the floor in front of him.
+  // the art and the wording both live in js/secret.js
+  var secretPuff = null; // {map, x, y, t} the smoke when the cave mouth opens
+  var PUFF_TIME = 0.6;
+
+  function drawSecretPuff(cam) {
+    if (!secretPuff || secretPuff.map !== currentMapId) return;
+    G.Secret.drawPuff(ctx,
+      secretPuff.x * TS + 8 - cam.x,
+      secretPuff.y * TS + 8 - cam.y,
+      secretPuff.t / PUFF_TIME);
+  }
+  var secretSay = 0;     // how long the white text stays up
+  var SECRET_SAY_TIME = 3.2;
+
+  function enterSecret() {
+    var sm = G.Maps.all[G.Maps.secret.id];
+    if (!sm) return;
+    rememberReturn();
+    // The pencil goes back on the floor on the way IN, not on the way out --
+    // restocking as the student leaves would pop it back into view while the
+    // room is still fading. Here the cave is off screen, so nobody sees it.
+    G.Maps.secret.restock();
+    secretSpent = false;   // fresh pencil, so he has his line back too
+    // The words go up NOW, before the fade, so they are already hanging there
+    // the instant the cave appears rather than blinking on a moment later.
+    // (secretSay does not tick down while a transition is running.)
+    secretSay = SECRET_SAY_TIME;
+    // no room banner: dropping into the dark should feel like a surprise
+    warpTo(G.Maps.secret.id, sm.spawn.x, sm.spawn.y, sm.spawn.dir, '', 'door');
+  }
+
+  function leaveSecret() {
+    var out = G.Maps.secret.exitTo || returnPoint;
+    if (!out) {
+      var sp = G.Maps.all.middle.spawn;
+      out = { map: 'middle', x: sp.x, y: sp.y, dir: sp.dir };
+    }
+    secretSay = 0;
+    endPencilHold();
+    warpTo(out.map, out.x, out.y, out.dir || 'down', G.Maps.all[out.map].name, 'door');
+  }
+
+  // Once the pencil has been taken he has nothing left to say -- the moment is
+  // spent until the student leaves and comes back. Reset on the way in.
+  var secretSpent = false;
+
+  function sayTheSecret() {
+    if (secretSpent) return;
+    G.Audio.sfx('tick');
+    secretSay = SECRET_SAY_TIME;
+  }
+
+  // two centred white lines over the black, held for a beat then gone
+  function drawSecretText() {
+    if (secretSay <= 0) return;
+    G.Secret.drawText(ctx, font, SW, Math.min(1, secretSay / 0.35));
+  }
+
+  // Touch the pencil and the student turns to face you and holds it over their
+  // head for as long as the fanfare lasts -- the pose everyone remembers. It
+  // is pure ceremony: nothing is carried out of the cave.
+  var pencilHold = null;      // {} while the student is holding it up
+  var pencilTimer = null;
+
+  function endPencilHold() {
+    clearTimeout(pencilTimer);
+    pencilTimer = null;
+    pencilHold = null;
+  }
+
+  // The pose runs the length of the fanfare MINUS a beat, so the arms come
+  // down just before the music finishes instead of hanging there after it.
+  var HOLD_TRIM = 0.5;       // seconds shaved off the end
+  var HOLD_FALLBACK = 1.6;   // if the clip's length is unknown or it can't play
+  var HOLD_CAP = 6;
+
+  function holdPencilFor(el) {
+    var secs = HOLD_FALLBACK;
+    if (el && isFinite(el.duration) && el.duration > 0) {
+      secs = Math.max(0.8, el.duration - HOLD_TRIM);
+    }
+    clearTimeout(pencilTimer);
+    pencilTimer = setTimeout(endPencilHold, Math.min(HOLD_CAP, secs) * 1000);
+  }
+
+  function takePencil(n) {
+    var m = map();
+    var i = m.npcs.indexOf(n);
+    if (i >= 0) m.npcs.splice(i, 1);
+    // stand still, face the camera, arms up
+    player.dir = 'down';
+    player.moving = false;
+    player.anim = 0;
+    autoWalk = null;
+    pencilHold = {};
+    secretSay = 0;        // the words clear -- the pencil gets the screen
+    secretSpent = true;   // and he says nothing more this visit
+    // the fanfare gets the room to itself; the music returns when it ends
+    var el = playSecretSound('secretsound.mp3', true);
+    holdPencilFor(el);
+    // the clip's length may not be known until it has loaded -- re-time then
+    if (el && !(isFinite(el.duration) && el.duration > 0)) {
+      el.addEventListener('loadedmetadata', function once() {
+        el.removeEventListener('loadedmetadata', once);
+        if (pencilHold) holdPencilFor(el);
+      });
+    }
+  }
+
+  // Zelda never made you press a button for an item -- walking over it is enough
+  function checkPencilStep() {
+    var m = map();
+    if (!m.isSecret || pencilHold) return;
+    for (var i = m.npcs.length - 1; i >= 0; i--) {
+      var n = m.npcs[i];
+      if (n.kind !== 'pencil') continue;
+      if (Math.abs(player.x - n.x * TS) < 11 && Math.abs(player.y - n.y * TS) < 11) takePencil(n);
+    }
+  }
+
+  // the pencil, held high over the student's head. drawPencil() stands the
+  // sprite up out of the tile it is given, so the tile we hand it is one
+  // pencil-length above the student's own -- point up, clear of their hair.
+  function drawPencilHeld(cam) {
+    if (!pencilHold) return;
+    var sx = Math.round(player.x - cam.x);
+    var sy = Math.round(player.y - cam.y);
+    // the student's head starts 8px above their tile; sit the eraser a couple
+    // of pixels clear of their hair (drawPencil puts its base at ny + 16)
+    G.Secret.drawPencil(ctx, sx, sy - 26, true);
   }
 
   var returnPoint = null; // where you were before your last door warp
@@ -1585,11 +1770,14 @@ var G = window.G = window.G || {};
         // each floor has its own looping theme (the playground counts as
         // its own "floor" -- sunshine has a soundtrack too)
         var mm = G.Maps.all[mapId];
-        var floor = (mm.isHall || mm.outdoor) ? mapId : G.ROOMS[mapId].floor;
+        // the secret cave isn't a G.ROOMS room -- it carries its own floor
+        var floor = (mm.isHall || mm.outdoor) ? mapId
+          : (mm.floor || G.ROOMS[mapId].floor);
         // "have they been downstairs?" means the hallway they actually walked
         // through, not the room's floor label -- a room entered through
         // another room's door shouldn't tick off a floor they never saw
-        floorsSeen[(mm.isHall || mm.outdoor) ? mapId : G.Maps.hallOf(mapId)] = true;
+        var seen = (mm.isHall || mm.outdoor) ? mapId : G.Maps.hallOf(mapId);
+        if (seen) floorsSeen[seen] = true;
         G.Audio.playFloor(floor);
       }
     };
@@ -1691,6 +1879,8 @@ var G = window.G = window.G || {};
   }
 
   function showBanner(text) {
+    // an empty label means "announce nothing" (the secret cave has no name)
+    if (!text) { banner = null; return; }
     banner = { text: G.Lang.t(text), timer: 2.4 };
   }
 
@@ -2320,6 +2510,15 @@ var G = window.G = window.G || {};
         var n = m.npcs[i];
         var hit = (n.x === tx && n.y === ty) || (n.tx === tx && n.ty === ty);
         if (hit) {
+          // The cave: the old man says his one line face to face only. Facing
+          // DOWN at him means the student crept round behind him, and he does
+          // not talk to the back of a room.
+          if (n.kind === 'oldman') {
+            if (player.dir !== 'down') sayTheSecret();
+            return;
+          }
+          if (n.kind === 'pencil') { takePencil(n); return; }
+          if (n.kind === 'cavefire') { G.Audio.sfx('tick'); return; }
           // mid-boogie, Mrs. Todd has exactly one thing on her mind
           if (toddParty && n.dollyDancing) {
             G.Dialogue.start([{
@@ -3817,6 +4016,9 @@ var G = window.G = window.G || {};
     }
   }
 
+  // ---- the secret cave's furniture ----------------------------------------
+  // A fire in a stone bowl. The flame is redrawn every frame off the wall
+  // clock, so the two of them flicker out of step with each other.
   // the DJ table draws inside the y-sorted entity pass, so dancers walking
   // in FRONT of it appear in front (and Eddie stays tucked behind the decks)
   function drawDjBooth(cam) {
@@ -4312,6 +4514,14 @@ var G = window.G = window.G || {};
           } else {
             ctx.drawImage(eagleSprite, nx, ny - 4);
           }
+        } else if (n.kind === 'oldman') {
+          // keep his feet planted on his own square whatever his height
+          var om = G.Secret.oldManSprite();
+          ctx.drawImage(om, nx, ny - (om.height - 16));
+        } else if (n.kind === 'cavefire') {
+          G.Secret.drawFire(ctx, nx, ny, n.x * 0.7);
+        } else if (n.kind === 'pencil') {
+          G.Secret.drawPencil(ctx, nx, ny);
         } else {
           var tf = n.kind === 'officer' ? officerFrames : teacherFrames[n.roomId];
           var frame = (n.tx !== undefined || n.dancing)
@@ -4352,6 +4562,9 @@ var G = window.G = window.G || {};
       }
     });
 
+    drawPencilHeld(cam);   // over the student's head, above everything else
+    drawSecretPuff(cam);  // and the smoke sits on top of the whole hallway
+
     // lights out! a pool of light follows the player through the dark
     if (lightsOff[currentMapId]) {
       var lx = Math.round(player.x - cam.x) + 8;
@@ -4391,6 +4604,11 @@ var G = window.G = window.G || {};
   // ---- friendly place names: "MRS. SMITH'S ROOM (213)", not "MRS. SMITH" --
   function locationLabel(roomId) {
     var room = G.ROOMS[roomId];
+    // not every map is a registered room -- the ZELDA cave deliberately isn't
+    if (!room) {
+      var m = G.Maps.all[roomId];
+      return G.Lang.t((m && m.name) || '???');
+    }
     var t = G.TEACHERS[roomId];
     var num = /^ROOM (\d+)(?: - (.+))?$/.exec(room.name);
     if (t && num) {
@@ -5273,6 +5491,7 @@ var G = window.G = window.G || {};
     } else {
       drawWorld();
       drawBanner();
+      drawSecretText();
       G.Dialogue.draw(ctx);
       if (staffRosterOpen) drawStaffRoster();
     }

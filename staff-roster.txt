@@ -1,7 +1,8 @@
 ASHLAND ELEMENTARY: THE MISSING LETTERS ADVENTURE
-Character roster -- all 60 staff you can meet in the game
+Character roster -- all 59 staff you can meet in the game
 (name / where they start / their job as they tell it)
 Generated from the game data on 2026-07-27.
+(Room 234 is empty and sealed off until someone is hired into it.)
 
 ==== MIDDLE FLOOR =================================
 
@@ -57,14 +58,13 @@ Mrs. Mulert           Room 230                                Classroom teacher 
 Mrs. Boaz             Room 231                                Classroom teacher - 3rd grade
 Mrs. Brown            Room 232                                Classroom teacher - 3rd grade
 Mrs. Patel            Room 233                                Classroom teacher (Room 233)
-Mrs. Maisy            Room 234                                Classroom teacher (Room 234)
 Mrs. Smith            Room 235                                Classroom teacher - 3rd grade
 Mrs. Songstad         Room 233                                Co-teacher with Mrs. Patel (Room 233)
 Mr. Mellow            Top floor hallway (roaming)             Custodian ("one of Ashland's custodians")
 Mr. Rampulla          Top floor hallway (roaming)             Custodian ("one of Ashland's custodians")
 Mrs. Perry            Top floor hallway (roaming)             Custodian ("we keep every corner sparkling")
 Mrs. Hurt             Library / Media Arts                    Teacher ("I help students become even better learners!")
-Mr. Farmer            Room 234                                Classroom helper (Room 234)
+Mr. Farmer            Top floor hallway (roaming)             Classroom helper
 Mr. El-Shaarawy       Top floor hallway (roaming)             Building helper ("lending a hand wherever it's needed")
 Mrs. Helton           Top floor hallway (roaming)             Hallway guide ("if you ever need help finding your way, just ask")
 Mrs. Garcia           Room 224                                Classroom helper (Room 224)

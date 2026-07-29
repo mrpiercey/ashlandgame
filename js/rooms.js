@@ -30,8 +30,10 @@ var G = window.G = window.G || {};
 
   // Top floor
   add('t-lib', 'LIBRARY / MEDIA ARTS', 'library', 'top');
+  // 234 is deliberately missing: nobody teaches in it yet, so it has no door
+  // and no interior. Add it back here (and in teachers.js + maps.js) on hire.
   var NUMS = [200, 201, 205, 212, 213, 214, 215, 216, 217, 218, 219, 220,
-              221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235];
+              221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 235];
   NUMS.forEach(function (n) {
     add('t-' + n, 'ROOM ' + n, 'classroom', 'top');
   });

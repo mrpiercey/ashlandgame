@@ -1253,6 +1253,50 @@ var G = window.G = window.G || {};
     return [paintRows(EAGLE_FLY_UP, 32, 20), paintRows(EAGLE_FLY_DOWN, 32, 20)];
   }
 
+  // The old man who keeps the secret: a hooded elder in a red robe, all
+  // beard and shadow, waiting between two fires. 16 wide, 22 tall.
+  var OLDMAN_PAL = {
+    R: '#e05a10', d: '#8f2806', k: '#5c1a04',
+    W: '#f8f8f8', w: '#c8c8c8',
+    S: '#f0c090', E: '#301010'
+  };
+  var OLDMAN_ROWS = [
+    '.....dddddd.....',
+    '....dRRRRRRd....',
+    '...dRRRRRRRRd...',
+    '...dRRSSSSRRd...',
+    '...dRSEESEESd...',
+    '...dRSSSSSSRd...',
+    '....WWWWWWWW....',
+    '...WWWWWWWWWW...',
+    '..WWWWWWWWWWWW..',
+    '..wWWWWWWWWWWw..',
+    '...WWWWWWWWWW...',
+    '....WWWWWWWW....',
+    '..dRRRRRRRRRRd..',
+    '.dRRRRRRRRRRRRd.',
+    '.dRRRRRRRRRRRRd.',
+    '..dRRRRRRRRRRd..',
+    '..dRRRRRRRRRRd..',
+    '..dRRRRRRRRRRd..',
+    '..ddRRRRRRRRdd..',
+    '...kkkkkkkkkk...'
+  ];
+  function oldMan() {
+    var c = document.createElement('canvas');
+    c.width = 16; c.height = OLDMAN_ROWS.length;
+    var ctx = c.getContext('2d');
+    for (var y = 0; y < OLDMAN_ROWS.length; y++) {
+      for (var x = 0; x < 16; x++) {
+        var ch = OLDMAN_ROWS[y][x];
+        if (!ch || ch === '.') continue;
+        ctx.fillStyle = OLDMAN_PAL[ch];
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    return c;
+  }
+
   // gold quest letter icon (for fanfares / HUD sparkle)
   function letterIcon(letter) {
     var c = document.createElement('canvas');
@@ -1270,6 +1314,7 @@ var G = window.G = window.G || {};
 
   G.Sprites = {
     make: make, makeAdult: makeAdult, eagle: eagle, eagleFly: eagleFly,
+    oldMan: oldMan,
     letterIcon: letterIcon, W: W, H: H, AH: AH,
     STYLES: STYLES, SKINS: SKINS, HAIRCOLORS: HAIRCOLORS, OUTFITS: OUTFITS,
     SHIRTCOLORS: SHIRTCOLORS, PANTSCOLORS: PANTSCOLORS,
