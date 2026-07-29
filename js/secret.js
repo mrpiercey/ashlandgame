@@ -245,20 +245,31 @@ var G = window.G = window.G || {};
   }
 
   // The pencil, wherever it is. On the floor (still = false) it hovers and
-  // bobs over its tile; held aloft it sits rock steady. nx,ny is the tile it
-  // belongs to -- the pencil is taller than a tile, so it stands up out of it.
-  function drawPencil(g, nx, ny, still) {
+  // bobs over its tile, tipped over at an angle; held aloft it stands rock
+  // steady and straight up. nx,ny is the tile it belongs to -- the pencil is
+  // taller than a tile, so it stands up out of it. It always turns about its
+  // own middle, so tilting it never shifts where it sits.
+  function drawPencil(g, nx, ny, still, degrees) {
     var bob = still ? 0 : Math.round(Math.sin(performance.now() / 1000 * 3));
-    g.drawImage(pencilSprite(),
-      nx + Math.round((16 - PENCIL_W) / 2),
-      ny + 16 - PENCIL_H + bob);
+    var cx = nx + 8;                            // the tile's middle
+    var cy = ny + 16 - PENCIL_H / 2 + bob;      // the pencil's middle
+    var sm = g.imageSmoothingEnabled;
+    g.imageSmoothingEnabled = false;            // keep the pixels chunky
+    g.save();
+    g.translate(cx, cy);
+    if (degrees) g.rotate(degrees * Math.PI / 180);
+    g.drawImage(pencilSprite(), -PENCIL_W / 2, -PENCIL_H / 2);
+    g.restore();
+    g.imageSmoothingEnabled = sm;
   }
 
   // The message is NOT the usual green dialogue box: two centred white lines
   // painted straight onto the black, the way the original did it. The longest
-  // line is stepped down a size at a time until it fits the screen, so a
-  // translation can never run off the edge of the cave.
-  var TEXT_TOP = 42, TEXT_LEAD = 21, TEXT_MARGIN = 12;
+  // line is stepped down a size at a time until it fits -- and it has to fit
+  // the BLACK part of the room, not the screen: the carved border is two
+  // tiles thick on each side, and text run over it is unreadable.
+  var TEXT_TOP = 42, TEXT_LEAD = 21;
+  var TEXT_MARGIN = 2 * 16 + 4;   // the border, plus a little air
   function drawText(g, fontFor, screenW, alpha) {
     var lines = LINES.map(function (l) { return G.Lang ? G.Lang.t(l) : l; });
     var px = 14;

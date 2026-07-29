@@ -199,7 +199,6 @@ var G = window.G = window.G || {};
 
     if (banner && banner.timer > 0) banner.timer -= dt;
 
-    if (secretSay > 0) secretSay -= dt;
     if (secretPuff) {
       secretPuff.t += dt;
       if (secretPuff.t >= PUFF_TIME) secretPuff = null;
@@ -1545,8 +1544,10 @@ var G = window.G = window.G || {};
       secretPuff.y * TS + 8 - cam.y,
       secretPuff.t / PUFF_TIME);
   }
-  var secretSay = 0;     // how long the white text stays up
-  var SECRET_SAY_TIME = 3.2;
+  // The words are not a timed message -- they hang there the whole time the
+  // student is in the cave, and only come down when the pencil is taken.
+  var secretWords = false;
+  var PENCIL_TILT = 30;   // degrees: how far the pencil tips over on the floor
 
   function enterSecret() {
     var sm = G.Maps.all[G.Maps.secret.id];
@@ -1559,8 +1560,7 @@ var G = window.G = window.G || {};
     secretSpent = false;   // fresh pencil, so he has his line back too
     // The words go up NOW, before the fade, so they are already hanging there
     // the instant the cave appears rather than blinking on a moment later.
-    // (secretSay does not tick down while a transition is running.)
-    secretSay = SECRET_SAY_TIME;
+    secretWords = true;
     // no room banner: dropping into the dark should feel like a surprise
     warpTo(G.Maps.secret.id, sm.spawn.x, sm.spawn.y, sm.spawn.dir, '', 'door');
   }
@@ -1571,7 +1571,7 @@ var G = window.G = window.G || {};
       var sp = G.Maps.all.middle.spawn;
       out = { map: 'middle', x: sp.x, y: sp.y, dir: sp.dir };
     }
-    secretSay = 0;
+    secretWords = false;
     endPencilHold();
     warpTo(out.map, out.x, out.y, out.dir || 'down', G.Maps.all[out.map].name, 'door');
   }
@@ -1583,13 +1583,13 @@ var G = window.G = window.G || {};
   function sayTheSecret() {
     if (secretSpent) return;
     G.Audio.sfx('tick');
-    secretSay = SECRET_SAY_TIME;
+    secretWords = true;
   }
 
-  // two centred white lines over the black, held for a beat then gone
+  // two centred white lines over the black, up for the whole visit
   function drawSecretText() {
-    if (secretSay <= 0) return;
-    G.Secret.drawText(ctx, font, SW, Math.min(1, secretSay / 0.35));
+    if (!secretWords) return;
+    G.Secret.drawText(ctx, font, SW, 1);
   }
 
   // Touch the pencil and the student turns to face you and holds it over their
@@ -1629,7 +1629,7 @@ var G = window.G = window.G || {};
     player.anim = 0;
     autoWalk = null;
     pencilHold = {};
-    secretSay = 0;        // the words clear -- the pencil gets the screen
+    secretWords = false;   // the words come down -- the pencil gets the screen
     secretSpent = true;   // and he says nothing more this visit
     // the fanfare gets the room to itself; the music returns when it ends
     var el = playSecretSound('secretsound.mp3', true);
@@ -4515,13 +4515,17 @@ var G = window.G = window.G || {};
             ctx.drawImage(eagleSprite, nx, ny - 4);
           }
         } else if (n.kind === 'oldman') {
-          // keep his feet planted on his own square whatever his height
+          // He is wider and taller than a tile: centre him across it and keep
+          // his feet planted on it, so whatever shares his column -- the
+          // pencil below him -- lines up under his middle and not his edge.
           var om = G.Secret.oldManSprite();
-          ctx.drawImage(om, nx, ny - (om.height - 16));
+          ctx.drawImage(om,
+            nx - Math.round((om.width - 16) / 2),
+            ny - (om.height - 16));
         } else if (n.kind === 'cavefire') {
           G.Secret.drawFire(ctx, nx, ny, n.x * 0.7);
         } else if (n.kind === 'pencil') {
-          G.Secret.drawPencil(ctx, nx, ny);
+          G.Secret.drawPencil(ctx, nx, ny, false, PENCIL_TILT);
         } else {
           var tf = n.kind === 'officer' ? officerFrames : teacherFrames[n.roomId];
           var frame = (n.tx !== undefined || n.dancing)
