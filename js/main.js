@@ -1544,9 +1544,8 @@ var G = window.G = window.G || {};
       secretPuff.y * TS + 8 - cam.y,
       secretPuff.t / PUFF_TIME);
   }
-  // The words are not a timed message -- they hang there the whole time the
-  // student is in the cave, and only come down when the pencil is taken.
-  var secretWords = false;
+  // The words are part of the cave itself: visible whenever the student is in
+  // the secret room, and never anywhere else.
   var PENCIL_TILT = 30;   // degrees: how far the pencil tips over on the floor
 
   function enterSecret() {
@@ -1557,10 +1556,7 @@ var G = window.G = window.G || {};
     // restocking as the student leaves would pop it back into view while the
     // room is still fading. Here the cave is off screen, so nobody sees it.
     G.Maps.secret.restock();
-    secretSpent = false;   // fresh pencil, so he has his line back too
-    // The words go up NOW, before the fade, so they are already hanging there
-    // the instant the cave appears rather than blinking on a moment later.
-    secretWords = true;
+    secretSpent = false;   // fresh pencil, so his little tick can happen again too
     // no room banner: dropping into the dark should feel like a surprise
     warpTo(G.Maps.secret.id, sm.spawn.x, sm.spawn.y, sm.spawn.dir, '', 'door');
   }
@@ -1571,24 +1567,22 @@ var G = window.G = window.G || {};
       var sp = G.Maps.all.middle.spawn;
       out = { map: 'middle', x: sp.x, y: sp.y, dir: sp.dir };
     }
-    secretWords = false;
     endPencilHold();
     warpTo(out.map, out.x, out.y, out.dir || 'down', G.Maps.all[out.map].name, 'door');
   }
 
-  // Once the pencil has been taken he has nothing left to say -- the moment is
+  // Once the pencil has been taken he has nothing left to do -- the moment is
   // spent until the student leaves and comes back. Reset on the way in.
   var secretSpent = false;
 
   function sayTheSecret() {
     if (secretSpent) return;
     G.Audio.sfx('tick');
-    secretWords = true;
   }
 
   // two centred white lines over the black, up for the whole visit
   function drawSecretText() {
-    if (!secretWords) return;
+    if (!map().isSecret) return;
     G.Secret.drawText(ctx, font, SW, 1);
   }
 
@@ -1629,7 +1623,6 @@ var G = window.G = window.G || {};
     player.anim = 0;
     autoWalk = null;
     pencilHold = {};
-    secretWords = false;   // the words come down -- the pencil gets the screen
     secretSpent = true;   // and he says nothing more this visit
     // the fanfare gets the room to itself; the music returns when it ends
     var el = playSecretSound('secretsound.mp3', true);
