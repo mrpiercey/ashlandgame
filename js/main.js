@@ -1721,16 +1721,18 @@ var G = window.G = window.G || {};
   }
 
   // his shoulder is as far right as anyone gets
-  function errorWall() { return G.ErrorRoom.ERROR_X - 13; }
+  function errorWall() { return G.ErrorRoom.ERROR_X - 14; }
 
-  function askError() {
-    if (!errorRoom || errorRoom.asked) return;
-    errorRoom.asked = true;
-    errorRoom.typed = 0;        // the letters arrive one at a time, in silence
+  // He says nothing to the room -- the student has to be standing at his
+  // shoulder. Both the button and a tap on him go through this.
+  function nearError() {
+    return errorRoom && errorRoom.x > errorWall() - 18;
   }
 
-  function nearError() {
-    return errorRoom && errorRoom.x > errorWall() - 26;
+  function askError() {
+    if (!errorRoom || errorRoom.asked || !nearError()) return;
+    errorRoom.asked = true;
+    errorRoom.typed = 0;        // the letters arrive one at a time, in silence
   }
 
   function updateErrorRoom(dt) {
@@ -1753,7 +1755,7 @@ var G = window.G = window.G || {};
       e.anim = 0;
     }
 
-    if (G.Input.consumeAction() && nearError()) askError();
+    if (G.Input.consumeAction()) askError();
     G.Input.consumeDanceKey();
     G.Input.consumeRosterKey();
     G.Input.clearTyped();
@@ -1761,8 +1763,8 @@ var G = window.G = window.G || {};
 
   function drawErrorRoom() {
     var e = errorRoom;
+    // the man is part of the backdrop -- only the student is drawn on top
     G.ErrorRoom.drawScene(ctx, SW, SH);
-    G.ErrorRoom.drawError(ctx);
     if (e) {
       var fset = playerFrames[e.dir] || playerFrames.right;
       var frame = e.moving ? fset[1 + (Math.floor(e.anim) % 2)] : fset[0];
@@ -1772,11 +1774,12 @@ var G = window.G = window.G || {};
     }
   }
 
-  // clicking the man himself counts as asking him, from anywhere in the room
+  // Tapping the man counts as asking him -- but askError() still wants the
+  // student at his shoulder, so from across the room the tap does nothing.
   function errorRoomClick(gx, gy) {
-    var ex = G.ErrorRoom.ERROR_X, eh = G.ErrorRoom.ERROR_H;
+    var ex = G.ErrorRoom.ERROR_X;
     if (gx >= ex - 6 && gx <= ex + G.ErrorRoom.ERROR_W + 6 &&
-        gy >= G.ErrorRoom.FLOOR_Y - eh - 6 && gy <= G.ErrorRoom.FLOOR_Y + 6) {
+        gy >= G.ErrorRoom.ERROR_TOP - 6 && gy <= G.ErrorRoom.FLOOR_Y + 6) {
       askError();
       return true;
     }
