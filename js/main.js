@@ -249,6 +249,11 @@ var G = window.G = window.G || {};
       return;
     }
 
+    if (state === 'error') {
+      updateErrorRoom(dt);
+      return;
+    }
+
     // ---- play ----
     // TAB pulls the staff roster up and puts it away again (the same panel
     // a finger opens by tapping the STAFF readout)
@@ -287,6 +292,17 @@ var G = window.G = window.G || {};
           var at = G.Maps.secret.at;
           if (at) secretPuff = { map: at.map, x: at.x, y: at.y, t: 0 };
           // the hallway theme steps aside for the door, then starts over
+          playSecretSound('secretdoor.mp3', true);
+        }
+      }
+    } else if (currentMapId === G.Maps.secret.id) {
+      // and "zelda" typed INSIDE the cave -- and nowhere else -- opens a hole
+      // in the roof, straight up from the old man
+      if (G.Input.recentTyped().indexOf('zelda') !== -1) {
+        G.Input.clearTyped();
+        if (G.Maps.secret.openRoof()) {
+          var roof = G.Maps.secret.roof;
+          secretPuff = { map: G.Maps.secret.id, x: roof.x, y: roof.y, t: 0 };
           playSecretSound('secretdoor.mp3', true);
         }
       }
@@ -1254,6 +1270,11 @@ var G = window.G = window.G || {};
     // want with your finger instead of hunting for the right button
     if (state === 'langselect') { langSelectTap(gx, gy); return; }
     if (state === 'charselect' && charSelectTap(gx, gy)) return;
+    // sideways room: tapping the man asks him, anywhere else is the button
+    if (state === 'error') {
+      if (!errorRoomClick(gx, gy)) G.Input.pressAction();
+      return;
+    }
     if (G.Dialogue.tapChoice(gx, gy)) return;
     // outside free play (title, dialogue, battle, menus...) a click is
     // simply the action button -- it advances whatever is on screen
@@ -1526,6 +1547,7 @@ var G = window.G = window.G || {};
     else if (st.goRoom) goCustomDoor(st.goRoom, st.pairIndex);
     else if (st.secretIn) enterSecret();
     else if (st.secretExit) leaveSecret();
+    else if (st.errorIn) enterErrorRoom();
     else if (st.exit) leaveRoom(st.roomId, st.exitIndex);
     else takeStairs(st);
   }
@@ -1657,6 +1679,108 @@ var G = window.G = window.G || {};
     // the student's head starts 8px above their tile; sit the eraser a couple
     // of pixels clear of their hair (drawPencil puts its base at ny + 16)
     G.Secret.drawPencil(ctx, sx, sy - 26, true);
+  }
+
+  // ---- the ERROR room ------------------------------------------------------
+  // Through the hole in the cave roof the game turns sideways. One screen, no
+  // camera, no jumping: walk right until the man in purple stops you, ask him,
+  // and he types out the only thing he ever says.
+  var errorRoom = null;         // {x, dir, moving, anim, asked, typed}
+  var ERROR_WALK = 74;          // px per second
+  var ERROR_TYPE = 11;          // letters per second
+
+  function enterErrorRoom() {
+    G.Audio.sfx('door');
+    transition = {
+      phase: 'out', t: 0, speed: 2.6,
+      onMid: function () {
+        state = 'error';
+        // just inside the left wall, facing the length of the room
+        errorRoom = { x: 10, dir: 'right', moving: false, anim: 0, asked: false, typed: 0 };
+      }
+    };
+  }
+
+  function leaveErrorRoom() {
+    G.Audio.sfx('door');
+    transition = {
+      phase: 'out', t: 0, speed: 2.6,
+      onMid: function () {
+        state = 'play';
+        errorRoom = null;
+        // back down the hole, standing just inside the cave under it
+        var roof = G.Maps.secret.roof;
+        currentMapId = G.Maps.secret.id;
+        player.x = roof.x * TS;
+        player.y = (roof.y + 1) * TS;
+        player.dir = 'down';
+        player.moving = false;
+        lastTriggerKey = roof.x + ',' + (roof.y + 1);
+      }
+    };
+  }
+
+  // his shoulder is as far right as anyone gets
+  function errorWall() { return G.ErrorRoom.ERROR_X - 13; }
+
+  function askError() {
+    if (!errorRoom || errorRoom.asked) return;
+    errorRoom.asked = true;
+    errorRoom.typed = 0;        // the letters arrive one at a time, in silence
+  }
+
+  function nearError() {
+    return errorRoom && errorRoom.x > errorWall() - 26;
+  }
+
+  function updateErrorRoom(dt) {
+    var e = errorRoom;
+    if (!e) return;
+    if (e.asked && e.typed < G.ErrorRoom.TOTAL_CHARS) e.typed += dt * ERROR_TYPE;
+
+    var held = G.Input.held;
+    var dx = 0;
+    if (held.left) { dx = -1; e.dir = 'left'; }
+    else if (held.right) { dx = 1; e.dir = 'right'; }
+    // up and down do nothing here on purpose: there is no jumping in this room
+    e.moving = !!dx;
+    if (dx) {
+      e.anim += dt * 7;
+      e.x += dx * ERROR_WALK * dt;
+      if (e.x > errorWall()) e.x = errorWall();
+      if (e.x < -20) { leaveErrorRoom(); return; }   // back out the way in
+    } else {
+      e.anim = 0;
+    }
+
+    if (G.Input.consumeAction() && nearError()) askError();
+    G.Input.consumeDanceKey();
+    G.Input.consumeRosterKey();
+    G.Input.clearTyped();
+  }
+
+  function drawErrorRoom() {
+    var e = errorRoom;
+    G.ErrorRoom.drawScene(ctx, SW, SH);
+    G.ErrorRoom.drawError(ctx);
+    if (e) {
+      var fset = playerFrames[e.dir] || playerFrames.right;
+      var frame = e.moving ? fset[1 + (Math.floor(e.anim) % 2)] : fset[0];
+      ctx.drawImage(frame, Math.round(e.x), G.ErrorRoom.FLOOR_Y - frame.height);
+      // the box stays shut until he is actually asked
+      if (e.asked) G.ErrorRoom.drawBox(ctx, font, Math.floor(e.typed));
+    }
+  }
+
+  // clicking the man himself counts as asking him, from anywhere in the room
+  function errorRoomClick(gx, gy) {
+    var ex = G.ErrorRoom.ERROR_X, eh = G.ErrorRoom.ERROR_H;
+    if (gx >= ex - 6 && gx <= ex + G.ErrorRoom.ERROR_W + 6 &&
+        gy >= G.ErrorRoom.FLOOR_Y - eh - 6 && gy <= G.ErrorRoom.FLOOR_Y + 6) {
+      askError();
+      return true;
+    }
+    return false;
   }
 
   var returnPoint = null; // where you were before your last door warp
@@ -5485,6 +5609,8 @@ var G = window.G = window.G || {};
       drawBattle();
     } else if (state === 'dunk') {
       drawDunk();
+    } else if (state === 'error') {
+      drawErrorRoom();
     } else {
       drawWorld();
       drawBanner();

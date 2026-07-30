@@ -1263,6 +1263,7 @@ var G = window.G = window.G || {};
     maps[SECRET_ID] = buildSecret();
     var secretSpot = findSecretSpot(maps.middle);
     var secretOpen = false;
+    var roofOpen = false;
 
     G.Maps = {
       all: maps, returns: returns, entries: entries, hallOf: hallOf,
@@ -1277,6 +1278,20 @@ var G = window.G = window.G || {};
         isOpen: function () { return secretOpen; },
         // put the cave back the way it was found (the pencil returns)
         restock: function () { stockSecret(maps[SECRET_ID]); },
+        // The secret inside the secret: ZELDA typed in the cave opens a hole
+        // in its roof, straight up from the old man, into the ERROR room.
+        roof: { x: 9, y: 1 },
+        roofIsOpen: function () { return roofOpen; },
+        openRoof: function () {
+          if (roofOpen) return false;
+          roofOpen = true;
+          var m = maps[SECRET_ID];
+          m.set(9, 0, 'caveblack');
+          m.set(9, 1, 'caveblack');
+          m.stairs['9,0'] = { errorIn: true };
+          m.stairs['9,1'] = { errorIn: true };
+          return true;
+        },
         // turn the bulletin board into a cave mouth. Returns false if the
         // secret is already open (or there was no board to open).
         reveal: function () {
