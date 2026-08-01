@@ -13,7 +13,6 @@ var G = window.G = window.G || {};
   var choiceIdx = 0;
   var inChoices = false;
   var onDone = null;
-  var blipTick = 0;
 
   function font(px) { return px + 'px "Press Start 2P", monospace'; }
 
@@ -131,14 +130,13 @@ var G = window.G = window.G || {};
     var total = totalChars();
     if (charCount < total) {
       charCount += 2;
-      blipTick++;
-      if (blipTick % 4 === 0) G.Audio.sfx('tick');
+      // no chiptune chatter under the letters any more: the talking sound
+      // in preparePage is the voice now, and the old tick doubled it up
       if (G.Input.consumeAction()) charCount = total; // skip typewriter
     } else if (G.Input.consumeAction()) {
       if (pageIdx < pages.length - 1) {
         pageIdx++;
-        preparePage(ctx);
-        G.Audio.sfx('blip');
+        preparePage(ctx);   // which is what makes the sound for the new screen
       } else if (choices) {
         inChoices = true;
         G.Audio.sfx('blip');
