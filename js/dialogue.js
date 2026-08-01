@@ -70,6 +70,9 @@ var G = window.G = window.G || {};
       G.Audio.sfx('chime'); // the intercom bings before it speaks
       p.pa = false;
     }
+    // every new screenful of words gets the talking sound: the first line
+    // somebody says, and each page turn after it
+    G.Audio.playTextBlip();
   }
 
   function totalChars() {

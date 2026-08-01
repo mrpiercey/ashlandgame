@@ -270,7 +270,20 @@ var G = window.G = window.G || {};
   // tiles thick on each side, and text run over it is unreadable.
   var TEXT_TOP = 42, TEXT_LEAD = 21;
   var TEXT_MARGIN = 2 * 16 + 4;   // the border, plus a little air
-  function drawText(g, fontFor, screenW, alpha) {
+
+  // how many letters there are to reveal, all lines counted together
+  function totalChars() {
+    return LINES.reduce(function (n, l) {
+      return n + (G.Lang ? G.Lang.t(l) : l).length;
+    }, 0);
+  }
+
+  // `chars` is how much of the line has been spoken so far; leave it out for
+  // the whole thing at once. Each line is measured at its FULL width and then
+  // drawn from the left edge of where it will finally sit, so the letters
+  // arrive one at a time in their proper places instead of the whole line
+  // sliding sideways as it grows.
+  function drawText(g, fontFor, screenW, alpha, chars) {
     var lines = LINES.map(function (l) { return G.Lang ? G.Lang.t(l) : l; });
     var px = 14;
     while (px > 7) {
@@ -283,18 +296,24 @@ var G = window.G = window.G || {};
       px--;
     }
     g.textBaseline = 'top';
-    g.textAlign = 'center';
+    g.textAlign = 'left';
     g.fillStyle = '#f8f8f8';
     g.globalAlpha = alpha === undefined ? 1 : alpha;
-    for (var i = 0; i < lines.length; i++) {
-      g.fillText(lines[i], screenW / 2, TEXT_TOP + i * TEXT_LEAD);
+    var left = (chars === undefined || chars === null) ? Infinity : Math.floor(chars);
+    for (var i = 0; i < lines.length && left > 0; i++) {
+      var full = lines[i];
+      var show = left >= full.length ? full : full.slice(0, left);
+      left -= full.length;
+      if (!show) continue;
+      var x = Math.round((screenW - g.measureText(full).width) / 2);
+      g.fillText(show, x, TEXT_TOP + i * TEXT_LEAD);
     }
     g.globalAlpha = 1;
-    g.textAlign = 'left';
   }
 
   G.Secret = {
     LINES: LINES,
+    totalChars: totalChars,
     PENCIL_H: PENCIL_H,
     oldManSprite: oldManSprite,
     pencilSprite: pencilSprite,

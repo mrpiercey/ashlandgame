@@ -26,7 +26,8 @@ var G = window.G = window.G || {};
   // therefore never count as the interact button
   var NOT_ACTION = {
     ShiftLeft: 1, ShiftRight: 1, KeyX: 1,        // run
-    KeyM: 1,                                     // mute
+    KeyM: 1,                                     // music on/off
+    KeyF: 1,                                     // sound effects on/off
     ControlLeft: 1, ControlRight: 1, AltLeft: 1, AltRight: 1,
     MetaLeft: 1, MetaRight: 1, OSLeft: 1, OSRight: 1,
     Tab: 1, CapsLock: 1, ContextMenu: 1, NumLock: 1, ScrollLock: 1,
@@ -43,6 +44,9 @@ var G = window.G = window.G || {};
     if (d) { press(d); e.preventDefault(); }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyX') held.run = true;
     if (e.code === 'KeyM') G.Audio.toggleMute();
+    // F, not N: 'n' is a letter of the "link" secret code, and typing it in
+    // must not flip the sound effects off halfway through
+    if (e.code === 'KeyF') G.Audio.toggleSfx();
     // TAB pulls up the ASHLAND STAFF roster (and puts it away again).
     // preventDefault matters twice over: TAB would otherwise walk the
     // browser's focus ring off the canvas and the game would go deaf.

@@ -1443,9 +1443,19 @@ var G = window.G = window.G || {};
     G.Dialogue.start([
       { name: name, text: opener }
     ].concat(brag.map(function (b) { return { name: name, text: b }; })).concat([
-      { name: name, text: 'Dance as long as you want! When you are ready to wrap up, just say the word.' }
+      { name: name, text: 'Dance as long as you want! Want me to put on a new song? Or when you are ready to wrap up, just say the word.' }
     ]), {
       choices: [
+        // he really does drop the next record in the crate
+        {
+          label: 'Play a new song!',
+          cb: function () {
+            G.Audio.nextPartyTrack();
+            G.Dialogue.start([
+              { name: name, text: 'SQUAWK! You got it -- spinning a fresh one RIGHT NOW!' }
+            ], { onDone: onClose });
+          }
+        },
         { label: 'Keep dancing!', cb: function () { if (onClose) onClose(); } },
         { label: 'Time to SOAR!', cb: function () { G.Game.finishParty(); } }
       ]

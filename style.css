@@ -43,9 +43,10 @@ html, body {
      whole-number scales on big screens) */
 }
 
-#mute-btn {
+/* two switches, stacked in the corner: the music (top) and the sound
+   effects (below it) */
+#mute-btn, #sfx-btn {
   position: fixed;
-  top: 8px;
   left: 8px;
   z-index: 20;
   width: 40px;
@@ -58,7 +59,9 @@ html, body {
   cursor: pointer;
   opacity: 0.85;
 }
-#mute-btn.muted { color: #667; text-decoration: line-through; }
+#mute-btn { top: 8px; }
+#sfx-btn { top: 54px; font-size: 15px; font-weight: bold; letter-spacing: 1px; }
+#mute-btn.muted, #sfx-btn.muted { color: #667; text-decoration: line-through; }
 
 #touch-controls {
   display: none;
@@ -119,12 +122,12 @@ body.touch #touch-controls { display: block; }
 .dbtn:active, #a-btn:active { filter: brightness(1.6); }
 /* the buttons give their own press feedback -- suppress the browser's
    grey tap box on top of it, and the focus ring a tap leaves behind */
-.dbtn, #a-btn, #mute-btn {
+.dbtn, #a-btn, #mute-btn, #sfx-btn {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   outline: none;
 }
-.dbtn:focus, #a-btn:focus, #mute-btn:focus { outline: none; }
+.dbtn:focus, #a-btn:focus, #mute-btn:focus, #sfx-btn:focus { outline: none; }
 
 /* Held upright, the game gets its own proper layout (stats stacked above
    and below by drawStackedHud), so there is nothing to apologise for and
@@ -173,4 +176,4 @@ body.portrait #a-btn {
   flex: 0 0 auto;
 }
 /* phones already have a volume rocker -- no need to spend screen on ours */
-body.touch #mute-btn { display: none; }
+body.touch #mute-btn, body.touch #sfx-btn { display: none; }

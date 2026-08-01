@@ -292,7 +292,7 @@ var G = window.G = window.G || {};
           var at = G.Maps.secret.at;
           if (at) secretPuff = { map: at.map, x: at.x, y: at.y, t: 0 };
           // the hallway theme steps aside for the door, then starts over
-          playSecretSound('secretdoor.mp3', true);
+          playSecretSound('secretdoor.webm', true);
         }
       }
     } else if (currentMapId === G.Maps.secret.id) {
@@ -303,7 +303,9 @@ var G = window.G = window.G || {};
         if (G.Maps.secret.openRoof()) {
           var roof = G.Maps.secret.roof;
           secretPuff = { map: G.Maps.secret.id, x: roof.x, y: roof.y, t: 0 };
-          playSecretSound('secretdoor.mp3', true);
+          // no ducking down here: there is no theme to step aside for, and
+          // bringing one back would break the cave's silence
+          playSecretSound('secretdoor.webm', false);
         }
       }
     } else {
@@ -336,6 +338,7 @@ var G = window.G = window.G || {};
     if (!pencilHold) movePlayer(dt);
     updateNpcs(dt);
     checkPencilStep();
+    updateCaveLine(dt);   // the old man's words landing one at a time
 
     // the lead Eddie queued during the battle. Only if the student is still
     // standing in the room where they caught it -- walk out and the moment
@@ -392,7 +395,7 @@ var G = window.G = window.G || {};
   dunkImg.src = 'richardsslam.png';
 
   // The secret stingers, each played straight off disk if the file is there:
-  // secretsound.mp3 for the cafeteria "hdd" sushi secret, secretdoor.mp3 when
+  // secretsound.webm for the cafeteria "hdd" sushi secret, secretdoor.webm when
   // the LINK code opens the cave. A missing file is remembered and skipped.
   // duckMusic holds the floor theme while the stinger plays, then starts it
   // again from the top. The timer is a safety net: if the clip never fires
@@ -407,7 +410,7 @@ var G = window.G = window.G || {};
   // returns the audio element (so a caller can time itself off the clip's
   // length), or null when there is no sound to play
   function playSecretSound(file, duckMusic) {
-    file = file || 'secretsound.mp3';
+    file = file || 'secretsound.webm';
     try {
       if (!secretAudio[file]) {
         secretAudio[file] = new Audio(file);
@@ -417,7 +420,8 @@ var G = window.G = window.G || {};
         });
       }
       if (secretAudio[file] === 'missing') return null;
-      var el = secretAudio[file];
+      // hand it to the audio module so the FX switch silences it too
+      var el = G.Audio.trackSfx(secretAudio[file], 1);
       el.onended = function () { if (duckMusic) unduck(); };
       if (duckMusic) {
         G.Audio.pauseBgm();
@@ -1590,6 +1594,7 @@ var G = window.G = window.G || {};
       out = { map: 'middle', x: sp.x, y: sp.y, dir: sp.dir };
     }
     endPencilHold();
+    stopCaveLine();
     warpTo(out.map, out.x, out.y, out.dir || 'down', G.Maps.all[out.map].name, 'door');
   }
 
@@ -1602,10 +1607,61 @@ var G = window.G = window.G || {};
     G.Audio.sfx('tick');
   }
 
-  // two centred white lines over the black, up for the whole visit
+  // ---- the old man's line --------------------------------------------------
+  // The words are spoken, not printed: the clip plays and the letters land in
+  // step with it, the last one arriving as the recording ends. Once they are
+  // all there they stay up for the rest of the visit.
+  var caveLine = null;   // {el, chars, total, t, secs}
+  var CAVE_LINE_SECS = 3.8;   // the clip's length, until the file says otherwise
+
+  function startCaveLine() {
+    stopCaveLine();
+    var el = G.Audio.playCaveLine();
+    caveLine = { el: el, chars: 0, total: G.Secret.totalChars(), t: 0, secs: CAVE_LINE_SECS };
+    if (el && isFinite(el.duration) && el.duration > 0) caveLine.secs = el.duration;
+    else if (el) {
+      // the length may not be known until the file has loaded -- take it then
+      el.addEventListener('loadedmetadata', function once() {
+        el.removeEventListener('loadedmetadata', once);
+        if (caveLine && caveLine.el === el && isFinite(el.duration) && el.duration > 0) {
+          caveLine.secs = el.duration;
+        }
+      });
+    }
+  }
+
+  function stopCaveLine() {
+    if (caveLine && caveLine.el) { try { caveLine.el.pause(); } catch (e) {} }
+    caveLine = null;
+  }
+
+  // cut him off but leave every word standing -- what happens when a student
+  // runs straight for the pencil before he has finished talking
+  function finishCaveLine() {
+    if (!caveLine) return;
+    if (caveLine.el) { try { caveLine.el.pause(); } catch (e) {} }
+    caveLine.chars = caveLine.total;
+  }
+
+  function updateCaveLine(dt) {
+    var cl = caveLine;
+    if (!cl || cl.chars >= cl.total) return;
+    cl.t += dt;
+    // ride the recording itself where we can, so the letters cannot drift out
+    // of step with it; the clock is the stand-in when it is silent or blocked
+    var el = cl.el;
+    var frac = cl.t / cl.secs;
+    if (el && !el.paused && isFinite(el.duration) && el.duration > 0) {
+      frac = el.currentTime / el.duration;
+    }
+    // never run backwards, and never overshoot the end
+    cl.chars = Math.max(cl.chars, Math.min(cl.total, frac * cl.total));
+  }
+
+  // the line, as far as it has been spoken; up for the whole visit once done
   function drawSecretText() {
     if (!map().isSecret) return;
-    G.Secret.drawText(ctx, font, SW, 1);
+    G.Secret.drawText(ctx, font, SW, 1, caveLine ? caveLine.chars : undefined);
   }
 
   // Touch the pencil and the student turns to face you and holds it over their
@@ -1618,21 +1674,26 @@ var G = window.G = window.G || {};
     clearTimeout(pencilTimer);
     pencilTimer = null;
     pencilHold = null;
+    if (pencilEnded) { pencilEnded(); pencilEnded = null; }
   }
 
-  // The pose runs the length of the fanfare MINUS a beat, so the arms come
-  // down just before the music finishes instead of hanging there after it.
-  var HOLD_TRIM = 0.5;       // seconds shaved off the end
-  var HOLD_FALLBACK = 1.6;   // if the clip's length is unknown or it can't play
-  var HOLD_CAP = 6;
+  // The pose lasts exactly as long as the fanfare: the arms stay up until the
+  // clip has played all the way out, and come down on the last note.
+  var HOLD_FALLBACK = 1.9;   // if the clip's length is unknown or it can't play
+  var HOLD_CAP = 12;
+  var holdStart = 0;         // when the arms went up, for re-timing
+  var pencilEnded = null;    // detaches the clip's own end-of-play handler
 
+  // Timed from when the arms first went up, NOT from now -- otherwise
+  // learning the clip's real length partway through would hand the pose a
+  // whole fresh countdown and leave it standing there long after the music.
   function holdPencilFor(el) {
     var secs = HOLD_FALLBACK;
-    if (el && isFinite(el.duration) && el.duration > 0) {
-      secs = Math.max(0.8, el.duration - HOLD_TRIM);
-    }
+    if (el && isFinite(el.duration) && el.duration > 0) secs = el.duration;
+    var elapsed = (performance.now() - holdStart) / 1000;
+    var left = Math.max(0.1, Math.min(HOLD_CAP, secs) - elapsed);
     clearTimeout(pencilTimer);
-    pencilTimer = setTimeout(endPencilHold, Math.min(HOLD_CAP, secs) * 1000);
+    pencilTimer = setTimeout(endPencilHold, left * 1000);
   }
 
   function takePencil(n) {
@@ -1646,15 +1707,23 @@ var G = window.G = window.G || {};
     autoWalk = null;
     pencilHold = {};
     secretSpent = true;   // and he says nothing more this visit
-    // the fanfare gets the room to itself; the music returns when it ends
-    var el = playSecretSound('secretsound.mp3', true);
+    // his line has had its moment; the fanfare gets the cave to itself
+    finishCaveLine();
+    holdStart = performance.now();
+    var el = G.Audio.playPencilFanfare();
     holdPencilFor(el);
-    // the clip's length may not be known until it has loaded -- re-time then
-    if (el && !(isFinite(el.duration) && el.duration > 0)) {
-      el.addEventListener('loadedmetadata', function once() {
-        el.removeEventListener('loadedmetadata', once);
-        if (pencilHold) holdPencilFor(el);
-      });
+    if (el) {
+      // the surest end is the clip itself saying it is done
+      var onEnded = function () { endPencilHold(); };
+      el.addEventListener('ended', onEnded);
+      pencilEnded = function () { el.removeEventListener('ended', onEnded); };
+      // its length may not be known until it has loaded -- re-time then
+      if (!(isFinite(el.duration) && el.duration > 0)) {
+        el.addEventListener('loadedmetadata', function once() {
+          el.removeEventListener('loadedmetadata', once);
+          if (pencilHold) holdPencilFor(el);
+        });
+      }
     }
   }
 
@@ -1691,31 +1760,47 @@ var G = window.G = window.G || {};
 
   function enterErrorRoom() {
     G.Audio.sfx('door');
+    stopCaveLine();
     transition = {
       phase: 'out', t: 0, speed: 2.6,
       onMid: function () {
         state = 'error';
         // just inside the left wall, facing the length of the room
         errorRoom = { x: 10, dir: 'right', moving: false, anim: 0, asked: false, typed: 0 };
+        // his house has a record on, and it plays until they leave
+        G.Audio.playErrorMusic();
       }
     };
   }
 
   function leaveErrorRoom() {
     G.Audio.sfx('door');
+    G.Audio.stopErrorMusic();
+    // Out of the ERROR room is all the way out: the student comes back to the
+    // hallway outside the door they went through in the first place, not down
+    // into the cave again.
+    var out = G.Maps.secret.exitTo || returnPoint;
+    if (!out) {
+      var sp = G.Maps.all.middle.spawn;
+      out = { map: 'middle', x: sp.x, y: sp.y, dir: sp.dir };
+    }
+    endPencilHold();
     transition = {
       phase: 'out', t: 0, speed: 2.6,
       onMid: function () {
         state = 'play';
         errorRoom = null;
-        // back down the hole, standing just inside the cave under it
-        var roof = G.Maps.secret.roof;
-        currentMapId = G.Maps.secret.id;
-        player.x = roof.x * TS;
-        player.y = (roof.y + 1) * TS;
-        player.dir = 'down';
+        currentMapId = out.map;
+        player.x = out.x * TS;
+        player.y = out.y * TS;
+        player.dir = out.dir || 'down';
         player.moving = false;
-        lastTriggerKey = roof.x + ',' + (roof.y + 1);
+        player.anim = 0;
+        unstickPlayer();
+        lastTriggerKey = Math.floor((player.x + 8) / TS) + ',' + Math.floor((player.y + 11) / TS);
+        resetFollowers();
+        showBanner(G.Maps.all[out.map].name);
+        G.Audio.playFloor(G.Maps.all[out.map].floor || out.map);
       }
     };
   }
@@ -1898,7 +1983,15 @@ var G = window.G = window.G || {};
         // another room's door shouldn't tick off a floor they never saw
         var seen = (mm.isHall || mm.outdoor) ? mapId : G.Maps.hallOf(mapId);
         if (seen) floorsSeen[seen] = true;
-        G.Audio.playFloor(floor);
+        if (mm.isSecret) {
+          // The cave keeps its silence: no floor theme reaches in here. All
+          // it has is the old man's line -- which starts now, with the words
+          // -- and the fanfare when the pencil goes up.
+          G.Audio.hushFloor();
+          startCaveLine();
+        } else {
+          G.Audio.playFloor(floor);
+        }
       }
     };
   }
@@ -2828,7 +2921,8 @@ var G = window.G = window.G || {};
         s: 2 + (i % 3)
       });
     }
-    G.Audio.sfx('victory');
+    // the four letters are home: the ending theme takes the last screen
+    G.Audio.playEnding();
   }
 
   function startEnding() {
@@ -3629,7 +3723,7 @@ var G = window.G = window.G || {};
   }
 
   // ---- Mr. Richards's NBA-Jam "he's on fire" dunk cutscene ----------------
-  // phase boundaries, in seconds, all paced to the ~20s jammusic.mp3:
+  // phase boundaries, in seconds, all paced to the ~20s jammusic.webm:
   //   0..walk    fade in; he stands watching the court, the jam music playing
   //   ..reach    strides out to the free-throw line, ball hovering
   //   ..ignite   plants on the line -> flames erupt ("HE'S ON FIRE!", music ducks)
@@ -3669,7 +3763,7 @@ var G = window.G = window.G || {};
 
   var JAM_DUCK = 0.34;   // how far the jam music drops once he's on fire
   var DUNK_FADE = 1.4;   // screen/sound fade-in and fade-out length, seconds
-  var BOOM_DUR = 5.8;    // length of boomshakalasound.mp3 -- the scene ends when it does
+  var BOOM_DUR = 5.8;    // length of boomshakalasound.webm -- the scene ends when it does
 
   function startDunk() {
     // the jam track backs the whole thing; the scene fades out the moment the
@@ -3686,13 +3780,13 @@ var G = window.G = window.G || {};
     // beat-synced one-shots over the jam track
     if (!dunk.fired && t >= DK.ignite) {
       dunk.fired = true;
-      G.Audio.playDunkClip('hesonfireclip.mp3', 0.95);
+      G.Audio.playDunkClip('hesonfireclip.webm', 0.95);
       G.Audio.setJamVolume(JAM_DUCK);                 // duck the music once he's lit
     }
-    if (!dunk.whoaed && t >= DK.launch) { dunk.whoaed = true; G.Audio.playDunkClip('whoa.mp3', 0.95); }
+    if (!dunk.whoaed && t >= DK.launch) { dunk.whoaed = true; G.Audio.playDunkClip('whoa.webm', 0.95); }
     if (!dunk.slammed && t >= DK.slam) {
       dunk.slammed = true;
-      G.Audio.playDunkClip('boomshakalasound.mp3', 0.95);
+      G.Audio.playDunkClip('boomshakalasound.webm', 0.95);
       spawnGlass();                                    // shatter the backboard
     }
     if (dunk.glass) updateGlass(dt);
