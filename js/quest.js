@@ -1421,6 +1421,19 @@ var G = window.G = window.G || {};
     G.Dialogue.start([{ name: name, text: lines[k % lines.length] }], { onDone: onClose });
   }
 
+  // The principal, waiting at the front of the gym. She is the one who sent
+  // the student out after the letters, so hers is the proper thank you --
+  // and she points them at Eddie for when they have danced enough, which is
+  // the only way anyone would know he is how you wrap the night up.
+  function walkerPartyDialogue(onClose) {
+    var name = 'MRS. WALKER';
+    G.Dialogue.start([
+      { name: name, text: 'Thank you SO much for finding our missing SOAR letters!' },
+      { name: name, text: 'Every one of them is back up on the banner where it belongs, and it is all because of YOU.' },
+      { name: name, text: 'Now go on and dance as long as you like! When you have had your fill, tell EDDIE and he will wrap up the night.' }
+    ], { onDone: onClose });
+  }
+
   function djDialogue(onClose) {
     // below tier 3 he has no decks at all -- he is just an eagle having a
     // lovely time, and he says so
@@ -1665,6 +1678,7 @@ var G = window.G = window.G || {};
     noteProgress: noteProgress,
     partyDialogue: partyDialogue,
     djDialogue: djDialogue,
+    walkerPartyDialogue: walkerPartyDialogue,
     setPartyMode: setPartyMode
   };
 })();

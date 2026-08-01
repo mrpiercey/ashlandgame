@@ -2752,6 +2752,7 @@ var G = window.G = window.G || {};
           if (party) {
             // party guests only have one thing to say: THANK YOU
             if (n.dj || n.kind === 'eagle') G.Quest.djDialogue(null);
+            else if (n.host) G.Quest.walkerPartyDialogue(null);
             else G.Quest.partyDialogue(n, null);
             return;
           }
@@ -3150,6 +3151,7 @@ var G = window.G = window.G || {};
   var party = null;    // {t, savedNpcs, tier, confetti, fireworks}
   var partyFly = null; // {t, sparkles, ending}
   var BOOTH = { x0: 41, x1: 43, y: 18 }; // DJ table tiles; startPartyRoom repositions
+  var WALKER_ID = 'm-walker';            // the principal, who hosts the party
 
   // everyone who counts toward STAFF MET: every teacher-record (classroom
   // teachers, office staff, roaming custodians...) plus Officer Garth AND
@@ -3411,8 +3413,28 @@ var G = window.G = window.G || {};
       dancers.push({ kind: 'eagle', x: 33, y: 16, dancing: true });
     }
 
+    // The principal takes the front of the gym, in front of the curtain,
+    // rather than dancing in the crowd -- she is the one who asked for the
+    // letters back, so she is the one waiting there to say thank you. The
+    // blowout parks its big rig front-and-centre, so she steps to the side
+    // of it on the night that happens.
+    var walkerSpot = tier >= 4 ? { x: 28, y: 11 } : { x: 32, y: 11 };
+    var walkerHere = !!met[WALKER_ID];
+    if (walkerHere) {
+      dancers.push({
+        kind: 'teacher', roomId: WALKER_ID, host: true,
+        x: walkerSpot.x, y: walkerSpot.y,
+        px: walkerSpot.x * TS, py: walkerSpot.y * TS,
+        dir: 'down', dancing: true, anim: 0,
+        dance: { phase: 0, style: 1, speed: 5 }
+      });
+    }
+
     // the guest list is everyone the student actually MET on their adventure
-    var ids = Object.keys(G.TEACHERS).filter(function (id) { return met[id]; });
+    // (minus the principal, who is already up front)
+    var ids = Object.keys(G.TEACHERS).filter(function (id) {
+      return met[id] && !(walkerHere && id === WALKER_ID);
+    });
     if (met['__officer__']) ids.push('__officer__');
 
     var slots = [];
@@ -3423,6 +3445,9 @@ var G = window.G = window.G || {};
         if (tier >= 4 && sy <= 13 && sx >= BOOTH.x0 - 3 && sx <= BOOTH.x1 + 2) continue; // speaker stacks
         if (tier < 3 && Math.abs(sx - 33) <= 1 && Math.abs(sy - 16) <= 1) continue;      // Eddie's spot
         if (Math.abs(sx - 23) <= 1 && Math.abs(sy - 21) <= 1) continue;                  // player spawn
+        // room to stand in front of the principal, so nobody can dance
+        // their way between her and the student who came to see her
+        if (walkerHere && Math.abs(sx - walkerSpot.x) <= 1 && sy <= walkerSpot.y + 2) continue;
         if (m.get(sx, sy) !== 'gymfloor') continue;
         slots.push([sx, sy]);
       }
