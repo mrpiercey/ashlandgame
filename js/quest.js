@@ -1442,8 +1442,15 @@ var G = window.G = window.G || {};
     var opener = tier >= 3
       ? 'SQUAWK-SQUAWK! DJ EDDIE ON THE ONES AND TWOS! This party is all for YOU, letter-finder!'
       : 'SQUAWK! You did it! Look at everybody dancing -- this party is all for YOU, letter-finder!';
+    // he counts the room rather than guessing at it: the blowout starts at
+    // fifty but the roster runs past that, and saying "fifty" to a student
+    // who shook every last hand sells them short
+    var crowd = (G.Game && G.Game.countMet) ? G.Game.countMet() : 0;
+    var everyone = !!(G.Game && G.Game.allStaffMet && G.Game.allStaffMet());
     var brag = tier >= 4
-      ? ['FIFTY of us on one dance floor because YOU went and said hello!',
+      ? [everyone
+        ? G.Lang.f('ALL {n} of us on one dance floor because YOU went and said hello!', { n: crowd })
+        : G.Lang.f('{n} of us on one dance floor because YOU went and said hello!', { n: crowd }),
         'That is why the BIG RIG came out, the fireworks are up, and there are SOMERSAULTS! SQUAWK!']
       : tier === 3
         ? ['Look at this crowd! You met enough of us that I hauled my decks down here.',
