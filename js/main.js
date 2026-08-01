@@ -2843,7 +2843,13 @@ var G = window.G = window.G || {};
   var previewEnding = null;
 
   function startWalkerPreview(n) {
-    var ids = Object.keys(G.TEACHERS).concat(['__officer__']);
+    // Officer Garth and Eddie round out the roster, so ?ending=all really is
+    // all of them and the sidebar reads 59/59.
+    var ids = Object.keys(G.TEACHERS).concat(['__officer__', '__eddie__']);
+    // However few the link asks for, the principal is one of them: no real
+    // game ever reaches this moment without her, since she is the one who
+    // sends the student out after the letters in the first place.
+    met[WALKER_ID] = true;
     for (var i = 0; i < Math.min(n, ids.length); i++) met[ids[i]] = true;
     G.Quest.LETTERS.forEach(function (l) { G.Quest.collect(l); });
     G.Quest.setWalkerMet(true);
