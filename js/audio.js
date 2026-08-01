@@ -429,9 +429,11 @@ var G = window.G = window.G || {};
   // shuffled into a fresh order each time the party starts, and when a song
   // runs out the next one drops -- so the ending never sounds the same twice.
   // A track that turns out not to be on disk is dropped from the crate.
+  // (there is no dance7: it was the same recording as dance3, and one song
+  // turning up twice a lap is exactly what the shuffle is here to avoid)
   var PARTY_TRACKS = [
     'dancemusic.webm', 'dance2.webm', 'dance3.webm',
-    'dance4.webm', 'dance5.webm', 'dance6.webm', 'dance7.webm'
+    'dance4.webm', 'dance5.webm', 'dance6.webm'
   ];
   var partyEls = {};
   var partyOrder = [];     // this party's running order
