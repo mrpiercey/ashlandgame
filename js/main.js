@@ -2825,6 +2825,20 @@ var G = window.G = window.G || {};
     // plain floor stays quiet: facts are only for real objects (and walls),
     // never the tile you could simply walk onto
     if (G.Tiles.isWalkable(ft)) return;
+    // the secret bulletin board (the one Eddie hovers near) reads like any
+    // other board first -- then drops a nudge, and the capital LINK is the
+    // whole hint: type it right here in this hallway
+    var sat = G.Maps.secret.at;
+    if (sat && !G.Maps.secret.isOpen() && currentMapId === sat.map &&
+        px + dx === sat.x && py + dy === sat.y) {
+      var bf = FACTS[FACT_ALIAS[ft] || ft];
+      G.Audio.sfx('tick');
+      G.Dialogue.start([
+        { text: bf ? bf[0] : 'A bulletin board, ready for amazing student work.' },
+        { text: 'Hopefully you can LINK what you learned last year!' }
+      ]);
+      return;
+    }
     var factKey = FACT_ALIAS[ft] || ft;
     var facts = FACTS[factKey];
     if (facts) {
