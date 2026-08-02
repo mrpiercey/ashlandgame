@@ -63,6 +63,37 @@ html, body {
 #sfx-btn { top: 54px; font-size: 15px; font-weight: bold; letter-spacing: 1px; }
 #mute-btn.muted, #sfx-btn.muted { color: #667; text-decoration: line-through; }
 
+/* the volume slider, which slides out beside whichever button was clicked */
+#vol-pop {
+  position: fixed;
+  left: 54px;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border: 2px solid #fff;
+  border-radius: 6px;
+  background: #14522f;
+  opacity: 0.95;
+}
+#vol-pop[hidden] { display: none; }
+#vol-label {
+  font-family: "Press Start 2P", monospace;
+  font-size: 8px;
+  color: #f7d84d;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+#vol-range {
+  width: 110px;
+  accent-color: #f7d84d;   /* the game's gold, on the browser's own slider */
+  cursor: pointer;
+}
+/* phones already have a volume rocker -- no need to spend screen on ours */
+body.touch #vol-pop { display: none; }
+
 #touch-controls {
   display: none;
   position: fixed;

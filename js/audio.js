@@ -5,11 +5,25 @@ var G = window.G = window.G || {};
   var ctx = null;
   var master = null;
   // Two independent switches: the songs, and the beeps/boops. Either can be
-  // off on its own, and both are remembered between visits.
+  // off on its own, each has its own volume, and all four are remembered
+  // between visits.
   var musicMuted = localStorage.getItem('ashland-mute') === '1';
   var sfxMuted = localStorage.getItem('ashland-sfx-mute') === '1';
+  var musicVol = readVol('ashland-music-vol');
+  var sfxVol = readVol('ashland-sfx-vol');
   var bgmTimer = null;
   var started = false;
+
+  function readVol(key) {
+    var v = parseFloat(localStorage.getItem(key));
+    return (isFinite(v) && v >= 0 && v <= 1) ? v : 1;   // full blast by default
+  }
+
+  // Every volume in the game goes through one of these two, so the sliders
+  // reach the lot: each sound keeps its own balance against the others and
+  // the slider scales the whole channel underneath it.
+  function mv(base) { return musicMuted ? 0 : base * musicVol; }
+  function sv(base) { return sfxMuted ? 0 : base * sfxVol; }
 
   // The synthesized audio runs through two buses hanging off the master, so
   // the chiptune fallback tune and the sound effects can be silenced apart.
@@ -28,10 +42,10 @@ var G = window.G = window.G || {};
       master.gain.value = 0.16;
       master.connect(ctx.destination);
       musicGain = ctx.createGain();
-      musicGain.gain.value = musicMuted ? 0 : 1;
+      musicGain.gain.value = mv(1);
       musicGain.connect(master);
       sfxGain = ctx.createGain();
-      sfxGain.gain.value = sfxMuted ? 0 : 1;
+      sfxGain.gain.value = sv(1);
       sfxGain.connect(master);
     }
     if (ctx.state === 'suspended') ctx.resume();
@@ -178,7 +192,7 @@ var G = window.G = window.G || {};
       el.addEventListener('error', fallBack);
       trackEls[floor] = el;
     }
-    el.volume = musicMuted ? 0 : 0.55;
+    el.volume = mv(0.55);
     bgmEl = el;
     var p = el.play();
     if (p && p.catch) p.catch(function () { armRetry(); });
@@ -226,7 +240,7 @@ var G = window.G = window.G || {};
       var p = bgmEl.play();             // ...at the point it left off
       if (p && p.catch) p.catch(function () { armRetry(); });
     } catch (e) { return; }
-    fadeBgm(musicMuted ? 0 : BGM_VOL, 420);
+    fadeBgm(mv(BGM_VOL), 420);
   }
 
   function startBgm() {
@@ -261,15 +275,13 @@ var G = window.G = window.G || {};
       clipEls[file] = el;
       trackSfx(el, vol);          // follows the sound-effects switch from here
     }
-    el.volume = sfxMuted ? 0 : vol;
+    el.volume = sv(vol);
     try { el.currentTime = 0; } catch (e) {}
     var p = el.play();
     if (p && p.catch) p.catch(function () {});
     return el;
   }
 
-  // every door in the school, and the stairwell doors too
-  function playDoor() { return clip('doorsoundeffect.webm', 0.7); }
   // one per line of talk: when somebody speaks, and on every page turn
   function playTextBlip() { return clip('text.webm', 0.55); }
   // the old man's one line, which the words in the cave are timed to
@@ -288,7 +300,7 @@ var G = window.G = window.G || {};
       errorEl.loop = true;
       errorEl.addEventListener('error', function () { errorEl = 'missing'; });
     }
-    errorEl.volume = musicMuted ? 0 : 0.5;
+    errorEl.volume = mv(0.5);
     try { errorEl.currentTime = 0; } catch (e) {}
     var p = errorEl.play();
     if (p && p.catch) p.catch(function () {});
@@ -311,7 +323,7 @@ var G = window.G = window.G || {};
       endingEl.loop = true;   // however long they sit and look at it
       endingEl.addEventListener('error', function () { endingEl = 'missing'; });
     }
-    endingEl.volume = musicMuted ? 0 : 0.55;
+    endingEl.volume = mv(0.55);
     try { endingEl.currentTime = 0; } catch (e) {}
     var p = endingEl.play();
     if (p && p.catch) p.catch(function () {});
@@ -333,7 +345,7 @@ var G = window.G = window.G || {};
       titleEl.addEventListener('error', function () { titleEl = 'missing'; });
     }
     if (titleEl === 'missing') return;
-    titleEl.volume = musicMuted ? 0 : 0.55;
+    titleEl.volume = mv(0.55);
     bgmEl = titleEl; // so the autoplay retry restarts THIS track
     var p = titleEl.play();
     if (p && p.catch) p.catch(function () { armRetry(); });
@@ -358,7 +370,7 @@ var G = window.G = window.G || {};
         if (bgmEl && !fellBack) { var p0 = bgmEl.play(); if (p0 && p0.catch) p0.catch(function () {}); }
       });
     }
-    battleEl.volume = musicMuted ? 0 : 0.55;
+    battleEl.volume = mv(0.55);
     try { battleEl.currentTime = 0; } catch (e) {}
     var p = battleEl.play();
     if (p && p.catch) p.catch(function () {});
@@ -384,7 +396,7 @@ var G = window.G = window.G || {};
         victoryEl.loop = true;
         victoryEl.addEventListener('error', function () { victoryEl = 'missing'; });
       }
-      victoryEl.volume = musicMuted ? 0 : 0.55;
+      victoryEl.volume = mv(0.55);
       try { victoryEl.currentTime = 0; } catch (e) {}
       var p = victoryEl.play();
       if (p && p.catch) p.catch(function () {});
@@ -420,7 +432,7 @@ var G = window.G = window.G || {};
       flightEl.addEventListener('error', function () { flightEl = 'missing'; });
     }
     if (flightEl === 'missing') return;
-    flightEl.volume = musicMuted ? 0 : 0.55;
+    flightEl.volume = mv(0.55);
     try { flightEl.currentTime = 0; } catch (e) {}
     var p = flightEl.play();
     if (p && p.catch) p.catch(function () {});
@@ -473,7 +485,7 @@ var G = window.G = window.G || {};
       var el = partyTrackEl(file);
       if (el) {
         partyEl = el;
-        el.volume = musicMuted ? 0 : 0.55;
+        el.volume = mv(0.55);
         try { el.currentTime = 0; } catch (e) {}
         var p = el.play();
         if (p && p.catch) p.catch(function () {});
@@ -524,12 +536,12 @@ var G = window.G = window.G || {};
       dollyEl.addEventListener('error', function () {
         dollyEl = new Audio('dancemusic.webm');
         dollyEl.loop = true;
-        dollyEl.volume = musicMuted ? 0 : 0.65;
+        dollyEl.volume = mv(0.65);
         var p2 = dollyEl.play();
         if (p2 && p2.catch) p2.catch(function () {});
       });
     }
-    dollyEl.volume = musicMuted ? 0 : 0.65;
+    dollyEl.volume = mv(0.65);
     try { dollyEl.currentTime = 0; } catch (e) {}
     var p = dollyEl.play();
     if (p && p.catch) p.catch(function () {});
@@ -548,7 +560,7 @@ var G = window.G = window.G || {};
       rimshotEl = new Audio('rimshot_01.webm');
       rimshotEl.addEventListener('error', function () { rimshotEl = 'missing'; });
     }
-    rimshotEl.volume = sfxMuted ? 0 : 0.6;
+    rimshotEl.volume = sv(0.6);
     try { rimshotEl.currentTime = 0; } catch (e) {}
     var p = rimshotEl.play();
     if (p && p.catch) p.catch(function () {});
@@ -565,7 +577,7 @@ var G = window.G = window.G || {};
       dunkRoarEl = new Audio('dunkroar.mp3');
       dunkRoarEl.addEventListener('error', function () { dunkRoarEl = 'missing'; });
     }
-    dunkRoarEl.volume = sfxMuted ? 0 : 0.6;
+    dunkRoarEl.volume = sv(0.6);
     try { dunkRoarEl.currentTime = 0; } catch (e) {}
     var p = dunkRoarEl.play();
     if (p && p.catch) p.catch(function () { dunkRoarEl = 'missing'; sfx('crowdRoar'); });
@@ -588,14 +600,14 @@ var G = window.G = window.G || {};
       jamEl = new Audio('jammusic.webm');
       jamEl.addEventListener('error', function () { jamEl = 'missing'; });
     }
-    jamEl.volume = musicMuted ? 0 : jamBaseVol;
+    jamEl.volume = mv(jamBaseVol);
     try { jamEl.currentTime = 0; } catch (e) {}
     var p = jamEl.play(); if (p && p.catch) p.catch(function () {});
     var d = jamEl.duration;
     return (d && isFinite(d) && d > 0) ? d : 20;
   }
   function setJamVolume(v) {
-    if (jamEl && jamEl !== 'missing') jamEl.volume = musicMuted ? 0 : Math.max(0, v);
+    if (jamEl && jamEl !== 'missing') jamEl.volume = mv(Math.max(0, v));
   }
   function playDunkClip(file, vol) {
     var el = dunkClips[file];
@@ -605,7 +617,7 @@ var G = window.G = window.G || {};
       el.addEventListener('error', function () { dunkClips[file] = 'missing'; });
       dunkClips[file] = el;
     }
-    el.volume = sfxMuted ? 0 : (vol || 0.85);
+    el.volume = sv((vol || 0.85));
     try { el.currentTime = 0; } catch (e) {}
     var p = el.play(); if (p && p.catch) p.catch(function () {});
   }
@@ -624,6 +636,7 @@ var G = window.G = window.G || {};
   // floor as the last step dies away. Returns how long the clip runs (or 0 if
   // it will not play), which is what paces the transition in main.js.
   var stairEl = null;
+  var STAIR_VOL = 0.325;    // half what it used to be: it was walking over the room
   var STAIR_FALLBACK = 2.1; // the clip is ~2.1s; used until metadata loads
   // fetched up front so the FIRST trip upstairs knows its real length and
   // starts instantly, instead of falling back to the estimate
@@ -640,7 +653,7 @@ var G = window.G = window.G || {};
       stairEl = new Audio('stair.webm');
       stairEl.addEventListener('error', function () { stairEl = 'missing'; });
     }
-    stairEl.volume = sfxMuted ? 0 : 0.65;
+    stairEl.volume = sv(STAIR_VOL);
     try { stairEl.currentTime = 0; } catch (e) {}
     var p = stairEl.play();
     if (p && p.catch) p.catch(function () {});
@@ -725,12 +738,52 @@ var G = window.G = window.G || {};
   };
 
   function sfx(name) {
-    // the door has a real recording now; if the file is missing the old
-    // two-note chiptune still answers, so every door always says something
-    if (name === 'door' && playDoor()) return;
+    // Doors open in silence. The stairwell keeps its footsteps -- that clip
+    // is paced to the fade between floors and would be missed -- but an
+    // ordinary doorway makes no noise at all now.
+    if (name === 'door') return;
     if (!ensure()) return;
     var fn = SFX[name];
     if (fn) fn(ctx.currentTime + 0.01);
+  }
+
+  // Push the current music setting out to everything that is already loaded.
+  // One place does the lot, so the mute switch and the slider cannot drift
+  // apart from each other.
+  function applyMusic() {
+    if (musicGain) musicGain.gain.value = mv(1);
+    Object.keys(trackEls).forEach(function (f) { trackEls[f].volume = mv(BGM_VOL); });
+    if (battleEl && battleEl !== 'missing') battleEl.volume = mv(0.55);
+    if (titleEl && titleEl !== 'missing') titleEl.volume = mv(0.55);
+    if (victoryEl && victoryEl !== 'missing') victoryEl.volume = mv(0.55);
+    if (flightEl && flightEl !== 'missing') flightEl.volume = mv(0.55);
+    Object.keys(partyEls).forEach(function (f) {
+      if (partyEls[f] && partyEls[f] !== 'missing') partyEls[f].volume = mv(0.55);
+    });
+    if (dollyEl) dollyEl.volume = mv(0.65);
+    if (jamEl && jamEl !== 'missing') jamEl.volume = mv(jamBaseVol);
+    if (errorEl && errorEl !== 'missing') errorEl.volume = mv(0.5);
+    if (endingEl && endingEl !== 'missing') endingEl.volume = mv(0.55);
+    var btn = document.getElementById('mute-btn');
+    if (btn) btn.classList.toggle('muted', musicMuted || musicVol <= 0);
+  }
+
+  // the same, for the one-shot clips: rimshots, footsteps, the crowd, hollers
+  function applySfx() {
+    if (sfxGain) sfxGain.gain.value = sv(1);
+    if (rimshotEl && rimshotEl !== 'missing') rimshotEl.volume = sv(0.6);
+    if (dunkRoarEl && dunkRoarEl !== 'missing') dunkRoarEl.volume = sv(0.6);
+    Object.keys(dunkClips).forEach(function (k) {
+      if (dunkClips[k] && dunkClips[k] !== 'missing') dunkClips[k].volume = sv(0.85);
+    });
+    if (stairEl && stairEl !== 'missing') stairEl.volume = sv(STAIR_VOL);
+    // clips this file loaded by name, and clips other files own (the secret
+    // stingers), all follow along too
+    extraSfxEls.forEach(function (r) {
+      if (r.el) r.el.volume = sv(r.vol);
+    });
+    var btn = document.getElementById('sfx-btn');
+    if (btn) btn.classList.toggle('muted', sfxMuted || sfxVol <= 0);
   }
 
   function setMuted(m) {
@@ -738,40 +791,32 @@ var G = window.G = window.G || {};
     clearInterval(fadeTimer);   // a fade in flight must not undo the mute
     fadeTimer = null;
     localStorage.setItem('ashland-mute', m ? '1' : '0');
-    if (musicGain) musicGain.gain.value = m ? 0 : 1;
-    Object.keys(trackEls).forEach(function (f) { trackEls[f].volume = m ? 0 : 0.55; });
-    if (battleEl && battleEl !== 'missing') battleEl.volume = m ? 0 : 0.55;
-    if (titleEl && titleEl !== 'missing') titleEl.volume = m ? 0 : 0.55;
-    if (victoryEl && victoryEl !== 'missing') victoryEl.volume = m ? 0 : 0.55;
-    if (flightEl && flightEl !== 'missing') flightEl.volume = m ? 0 : 0.55;
-    Object.keys(partyEls).forEach(function (f) {
-      if (partyEls[f] && partyEls[f] !== 'missing') partyEls[f].volume = m ? 0 : 0.55;
-    });
-    if (dollyEl) dollyEl.volume = m ? 0 : 0.65;
-    if (jamEl && jamEl !== 'missing') jamEl.volume = m ? 0 : jamBaseVol;
-    if (errorEl && errorEl !== 'missing') errorEl.volume = m ? 0 : 0.5;
-    if (endingEl && endingEl !== 'missing') endingEl.volume = m ? 0 : 0.55;
-    var btn = document.getElementById('mute-btn');
-    if (btn) btn.classList.toggle('muted', m);
+    applyMusic();
   }
 
-  // the one-shot clips: rimshots, footsteps, the crowd, the dunk hollers
   function setSfxMuted(m) {
     sfxMuted = m;
     localStorage.setItem('ashland-sfx-mute', m ? '1' : '0');
-    if (sfxGain) sfxGain.gain.value = m ? 0 : 1;
-    if (rimshotEl && rimshotEl !== 'missing') rimshotEl.volume = m ? 0 : 0.6;
-    if (dunkRoarEl && dunkRoarEl !== 'missing') dunkRoarEl.volume = m ? 0 : 0.6;
-    Object.keys(dunkClips).forEach(function (k) {
-      if (dunkClips[k] && dunkClips[k] !== 'missing') dunkClips[k].volume = m ? 0 : 0.85;
-    });
-    if (stairEl && stairEl !== 'missing') stairEl.volume = m ? 0 : 0.65;
-    // clips other files own (the secret stingers) follow along too
-    extraSfxEls.forEach(function (r) {
-      if (r.el) r.el.volume = m ? 0 : r.vol;
-    });
-    var btn = document.getElementById('sfx-btn');
-    if (btn) btn.classList.toggle('muted', m);
+    applySfx();
+  }
+
+  function clamp01(v) { return Math.max(0, Math.min(1, isFinite(v) ? v : 1)); }
+
+  // The sliders. Turning one up off zero un-mutes that channel, so dragging
+  // it back out of silence does the obvious thing rather than nothing.
+  function setMusicVolume(v) {
+    musicVol = clamp01(v);
+    localStorage.setItem('ashland-music-vol', String(musicVol));
+    clearInterval(fadeTimer);
+    fadeTimer = null;
+    if (musicVol > 0 && musicMuted) { musicMuted = false; localStorage.setItem('ashland-mute', '0'); }
+    applyMusic();
+  }
+  function setSfxVolume(v) {
+    sfxVol = clamp01(v);
+    localStorage.setItem('ashland-sfx-vol', String(sfxVol));
+    if (sfxVol > 0 && sfxMuted) { sfxMuted = false; localStorage.setItem('ashland-sfx-mute', '0'); }
+    applySfx();
   }
 
   // main.js keeps its own <audio> elements for the secret stingers; it hands
@@ -783,7 +828,7 @@ var G = window.G = window.G || {};
     var known = false;
     extraSfxEls.forEach(function (r) { if (r.el === el) { r.vol = vol; known = true; } });
     if (!known) extraSfxEls.push({ el: el, vol: vol });
-    el.volume = sfxMuted ? 0 : vol;
+    el.volume = sv(vol);
     return el;
   }
 
@@ -830,20 +875,68 @@ var G = window.G = window.G || {};
     toggleSfx: toggleSfx,
     isMuted: function () { return musicMuted; },
     isSfxMuted: function () { return sfxMuted; },
+    musicVolume: function () { return musicVol; },
+    sfxVolume: function () { return sfxVol; },
+    setMusicVolume: setMusicVolume,
+    setSfxVolume: setSfxVolume,
     initButton: function () {
-      var wire = function (id, state, toggle) {
+      // Clicking either corner button slides a volume slider out beside it.
+      // The keys still mute outright (M for music, F for effects) -- the
+      // slider is for setting a level, not for flipping a switch, and a
+      // click that moved the slider AND muted would be a nasty surprise.
+      var pop = document.getElementById('vol-pop');
+      var range = document.getElementById('vol-range');
+      var label = document.getElementById('vol-label');
+      var openFor = null;    // 'music' | 'sfx' | null
+
+      function closePop() {
+        openFor = null;
+        if (pop) pop.hidden = true;
+      }
+
+      function openPop(which, btn) {
+        if (!pop || !range) return;
+        openFor = which;
+        var music = which === 'music';
+        if (label) label.textContent = music ? 'MUSIC' : 'EFFECTS';
+        range.value = String(Math.round((music ? musicVol : sfxVol) * 100));
+        pop.hidden = false;
+        pop.style.top = btn.getBoundingClientRect().top + 'px';
+        range.focus();
+      }
+
+      if (range) {
+        range.addEventListener('input', function () {
+          if (!openFor) return;   // put away: it belongs to neither channel
+          var v = parseInt(range.value, 10) / 100;
+          if (openFor === 'sfx') setSfxVolume(v); else setMusicVolume(v);
+        });
+        // a click inside the slider is not a click on the world outside it
+        pop.addEventListener('click', function (e) { e.stopPropagation(); });
+        pop.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+        // arrow keys belong to the slider while it has the focus, not to
+        // the student standing in a hallway somewhere
+        range.addEventListener('keydown', function (e) { e.stopPropagation(); });
+      }
+
+      var wire = function (id, which) {
         var btn = document.getElementById(id);
         if (!btn) return;
-        btn.classList.toggle('muted', state);
         btn.addEventListener('click', function (e) {
           e.stopPropagation();
           ensure();
-          toggle();
+          if (openFor === which) closePop(); else openPop(which, btn);
           btn.blur();
         });
       };
-      wire('mute-btn', musicMuted, toggleMute);
-      wire('sfx-btn', sfxMuted, toggleSfx);
+      wire('mute-btn', 'music');
+      wire('sfx-btn', 'sfx');
+
+      // anywhere else on the page puts it away again
+      window.addEventListener('pointerdown', function () { closePop(); });
+
+      applyMusic();   // paint both buttons to match what was remembered
+      applySfx();
     }
   };
 })();
