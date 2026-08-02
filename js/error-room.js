@@ -74,6 +74,25 @@ var G = window.G = window.G || {};
     }
   }
 
+  // Type ERROR back at him and he is gone -- but he is painted INTO the
+  // picture, so "gone" means rebuilding the wall behind him. Two clones from
+  // just left of where he sat (measured on the artwork like everything else):
+  // brick above the bench, shifted a whole number of bricks so the courses
+  // line up, and bench planks with the shadow under them for his legs.
+  function drawManPatch(g) {
+    if (!roomReady()) return;
+    var sm = g.imageSmoothingEnabled;
+    g.imageSmoothingEnabled = false;
+    var kx = 320 / SRC_W, ky = 240 / SRC_H;
+    [{ x: 158, y: 134, w: 22, h: 26, ox: -32 },   // brick (he sits at 161..177)
+     { x: 158, y: 160, w: 22, h: 16, ox: -24 }].forEach(function (r) {  // bench
+      g.drawImage(room, r.x + r.ox, r.y, r.w, r.h,
+        Math.round(r.x * kx), Math.round(r.y * ky),
+        Math.round(r.w * kx), Math.round(r.h * ky));
+    });
+    g.imageSmoothingEnabled = sm;
+  }
+
   G.ErrorRoom = {
     FLOOR_Y: FLOOR_Y,
     ERROR_X: ERROR_X,
@@ -81,6 +100,7 @@ var G = window.G = window.G || {};
     ERROR_TOP: ERROR_TOP,
     TOTAL_CHARS: TOTAL,
     drawScene: drawScene,
-    drawBox: drawBox
+    drawBox: drawBox,
+    drawManPatch: drawManPatch
   };
 })();

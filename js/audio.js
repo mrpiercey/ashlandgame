@@ -288,6 +288,10 @@ var G = window.G = window.G || {};
   function playCaveLine() { return clip('itsdangeroustogoalone.webm', 0.85); }
   // the pencil going up over a student's head
   function playPencilFanfare() { return clip('getpencil.webm', 0.85); }
+  // the Master Ruler coming loose -- the storm is timed to this build --
+  // and the whistle that calls Eddie down into the grove
+  function playRulerMusic() { return clip('rulerretrival.webm', 0.85); }
+  function playWhistle() { return clip('whistle.webm', 0.85); }
 
   // ---- the I AM ERROR room -------------------------------------------------
   // his house has its own record on the turntable, looping until you leave
@@ -307,6 +311,27 @@ var G = window.G = window.G || {};
   }
   function stopErrorMusic() {
     if (errorEl && errorEl !== 'missing') { try { errorEl.pause(); } catch (e) {} }
+  }
+
+  // ---- the Master Ruler grove ---------------------------------------------
+  // past the vanished man: a quiet forest with its own theme on the wind
+  var groveEl = null;
+  function playGroveMusic() {
+    hushFloor();
+    stopErrorMusic();
+    if (groveEl === 'missing') return;
+    if (!groveEl) {
+      groveEl = new Audio('foresttheme.webm');
+      groveEl.loop = true;
+      groveEl.addEventListener('error', function () { groveEl = 'missing'; });
+    }
+    groveEl.volume = mv(0.55);
+    try { groveEl.currentTime = 0; } catch (e) {}
+    var p = groveEl.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+  function stopGroveMusic() {
+    if (groveEl && groveEl !== 'missing') { try { groveEl.pause(); } catch (e) {} }
   }
 
   // ---- the ending ----------------------------------------------------------
@@ -724,6 +749,12 @@ var G = window.G = window.G || {};
     whoosh: function (t) {
       noiseBurst(t, 0.34, 0.5, 2000, 320);
     },
+    // the Master Ruler's storm: a sharp crack, then the rumble rolls away
+    thunder: function (t) {
+      noiseBurst(t, 0.1, 0.55, 6000, 2600);
+      noiseBurst(t + 0.06, 1.9, 0.5, 320, 70);
+      note(midi(26), t + 0.08, 1.1, 'triangle', 0.45);
+    },
     // the two-hand JAM: rim clank + net swish + the crowd erupting + a cheer
     jam: function (t) {
       note(midi(52), t, 0.05, 'square', 0.5);          // metallic rim clank
@@ -763,6 +794,7 @@ var G = window.G = window.G || {};
     if (dollyEl) dollyEl.volume = mv(0.65);
     if (jamEl && jamEl !== 'missing') jamEl.volume = mv(jamBaseVol);
     if (errorEl && errorEl !== 'missing') errorEl.volume = mv(0.5);
+    if (groveEl && groveEl !== 'missing') groveEl.volume = mv(0.55);
     if (endingEl && endingEl !== 'missing') endingEl.volume = mv(0.55);
     var btn = document.getElementById('mute-btn');
     if (btn) btn.classList.toggle('muted', musicMuted || musicVol <= 0);
@@ -852,8 +884,12 @@ var G = window.G = window.G || {};
     playTextBlip: playTextBlip,
     playCaveLine: playCaveLine,
     playPencilFanfare: playPencilFanfare,
+    playRulerMusic: playRulerMusic,
+    playWhistle: playWhistle,
     playErrorMusic: playErrorMusic,
     stopErrorMusic: stopErrorMusic,
+    playGroveMusic: playGroveMusic,
+    stopGroveMusic: stopGroveMusic,
     playEnding: playEnding,
     stopEnding: stopEnding,
     playDolly: playDolly,

@@ -254,6 +254,11 @@ var G = window.G = window.G || {};
       return;
     }
 
+    if (state === 'grove') {
+      updateGrove(dt);
+      return;
+    }
+
     // ---- play ----
     // TAB pulls the staff roster up and puts it away again (the same panel
     // a finger opens by tapping the STAFF readout)
@@ -1758,6 +1763,8 @@ var G = window.G = window.G || {};
   var errorRoom = null;         // {x, dir, moving, anim, asked, typed}
   var ERROR_WALK = 74;          // px per second
   var ERROR_TYPE = 11;          // letters per second
+  var errorGone = false;        // ERROR typed at him: gone for the session
+  var errorPuff = null;         // seconds since he went, for the smoke
 
   function enterErrorRoom() {
     G.Audio.sfx('door');
@@ -1806,8 +1813,9 @@ var G = window.G = window.G || {};
     };
   }
 
-  // his shoulder is as far right as anyone gets
-  function errorWall() { return G.ErrorRoom.ERROR_X - 14; }
+  // his shoulder is as far right as anyone gets -- until he isn't there,
+  // and the right edge of the room opens onto the grove
+  function errorWall() { return errorGone ? SW + 60 : G.ErrorRoom.ERROR_X - 14; }
 
   // He says nothing to the room -- the student has to be standing at his
   // shoulder. Both the button and a tap on him go through this.
@@ -1816,7 +1824,7 @@ var G = window.G = window.G || {};
   }
 
   function askError() {
-    if (!errorRoom || errorRoom.asked || !nearError()) return;
+    if (!errorRoom || errorRoom.asked || errorGone || !nearError()) return;
     errorRoom.asked = true;
     errorRoom.typed = 0;        // the letters arrive one at a time, in silence
   }
@@ -1825,6 +1833,10 @@ var G = window.G = window.G || {};
     var e = errorRoom;
     if (!e) return;
     if (e.asked && e.typed < G.ErrorRoom.TOTAL_CHARS) e.typed += dt * ERROR_TYPE;
+    if (errorPuff !== null) {
+      errorPuff += dt;
+      if (errorPuff >= PUFF_TIME) errorPuff = null;
+    }
 
     var held = G.Input.held;
     var dx = 0;
@@ -1836,6 +1848,7 @@ var G = window.G = window.G || {};
       e.anim += dt * 7;
       e.x += dx * ERROR_WALK * dt;
       if (e.x > errorWall()) e.x = errorWall();
+      if (errorGone && e.x > SW + 10) { enterGrove(); return; } // clean through
       if (e.x < -20) { leaveErrorRoom(); return; }   // back out the way in
     } else {
       e.anim = 0;
@@ -1844,13 +1857,26 @@ var G = window.G = window.G || {};
     if (G.Input.consumeAction()) askError();
     G.Input.consumeDanceKey();
     G.Input.consumeRosterKey();
-    G.Input.clearTyped();
+    // ERROR, typed right back at him: he vanishes in a puff of smoke, and
+    // the rest of the room is suddenly yours to walk. The typed buffer is
+    // deliberately NOT cleared each frame in here -- the word needs a few
+    // frames to accumulate, and no other secret listens in this state.
+    if (!errorGone && G.Input.recentTyped().indexOf('error') !== -1) {
+      G.Input.clearTyped();
+      errorGone = true;
+      errorPuff = 0;
+      e.asked = false;          // his box goes with him, mid-sentence or not
+      G.Audio.sfx('whoosh');
+    }
   }
 
   function drawErrorRoom() {
     var e = errorRoom;
     // the man is part of the backdrop -- only the student is drawn on top
     G.ErrorRoom.drawScene(ctx, SW, SH);
+    if (errorGone) G.ErrorRoom.drawManPatch(ctx);
+    // the smoke he left behind (211,186 is the middle of where he sat)
+    if (errorPuff !== null) G.Secret.drawPuff(ctx, 211, 186, errorPuff / PUFF_TIME);
     if (e) {
       var fset = playerFrames[e.dir] || playerFrames.right;
       var frame = e.moving ? fset[1 + (Math.floor(e.anim) % 2)] : fset[0];
@@ -1870,6 +1896,364 @@ var G = window.G = window.G || {};
       return true;
     }
     return false;
+  }
+
+  // ---- the Master Ruler grove ---------------------------------------------
+  // Past the spot where the man stood, the sideways room opens onto a
+  // forest. js/grove.js holds the picture and its measurements; this is the
+  // walking, the pedestal quiz, and the storm the right answer brings.
+  var grove = null;        // {x, y, dir, moving, anim, scene}
+  var rulerTaken = false;  // it stays pulled for the rest of the session
+  var GROVE_WALK = 76;
+
+  function enterGrove() {
+    transition = {
+      phase: 'out', t: 0, speed: 2.6,
+      onMid: function () {
+        state = 'grove';
+        errorRoom = null;
+        grove = { x: G.Grove.SPAWN.x, y: G.Grove.SPAWN.y, dir: 'up', moving: false, anim: 0, scene: null };
+        G.Audio.playGroveMusic();
+      }
+    };
+  }
+
+  function leaveGrove() {
+    endGroveHold();
+    G.Audio.stopGroveMusic();
+    transition = {
+      phase: 'out', t: 0, speed: 2.6,
+      onMid: function () {
+        state = 'error';
+        grove = null;
+        // back through the wall, just inside the right edge of his room
+        errorRoom = { x: SW - 30, dir: 'left', moving: false, anim: 0, asked: false, typed: 0 };
+        G.Audio.playErrorMusic();
+      }
+    };
+  }
+
+  // only a student who truly knows their measurements can pull it free
+  var RULER_QUIZ = [
+    { q: 'How many inches are in 5 feet?', a: '60', wrong: ['50', '55', '65'] },
+    { q: 'How many feet are in 4 yards?', a: '12', wrong: ['8', '10', '16'] },
+    { q: 'How many inches are in half a foot?', a: '6', wrong: ['3', '12', '24'] }
+  ];
+
+  function pedestalTalk() {
+    if (rulerTaken) {
+      G.Dialogue.start([{ text: 'The pedestal is empty. The MASTER RULER is yours now.' }]);
+      return;
+    }
+    G.Dialogue.start([
+      { text: 'The MASTER RULER has been stuck in this pedestal for as long as anyone can remember...' },
+      { text: 'They say only a student who truly knows their measurements can pull it free.' },
+      { text: 'Do you want to try and pick it up?' }
+    ], {
+      choices: [
+        { label: 'YES! I was born ready.', cb: askRulerQuestion },
+        { label: 'Not yet.', cb: function () {} }
+      ]
+    });
+  }
+
+  function askRulerQuestion() {
+    var quiz = RULER_QUIZ[Math.floor(Math.random() * RULER_QUIZ.length)];
+    var opts = quiz.wrong.concat(quiz.a);
+    for (var i = opts.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = opts[i]; opts[i] = opts[j]; opts[j] = tmp;
+    }
+    G.Dialogue.start([
+      { text: 'You grip the ruler. The ground rumbles, and a deep voice asks...' },
+      { text: quiz.q }
+    ], {
+      choices: opts.map(function (o) {
+        return {
+          label: o,
+          cb: o === quiz.a ? startRulerStorm : function () {
+            G.Audio.sfx('locked');
+            G.Dialogue.start([
+              { text: 'You pull... and PULL... but the ruler will not budge.' },
+              { text: 'That was not quite right. Think it over and try again!' }
+            ]);
+          }
+        };
+      })
+    });
+  }
+
+  // The storm the right answer calls down: three cracks of lightning, Eddie
+  // riding the wind, fireworks over the trees -- all of it paced to
+  // rulerretrival.webm, which builds for seven seconds. The lift lands at
+  // 7.3s into the track, and the pose holds until the music plays out.
+  var STORM = { bolts: [0.4, 1.6, 2.8], eddieAt: 3.6, fwFrom: 4.6, fwTo: 7.0, lift: 7.3 };
+
+  function startRulerStorm() {
+    if (!grove) return;
+    G.Audio.stopGroveMusic();       // the forest theme steps aside for the storm
+    var el = G.Audio.playRulerMusic();
+    grove.scene = { t: 0, boltsDone: 0, spawned: 0, nextFw: STORM.fwFrom, fw: [], eddie: null, music: el };
+  }
+
+  function updateGroveScene(dt) {
+    var sc = grove.scene;
+    sc.t += dt;
+    while (sc.boltsDone < STORM.bolts.length && sc.t >= STORM.bolts[sc.boltsDone]) {
+      G.Audio.sfx('thunder');
+      sc.boltsDone++;
+    }
+    if (!sc.eddie && sc.t >= STORM.eddieAt) {
+      G.Audio.sfx('squawk');
+      sc.eddie = { x: SW + 40, flap: 0 };
+    }
+    if (sc.eddie) {
+      sc.eddie.x -= 170 * dt;
+      sc.eddie.flap += dt;
+    }
+    if (sc.t >= STORM.fwFrom && sc.t <= STORM.fwTo && sc.t >= sc.nextFw) {
+      sc.nextFw = sc.t + 0.45;
+      if (sc.spawned % 3 === 0) G.Audio.sfx('fanfare');
+      sc.spawned++;
+      sc.fw.push({ x: 40 + Math.random() * (SW - 80), y: 36 + Math.random() * 90, t: 0 });
+    }
+    for (var i = sc.fw.length - 1; i >= 0; i--) {
+      sc.fw[i].t += dt;
+      if (sc.fw[i].t > 0.9) sc.fw.splice(i, 1);
+    }
+    // 7.3 seconds into the music: the ruler comes loose, mid-note
+    if (sc.t >= STORM.lift) {
+      var music = sc.music;
+      grove.scene = null;
+      rulerTaken = true;
+      takeRuler(music);
+    }
+  }
+
+  // the pose everyone remembers, part two: the ruler goes up on the music's
+  // biggest note and stays up until the retrieval track has played out
+  var groveHold = null;
+  var groveHoldTimer = null;
+  var groveHoldEnded = null;
+
+  function endGroveHold() {
+    clearTimeout(groveHoldTimer);
+    groveHoldTimer = null;
+    var was = groveHold;
+    groveHold = null;
+    if (groveHoldEnded) { groveHoldEnded(); groveHoldEnded = null; }
+    if (was && grove) {
+      // ...and then the forest theme starts playing again
+      G.Audio.playGroveMusic();
+      G.Dialogue.start([
+        { text: 'You got the MASTER RULER! A whole foot of pure golden measurement!' },
+        { text: 'And never forget the golden rule: treat others the way you want to be treated.' }
+      ]);
+    }
+  }
+
+  function takeRuler(musicEl) {
+    grove.dir = 'down';
+    grove.moving = false;
+    grove.anim = 0;
+    groveHold = {};
+    // the track has about 3.7 seconds left after the lift; its own 'ended'
+    // is the surest cue, with a timer as the understudy
+    clearTimeout(groveHoldTimer);
+    groveHoldTimer = setTimeout(endGroveHold, 4200);
+    if (musicEl) {
+      var onEnded = function () { endGroveHold(); };
+      musicEl.addEventListener('ended', onEnded);
+      groveHoldEnded = function () { musicEl.removeEventListener('ended', onEnded); };
+    }
+  }
+
+  // On the way out with the ruler, halfway down the grove, the whistle
+  // sounds -- the student freezes, and Eddie swoops in, carries them the
+  // rest of the way, and sets them down back at the start, by the stump.
+  var groveRide = null;   // {phase: whistle|swoop|carry|drop, t, ...}
+  var rideDone = false;   // Eddie only offers the lift once
+  var RIDE = { swoop: 1.1, carry: 2.4, drop: 1.2 };
+
+  function startGroveRide() {
+    rideDone = true;
+    grove.moving = false;
+    grove.anim = 0;
+    grove.dir = 'down';
+    G.Audio.stopGroveMusic();
+    var el = G.Audio.playWhistle();
+    groveRide = { phase: 'whistle', t: 0, whistleLen: 4.0 };
+    if (el) {
+      if (isFinite(el.duration) && el.duration > 0) groveRide.whistleLen = el.duration;
+      else {
+        el.addEventListener('loadedmetadata', function once() {
+          el.removeEventListener('loadedmetadata', once);
+          if (groveRide) groveRide.whistleLen = el.duration;
+        });
+      }
+    }
+  }
+
+  function updateGroveRide(dt) {
+    var r = groveRide, gv = grove;
+    r.t += dt;
+    if (r.phase === 'whistle') {
+      // the whistle has the floor; nobody moves until it is done
+      if (r.t >= r.whistleLen + 0.15) {
+        r.phase = 'swoop';
+        r.t = 0;
+        G.Audio.sfx('squawk');
+        r.sx = gv.x + 180;      // Eddie dives in from the upper right
+        r.sy = gv.y - 210;
+        r.ex = r.sx;
+        r.ey = r.sy;
+      }
+    } else if (r.phase === 'swoop') {
+      var u = Math.min(1, r.t / RIDE.swoop);
+      var e = u * u * (3 - 2 * u);
+      r.ex = r.sx + (gv.x - r.sx) * e;
+      r.ey = r.sy + (gv.y - 26 - r.sy) * e;
+      if (u >= 1) {
+        r.phase = 'carry';
+        r.t = 0;
+        r.x0 = gv.x;
+        r.y0 = gv.y;
+        G.Audio.sfx('whoosh');
+      }
+    } else if (r.phase === 'carry') {
+      var u2 = Math.min(1, r.t / RIDE.carry);
+      var e2 = u2 * u2 * (3 - 2 * u2);
+      gv.x = r.x0 + (G.Grove.SPAWN.x - r.x0) * e2;
+      gv.y = r.y0 + (G.Grove.SPAWN.y - r.y0) * e2 - Math.sin(u2 * Math.PI) * 46;
+      r.ex = gv.x;
+      r.ey = gv.y - 26;
+      if (u2 >= 1) {
+        gv.x = G.Grove.SPAWN.x;
+        gv.y = G.Grove.SPAWN.y;
+        r.phase = 'drop';
+        r.t = 0;
+        G.Audio.sfx('squawk');
+      }
+    } else if (r.phase === 'drop') {
+      // set down gently; Eddie wheels away up and off to the right
+      r.ex += 150 * dt;
+      r.ey -= 120 * dt;
+      if (r.t >= RIDE.drop) {
+        groveRide = null;
+        G.Audio.playGroveMusic();
+      }
+    }
+    G.Input.consumeAction();
+  }
+
+  function updateGrove(dt) {
+    var gv = grove;
+    if (!gv) return;
+    if (gv.scene) updateGroveScene(dt);
+    if (groveRide) { updateGroveRide(dt); return; }
+    if (G.Dialogue.isActive()) {
+      G.Dialogue.update(ctx);
+      return;
+    }
+    if (gv.scene || groveHold) {
+      // the storm and the pose both play out on their own
+      G.Input.consumeAction();
+      return;
+    }
+    var held = G.Input.held;
+    var dx = (held.right ? 1 : 0) - (held.left ? 1 : 0);
+    var dy = (held.down ? 1 : 0) - (held.up ? 1 : 0);
+    gv.moving = !!(dx || dy);
+    if (gv.moving) {
+      var sp = (held.run ? 1.55 : 1) * GROVE_WALK * dt;
+      if (dx && !G.Grove.blocked(gv.x + dx * sp, gv.y)) gv.x += dx * sp;
+      if (dy && !G.Grove.blocked(gv.x, gv.y + dy * sp)) gv.y += dy * sp;
+      gv.dir = dy < 0 ? 'up' : dy > 0 ? 'down' : dx < 0 ? 'left' : 'right';
+      gv.anim += dt * 7;
+      // halfway down with the ruler in hand: the whistle finds them
+      if (rulerTaken && !rideDone && gv.y > G.Grove.WORLD_H / 2) {
+        startGroveRide();
+        return;
+      }
+      if (gv.y > G.Grove.EXIT_Y) { leaveGrove(); return; }
+    } else {
+      gv.anim = 0;
+    }
+    if (G.Input.consumeAction() && G.Grove.nearPedestal(gv.x, gv.y)) pedestalTalk();
+    G.Input.consumeDanceKey();
+    G.Input.consumeRosterKey();
+    G.Input.clearTyped();
+  }
+
+  function groveCam() {
+    return Math.max(0, Math.min(G.Grove.WORLD_H - SH, Math.round(grove.y) - 132));
+  }
+
+  function drawGroveStorm(camY) {
+    var sc = grove.scene;
+    var pedX = G.Grove.PED.x;
+    var pedY = G.Grove.PED.y - camY - 22;
+    // each crack: the bolt for a blink, then the whole sky going white
+    for (var b = 0; b < STORM.bolts.length; b++) {
+      var age = sc.t - STORM.bolts[b];
+      if (age < 0 || age > 0.45) continue;
+      if (age < 0.18) G.Grove.drawBolt(ctx, pedX, pedY);
+      ctx.fillStyle = 'rgba(255,255,240,' + (0.75 * Math.max(0, 1 - age / 0.45)).toFixed(3) + ')';
+      ctx.fillRect(0, 0, SW, SH);
+    }
+    sc.fw.forEach(function (f, fi) {
+      var a = f.t / 0.9;
+      ctx.fillStyle = ['#f7d84d', '#57c28f', '#e05a6e'][fi % 3];
+      ctx.globalAlpha = Math.max(0, 1 - a);
+      for (var k = 0; k < 14; k++) {
+        var ang = (k / 14) * Math.PI * 2;
+        ctx.fillRect(Math.round(f.x + Math.cos(ang) * a * 72),
+          Math.round(f.y + Math.sin(ang) * a * 72 + 36 * a * a), 2, 2);
+      }
+      ctx.globalAlpha = 1;
+    });
+    // Eddie, riding the storm wind
+    if (sc.eddie && sc.eddie.x > -60) {
+      var ef = eagleFlyFrames[Math.floor(sc.eddie.flap * 7) % 2];
+      ctx.drawImage(ef, Math.round(sc.eddie.x), 46 + Math.round(Math.sin(sc.eddie.flap * 5) * 6));
+    }
+  }
+
+  // Eddie, drawn over the student he is carrying. His fly frames face left,
+  // which suits the swoop and the carry; wheeling away he faces the other
+  // way, so that one is mirrored.
+  function drawGroveRide(camY) {
+    var r = groveRide;
+    if (r.phase === 'whistle') return;   // nothing to see yet -- just listen
+    var ef = eagleFlyFrames[Math.floor(r.t * 7) % 2];
+    var ex = Math.round(r.ex - 16);
+    var ey = Math.round(r.ey - camY - 14);
+    if (r.phase === 'drop') {
+      ctx.save();
+      ctx.translate(ex + 32, ey);
+      ctx.scale(-1, 1);
+      ctx.drawImage(ef, 0, 0);
+      ctx.restore();
+    } else {
+      ctx.drawImage(ef, ex, ey);
+    }
+  }
+
+  function drawGrove() {
+    var gv = grove;
+    if (!gv) return;
+    var camY = groveCam();
+    G.Grove.drawScene(ctx, camY, SW, SH);
+    if (!rulerTaken) G.Grove.drawRuler(ctx, camY, Date.now());
+    var fset = playerFrames[gv.dir] || playerFrames.down;
+    var frame = gv.moving ? fset[1 + (Math.floor(gv.anim) % 2)] : fset[0];
+    var sx = Math.round(gv.x - frame.width / 2);
+    var sy = Math.round(gv.y) - camY - frame.height;
+    ctx.drawImage(frame, sx, sy);
+    if (groveHold) G.Grove.drawRulerHeld(ctx, gv.x, sy - 4);
+    if (groveRide) drawGroveRide(camY);
+    if (gv.scene) drawGroveStorm(camY);
+    G.Dialogue.draw(ctx);
   }
 
   var returnPoint = null; // where you were before your last door warp
@@ -5776,6 +6160,8 @@ var G = window.G = window.G || {};
       drawDunk();
     } else if (state === 'error') {
       drawErrorRoom();
+    } else if (state === 'grove') {
+      drawGrove();
     } else {
       drawWorld();
       drawBanner();
