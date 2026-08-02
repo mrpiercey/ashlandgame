@@ -2844,7 +2844,7 @@ var G = window.G = window.G || {};
 
   function startWalkerPreview(n) {
     // Officer Garth and Eddie round out the roster, so ?ending=all really is
-    // all of them and the sidebar reads 59/59.
+    // all of them and the sidebar reads 60/60.
     var ids = Object.keys(G.TEACHERS).concat(['__officer__', '__eddie__']);
     // However few the link asks for, the principal is one of them: no real
     // game ever reaches this moment without her, since she is the one who

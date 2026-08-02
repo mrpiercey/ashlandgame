@@ -959,6 +959,11 @@ var G = window.G = window.G || {};
       maps['t-233'].npcs.push({ kind: 'teacher', roomId: 't-233b', x: 10, y: 7 });
     }
 
+    // Mr. Love works alongside Mr. Richards in room 216
+    if (maps['t-216'] && G.TEACHERS['t-216b']) {
+      maps['t-216'].npcs.push({ kind: 'teacher', roomId: 't-216b', x: 10, y: 4 });
+    }
+
     // ---- support staff: custodians, aides and helpers ---------------------
     // opts: {x, y} preferred tile (nudged to the nearest open one), or omit
     // for a random open tile; {zone} limits where random picks may land

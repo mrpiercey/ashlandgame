@@ -130,6 +130,17 @@ var G = window.G = window.G || {};
   T['t-233b'].roomOf = 't-233';    // she lives in room 233's map
   T['t-233b'].noLetter = true;     // the room's letter is handled by Mrs. Patel
 
+  // Mr. Love works alongside Mr. Richards in room 216
+  T['t-216b'] = {
+    name: 'Mr. Love',
+    // green shirt and jeans (outfit 0 = green polo + denim-blue pants)
+    sprite: G.Sprites.cfgFrom({ style: 0, skin: 8, hairColor: 0, outfit: 0, glasses: false }),
+    spriteOv: { style: 0, skin: 8, hairColor: 0, outfit: 0, glasses: false },
+    roomOf: 't-216',    // he lives in room 216's map
+    noLetter: true,     // the room's letter is handled by Mr. Richards
+    intro: "Hi there! I'm Mr. Love! I'm new to Ashland this year, and I can't wait to help every single student I work with!"
+  };
+
   // Mrs. Wilson (room 200) designed look
   T['t-200'].spriteOv = { style: 2, skin: 1, hairColor: 0, outfit: 6, glasses: false };
   T['t-200'].sprite = G.Sprites.cfgFrom(T['t-200'].spriteOv);

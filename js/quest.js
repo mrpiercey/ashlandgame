@@ -698,7 +698,10 @@ var G = window.G = window.G || {};
     if (liveLead() && !(tipTarget && tipBy === selfId)) return null;
     var ids = Object.keys(G.TEACHERS).filter(function (id) {
       return id !== selfId && id !== 'm-walker' && !G.TEACHERS[id].noLetter &&
-        !G.TEACHERS[id].roomOf && G.ROOMS[id];
+        !G.TEACHERS[id].roomOf && G.ROOMS[id] &&
+        // a co-teacher never gossips you toward their own room-mate --
+        // "go see Mr. Richards" is silly coming from Mr. Love across the room
+        id !== G.TEACHERS[selfId].roomOf;
     });
     if (!ids.length) return null;
     var id = referralOf[selfId];
