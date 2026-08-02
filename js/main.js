@@ -1562,6 +1562,7 @@ var G = window.G = window.G || {};
   // the art and the wording both live in js/secret.js
   var secretPuff = null; // {map, x, y, t} the smoke when the cave mouth opens
   var PUFF_TIME = 0.6;
+  var roofPushes = 0; // shoves at the cave's weak wall: shake, crack, open
 
   function drawSecretPuff(cam) {
     if (!secretPuff || secretPuff.map !== currentMapId) return;
@@ -2703,7 +2704,8 @@ var G = window.G = window.G || {};
     "goalR": "soccergoal",
     "picnicL": "picnic",
     "picnicR": "picnic",
-    "woodstage": "stage"
+    "woodstage": "stage",
+    "cavewall": "wall"
   };
 
   var factIdx = {}; // tile type -> next fact to show (cycles through them)
@@ -2825,6 +2827,27 @@ var G = window.G = window.G || {};
     // plain floor stays quiet: facts are only for real objects (and walls),
     // never the tile you could simply walk onto
     if (G.Tiles.isWalkable(ft)) return;
+    // inside the cave, the stretch of wall straight up from the old man
+    // gives a little when pushed. Every other wall chats like a normal
+    // wall, but THIS one shakes, then cracks, then opens into the ERROR
+    // room on the third push -- typing ZELDA still blows it open in one
+    if (currentMapId === G.Maps.secret.id && !G.Maps.secret.roofIsOpen() &&
+        px + dx === G.Maps.secret.roof.x && py + dy === G.Maps.secret.roof.y) {
+      roofPushes++;
+      if (roofPushes >= 3 && G.Maps.secret.openRoof()) {
+        secretPuff = { map: G.Maps.secret.id, x: G.Maps.secret.roof.x, y: G.Maps.secret.roof.y, t: 0 };
+        playSecretSound('secretdoor.webm', false);
+        G.Dialogue.start([{ text: 'A hole in the wall appears!' }]);
+      } else {
+        G.Audio.sfx('tick');
+        G.Dialogue.start([{
+          text: roofPushes === 1
+            ? 'You push on the wall... and it shakes a little!'
+            : 'A large crack has appeared in the wall!'
+        }]);
+      }
+      return;
+    }
     // the secret bulletin board (the one Eddie hovers near) reads like any
     // other board first -- then drops a nudge, and the capital LINK is the
     // whole hint: type it right here in this hallway
