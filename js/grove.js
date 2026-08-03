@@ -86,8 +86,10 @@ var G = window.G = window.G || {};
     }
   }
 
+  // held straight up over the student's head, point to the sky -- the same
+  // pose the pencil gets, because that is the pose that matters
   function drawRulerHeld(g, cx, headY) {
-    rulerBody(g, Math.round(cx) - 14, headY - 7, 28, 6, false);
+    rulerBody(g, Math.round(cx) - 3, headY - 26, 6, 24, true);
   }
 
   // a lightning bolt, jagged fresh every frame, from the sky down to a point

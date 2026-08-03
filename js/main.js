@@ -2069,11 +2069,12 @@ var G = window.G = window.G || {};
   }
 
   // On the way out with the ruler, halfway down the grove, the whistle
-  // sounds -- the student freezes, and Eddie swoops in, carries them the
-  // rest of the way, and sets them down back at the start, by the stump.
-  var groveRide = null;   // {phase: whistle|swoop|carry|drop, t, ...}
+  // sounds -- the student freezes, and Eddie swoops in, scoops them up and
+  // flies them clean out of the forest, setting them down in the hallway
+  // outside the first hole that ever opened in the school wall.
+  var groveRide = null;   // {phase: whistle|swoop|carry, t, ...}
   var rideDone = false;   // Eddie only offers the lift once
-  var RIDE = { swoop: 1.1, carry: 2.4, drop: 1.2 };
+  var RIDE = { swoop: 1.1, carry: 2.4 };
 
   function startGroveRide() {
     rideDone = true;
@@ -2121,29 +2122,47 @@ var G = window.G = window.G || {};
         G.Audio.sfx('whoosh');
       }
     } else if (r.phase === 'carry') {
+      // up over the trees and gone, gathering speed as he climbs
       var u2 = Math.min(1, r.t / RIDE.carry);
-      var e2 = u2 * u2 * (3 - 2 * u2);
-      gv.x = r.x0 + (G.Grove.SPAWN.x - r.x0) * e2;
-      gv.y = r.y0 + (G.Grove.SPAWN.y - r.y0) * e2 - Math.sin(u2 * Math.PI) * 46;
+      gv.x = r.x0 + (160 - r.x0) * u2;
+      gv.y = r.y0 - (r.y0 + 80) * u2 * u2;
       r.ex = gv.x;
       r.ey = gv.y - 26;
-      if (u2 >= 1) {
-        gv.x = G.Grove.SPAWN.x;
-        gv.y = G.Grove.SPAWN.y;
-        r.phase = 'drop';
-        r.t = 0;
-        G.Audio.sfx('squawk');
-      }
-    } else if (r.phase === 'drop') {
-      // set down gently; Eddie wheels away up and off to the right
-      r.ex += 150 * dt;
-      r.ey -= 120 * dt;
-      if (r.t >= RIDE.drop) {
-        groveRide = null;
-        G.Audio.playGroveMusic();
-      }
+      if (u2 >= 1) { groveDepart(); return; }
     }
     G.Input.consumeAction();
+  }
+
+  // Eddie clears the treetops and the forest fades: the student is set down
+  // in the hallway, right outside the first hole in the school wall
+  function groveDepart() {
+    G.Audio.stopGroveMusic();
+    var out = G.Maps.secret.exitTo;
+    if (!out) {
+      var sp = G.Maps.all.middle.spawn;
+      out = { map: 'middle', x: sp.x, y: sp.y };
+    }
+    transition = {
+      phase: 'out', t: 0, speed: 2.6,
+      onMid: function () {
+        state = 'play';
+        grove = null;
+        groveRide = null;
+        currentMapId = out.map;
+        player.x = out.x * TS;
+        player.y = out.y * TS;
+        player.dir = 'down';
+        player.moving = false;
+        player.anim = 0;
+        unstickPlayer();
+        lastTriggerKey = Math.floor((player.x + 8) / TS) + ',' + Math.floor((player.y + 11) / TS);
+        resetFollowers();
+        secretPuff = { map: out.map, x: out.x, y: out.y, t: 0 };   // the landing
+        G.Audio.sfx('squawk');
+        showBanner(G.Maps.all[out.map].name);
+        G.Audio.playFloor(G.Maps.all[out.map].floor || out.map);
+      }
+    };
   }
 
   function updateGrove(dt) {
@@ -2219,24 +2238,12 @@ var G = window.G = window.G || {};
     }
   }
 
-  // Eddie, drawn over the student he is carrying. His fly frames face left,
-  // which suits the swoop and the carry; wheeling away he faces the other
-  // way, so that one is mirrored.
+  // Eddie, drawn over the student he is carrying
   function drawGroveRide(camY) {
     var r = groveRide;
     if (r.phase === 'whistle') return;   // nothing to see yet -- just listen
     var ef = eagleFlyFrames[Math.floor(r.t * 7) % 2];
-    var ex = Math.round(r.ex - 16);
-    var ey = Math.round(r.ey - camY - 14);
-    if (r.phase === 'drop') {
-      ctx.save();
-      ctx.translate(ex + 32, ey);
-      ctx.scale(-1, 1);
-      ctx.drawImage(ef, 0, 0);
-      ctx.restore();
-    } else {
-      ctx.drawImage(ef, ex, ey);
-    }
+    ctx.drawImage(ef, Math.round(r.ex - 16), Math.round(r.ey - camY - 14));
   }
 
   function drawGrove() {
