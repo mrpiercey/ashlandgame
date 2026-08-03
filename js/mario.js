@@ -53,6 +53,7 @@ var G = window.G = window.G || {};
       var k = Math.min(7, Math.floor((x - 63) / 18));
       return 205 - k * 18;
     }
+    if (x >= 355 && x <= 374) return 202;                 // the pole's base block
     return 216;
   }
 
