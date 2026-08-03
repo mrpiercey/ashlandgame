@@ -1430,6 +1430,22 @@ var G = window.G = window.G || {};
     ctx.fillRect(2, 14, 12, 1);
   }
 
+  function pPipe(ctx, rnd) {
+    // a very green, very suspicious pipe where the reading tent used to be
+    pFloor(ctx, rnd);
+    ctx.fillStyle = '#0f7317';
+    ctx.fillRect(1, 0, 14, 5);       // the rim
+    ctx.fillRect(3, 5, 10, 11);      // the barrel
+    ctx.fillStyle = '#2fbf3a';       // highlight
+    ctx.fillRect(2, 1, 3, 3);
+    ctx.fillRect(4, 6, 3, 10);
+    ctx.fillStyle = '#063f0c';       // shadow
+    ctx.fillRect(12, 1, 2, 3);
+    ctx.fillRect(10, 6, 2, 10);
+    ctx.fillStyle = '#04220a';       // the dark mouth
+    ctx.fillRect(5, 1, 6, 3);
+  }
+
   // ---- editor v2 walls ----------------------------------------------------
   function pLockers(ctx, rnd) {
     pWall(ctx, rnd);
@@ -1952,6 +1968,7 @@ var G = window.G = window.G || {};
     'musicstand': pMusicStand,
     'drum': pDrum,
     'tent': pTent,
+    'pipe': pPipe,
     'lockers': pLockers,
     'chalkboard': pChalkboard,
     'trophycase': pTrophycase,
@@ -1996,7 +2013,7 @@ var G = window.G = window.G || {};
     'gymkey': 1, 'gymcirTL': 1, 'gymcirTR': 1, 'gymcirBL': 1, 'gymcirBR': 1,
     'door': 1, 'stairU': 1, 'stairD': 1, 'mat': 1,
     'mulch': 1, 'concrete': 1, 'woodstage': 1,
-    'zeldahole': 1, 'caveblack': 1
+    'zeldahole': 1, 'caveblack': 1, 'pipe': 1
   };
 
   G.Tiles = {

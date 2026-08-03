@@ -259,6 +259,11 @@ var G = window.G = window.G || {};
       return;
     }
 
+    if (state === 'mario') {
+      updateMario(dt);
+      return;
+    }
+
     // ---- play ----
     // TAB pulls the staff roster up and puts it away again (the same panel
     // a finger opens by tapping the STAFF readout)
@@ -312,6 +317,13 @@ var G = window.G = window.G || {};
           // bringing one back would break the cave's silence
           playSecretSound('secretdoor.webm', false);
         }
+      }
+    } else if (currentMapId === 't-lib') {
+      // "supermario" (or "super mario" -- spaces don't type) in the library:
+      // the shelves know that book, and the reading tent knows that pipe
+      if (!marioPipeSpot && G.Input.recentTyped().indexOf('supermario') !== -1) {
+        G.Input.clearTyped();
+        revealMarioPipe();
       }
     } else {
       G.Input.clearTyped();
@@ -777,7 +789,8 @@ var G = window.G = window.G || {};
       ctx.fill();
       ctx.imageSmoothingEnabled = false;
       if (it === 'pencil') G.Secret.drawPencil(ctx, x, y - 6 + bob, true);
-      else G.Grove.drawRulerHeld(ctx, x + 8, y + 12 + bob);
+      else if (it === 'ruler') G.Grove.drawRulerHeld(ctx, x + 8, y + 12 + bob);
+      else G.Mario.drawBook(ctx, x + 2, Math.round(y - 4 + bob));
     });
   }
 
@@ -1587,6 +1600,7 @@ var G = window.G = window.G || {};
     else if (st.secretIn) enterSecret();
     else if (st.secretExit) leaveSecret();
     else if (st.errorIn) enterErrorRoom();
+    else if (st.marioIn) enterMarioPipe();
     else if (st.exit) leaveRoom(st.roomId, st.exitIndex);
     else takeStairs(st);
   }
@@ -2329,12 +2343,229 @@ var G = window.G = window.G || {};
         var bx = Math.round(p.x), by = Math.round(p.y) - camY;
         var bob = Math.sin(Date.now() / 240 + i * 1.3) * 2;
         if (it === 'pencil') G.Secret.drawPencil(ctx, bx - 8, by - 22 + bob, true);
-        else G.Grove.drawRulerHeld(ctx, bx, by - 4 + bob);
+        else if (it === 'ruler') G.Grove.drawRulerHeld(ctx, bx, by - 4 + bob);
+        else G.Mario.drawBook(ctx, bx - 6, Math.round(by - 20 + bob));
       });
     }
     if (groveRide) drawGroveRide(camY);
     if (gv.scene) drawGroveStorm(camY);
     G.Dialogue.draw(ctx);
+  }
+
+  // ---- the world down the library pipe ------------------------------------
+  // js/mario.js holds the picture and its measurements; this is the digging
+  // through the shelves, the pipe, the running and jumping, and the golden
+  // book coming down the pole.
+  var mario = null;          // {phase: spawn|play|slide|march, t, px, py, vy, ...}
+  var marioPipeSpot = null;  // {x, y} tile in the library, once revealed
+  var libFinds = 0;          // how many books deep into the shelves we are
+  var MARIO_RUN = 92, MARIO_JUMP = 268, MARIO_G = 640;
+
+  var LIB_BOOKS = [
+    '"Make Way for Ducklings"',
+    '"10 Apples Up on Top"',
+    '"Are You My Mother?"',
+    '"Jumanji"'
+  ];
+
+  // the fifth find is the odd one out -- and its title is the secret code
+  function libraryShelfFind() {
+    G.Audio.sfx('tick');
+    if (libFinds < LIB_BOOKS.length) {
+      G.Dialogue.start([{ text: 'You find a classic: ' + LIB_BOOKS[libFinds] + '!' }]);
+      libFinds++;
+    } else if (libFinds === LIB_BOOKS.length) {
+      libFinds++;
+      G.Dialogue.start([
+        { text: 'Way in the back you find a book you have NEVER seen at school before...' },
+        { text: '"Super Mario Brothers: The Book"', big: true },
+        { text: 'The title is written in shiny letters: SUPER MARIO.' }
+      ]);
+    } else {
+      G.Dialogue.start([{ text: 'The Mario book is still back there, gleaming. SUPER MARIO, it says.' }]);
+    }
+  }
+
+  // SUPERMARIO typed in the library: a green pipe grows out of the reading
+  // tent's spot, and stepping onto it is a one-way trip (well, round trip)
+  function revealMarioPipe() {
+    var m = G.Maps.all['t-lib'];
+    if (!m || marioPipeSpot) return;
+    var spot = null;
+    for (var y = 0; y < m.h && !spot; y++) {
+      for (var x = 0; x < m.w && !spot; x++) {
+        if (m.get(x, y) === 'tent') spot = { x: x, y: y };
+      }
+    }
+    if (!spot) return;
+    marioPipeSpot = spot;
+    m.set(spot.x, spot.y, 'pipe');
+    m.stairs[spot.x + ',' + spot.y] = { marioIn: true };
+    secretPuff = { map: 't-lib', x: spot.x, y: spot.y, t: 0 };
+    playSecretSound('secretdoor.webm', true);
+  }
+
+  function enterMarioPipe() {
+    G.Audio.playPipeSound();     // glug glug, down we go
+    transition = {
+      phase: 'out', t: 0, speed: 1.4,
+      onMid: function () {
+        state = 'mario';
+        G.Audio.hushFloor();
+        mario = {
+          phase: 'spawn', t: 0,
+          px: 40, py: G.Mario.PIPE.top + 18,
+          vy: 0, dir: 'right', anim: 0, onGround: false,
+          bookY: G.Mario.POLE.bookTop
+        };
+      }
+    };
+  }
+
+  function leaveMario() {
+    if (carriedItems.indexOf('book') < 0) carriedItems.push('book');
+    G.Audio.stopMarioTheme();
+    G.Audio.playPipeSound();     // and back up
+    transition = {
+      phase: 'out', t: 0, speed: 1.4,
+      onMid: function () {
+        state = 'play';
+        mario = null;
+        currentMapId = 't-lib';
+        var p = marioPipeSpot || { x: 18, y: 11 };
+        player.x = p.x * TS;
+        player.y = p.y * TS;
+        player.dir = 'down';
+        player.moving = false;
+        player.anim = 0;
+        lastTriggerKey = p.x + ',' + p.y;   // standing on the pipe must not re-warp
+        resetFollowers();
+        secretPuff = { map: 't-lib', x: p.x, y: p.y, t: 0 };
+        showBanner(G.Maps.all['t-lib'].name);
+        G.Audio.playFloor(G.Maps.all['t-lib'].floor || 'top');
+      }
+    };
+  }
+
+  function startMarioSlide() {
+    var m = mario;
+    m.phase = 'slide';
+    m.t = 0;
+    m.vy = 0;
+    m.dir = 'left';           // hanging onto the pole
+    m.slideY0 = m.py;
+    G.Audio.stopMarioTheme();
+    G.Audio.playPoleSlide();
+  }
+
+  function updateMario(dt) {
+    var m = mario;
+    if (!m) return;
+
+    if (m.phase === 'spawn') {
+      // rising up out of the pipe, then the theme kicks in
+      m.t += dt;
+      m.py = G.Mario.PIPE.top + 18 - 18 * Math.min(1, m.t / 0.8);
+      if (m.t >= 1.0) {
+        m.phase = 'play';
+        m.py = G.Mario.PIPE.top;
+        m.onGround = true;
+        G.Audio.playMarioTheme();
+      }
+    } else if (m.phase === 'play') {
+      var held = G.Input.held;
+      var ax = (held.right ? 1 : 0) - (held.left ? 1 : 0);
+      if (ax) {
+        m.dir = ax > 0 ? 'right' : 'left';
+        m.anim += dt * 8;
+        var nx = Math.max(12, Math.min(G.Mario.W - 10, m.px + ax * MARIO_RUN * dt));
+        // a wall is any floor higher than your feet: no walking through steps
+        if (m.py <= G.Mario.floorAt(nx) + 0.5) m.px = nx;
+      } else {
+        m.anim = 0;
+      }
+      var fl = G.Mario.floorAt(m.px);
+      if (m.onGround && m.py < fl - 1) m.onGround = false;   // walked off an edge
+      if (!m.onGround) {
+        m.vy += MARIO_G * dt;
+        m.py += m.vy * dt;
+        if (m.vy > 0 && m.py >= G.Mario.floorAt(m.px)) {
+          m.py = G.Mario.floorAt(m.px);
+          m.vy = 0;
+          m.onGround = true;
+        }
+      }
+      if (G.Input.consumeAction() && m.onGround) {
+        m.vy = -MARIO_JUMP;
+        m.onGround = false;
+        G.Audio.playMarioJump();
+      }
+      // the pole catches whoever reaches it, at whatever height
+      if (m.px >= G.Mario.POLE.x - 7) {
+        m.px = G.Mario.POLE.x - 7;
+        startMarioSlide();
+      }
+    } else if (m.phase === 'slide') {
+      // the student AND the golden book ride the pole down together
+      m.t += dt;
+      var u = Math.min(1, m.t / 1.4);
+      m.py = m.slideY0 + (G.Mario.GROUND - m.slideY0) * u;
+      m.bookY = G.Mario.POLE.bookTop + (G.Mario.POLE.bookBottom - G.Mario.POLE.bookTop) * u;
+      if (m.t >= 1.9) {
+        m.phase = 'march';
+        m.dir = 'right';
+        m.bx = m.px - 18;
+        m.by = G.Mario.GROUND - 22;
+      }
+    } else if (m.phase === 'march') {
+      // no buttons now: the level ends itself, book bobbing along behind
+      m.px += 62 * dt;
+      m.py = G.Mario.floorAt(m.px);
+      m.anim += dt * 8;
+      m.bx += ((m.px - 18) - m.bx) * Math.min(1, dt * 8);
+      m.by = G.Mario.GROUND - 22 + Math.sin(Date.now() / 240) * 2;
+      if (m.px >= G.Mario.DOOR_X) { leaveMario(); return; }
+    }
+
+    if (m.phase !== 'play') G.Input.consumeAction();
+    G.Input.consumeDanceKey();
+    G.Input.consumeRosterKey();
+    G.Input.clearTyped();
+  }
+
+  function drawMario() {
+    var m = mario;
+    if (!m) return;
+    var s = G.Mario.S;
+    var view = SW / s;
+    var camX = Math.max(0, Math.min(G.Mario.W - view, m.px - 140));
+    G.Mario.drawScene(ctx, camX, SW, SH);
+    G.Mario.drawSkyPatch(ctx, camX);   // the baked-in flag steps aside
+
+    // the golden book: waiting at the top of the pole, sliding down it, or
+    // bobbing along behind the student on the walk to the door
+    var bx = m.phase === 'march' ? m.bx : G.Mario.POLE.x - 13;
+    var by = m.phase === 'march' ? m.by : m.bookY;
+    G.Mario.drawBook(ctx, Math.round((bx - camX) * s), Math.round(by * s));
+
+    var fset = playerFrames[m.dir] || playerFrames.right;
+    var frame;
+    if (m.phase === 'play' && !m.onGround) frame = fset[1];             // mid-air
+    else if (m.anim) frame = fset[1 + (Math.floor(m.anim) % 2)];
+    else frame = fset[0];
+    var sx = Math.round((m.px - camX) * s) - 8;
+    var sy = Math.round(m.py * s) - frame.height;
+    if (m.phase === 'spawn') {
+      // only what has cleared the pipe's rim is visible
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, SW, Math.round(G.Mario.PIPE.top * s));
+      ctx.clip();
+      ctx.drawImage(frame, sx, sy);
+      ctx.restore();
+    } else {
+      ctx.drawImage(frame, sx, sy);
+    }
   }
 
   var returnPoint = null; // where you were before your last door warp
@@ -3292,6 +3523,12 @@ var G = window.G = window.G || {};
     // plain floor stays quiet: facts are only for real objects (and walls),
     // never the tile you could simply walk onto
     if (G.Tiles.isWalkable(ft)) return;
+    // the library shelves are FULL of classics -- and five finds deep,
+    // one book that is very much not like the others
+    if (currentMapId === 't-lib' && (ft === 'shelf' || ft === 'shelfLow')) {
+      libraryShelfFind();
+      return;
+    }
     // inside the cave, the stretch of wall straight up from the old man
     // gives a little when pushed. Every other wall chats like a normal
     // wall, but THIS one shakes, then cracks, then opens into the ERROR
@@ -6243,6 +6480,8 @@ var G = window.G = window.G || {};
       drawErrorRoom();
     } else if (state === 'grove') {
       drawGrove();
+    } else if (state === 'mario') {
+      drawMario();
     } else {
       drawWorld();
       drawBanner();

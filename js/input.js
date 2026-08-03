@@ -56,8 +56,9 @@ var G = window.G = window.G || {};
     var dm = /^(?:Digit|Numpad)(\d)$/.exec(e.code);
     if (dm) danceKey = parseInt(dm[1], 10);
     // remember the last few letters typed, for secret codes like "hdd"
+    // (12 letters of memory: "supermario" is the longest code)
     var lm = /^Key([A-Z])$/.exec(e.code);
-    if (lm) typedBuffer = (typedBuffer + lm[1].toLowerCase()).slice(-8);
+    if (lm) typedBuffer = (typedBuffer + lm[1].toLowerCase()).slice(-12);
     // any other key is the interact button (space, enter, letters --
     // whatever a kid mashes) as long as the browser isn't using it
     if (!d && !NOT_ACTION[e.code] && !/^F\d+$/.test(e.code) &&

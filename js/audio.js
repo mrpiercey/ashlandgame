@@ -334,6 +334,29 @@ var G = window.G = window.G || {};
     if (groveEl && groveEl !== 'missing') { try { groveEl.pause(); } catch (e) {} }
   }
 
+  // ---- the world down the library pipe ------------------------------------
+  // its own theme on loop, and the glug-glug of pipe travel both ways
+  var marioEl = null;
+  function playMarioTheme() {
+    hushFloor();
+    if (marioEl === 'missing') return;
+    if (!marioEl) {
+      marioEl = new Audio('supermariotheme.webm');
+      marioEl.loop = true;
+      marioEl.addEventListener('error', function () { marioEl = 'missing'; });
+    }
+    marioEl.volume = mv(0.55);
+    try { marioEl.currentTime = 0; } catch (e) {}
+    var p = marioEl.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+  function stopMarioTheme() {
+    if (marioEl && marioEl !== 'missing') { try { marioEl.pause(); } catch (e) {} }
+  }
+  function playPipeSound() { return clip('pipesound.webm', 0.8); }
+  function playMarioJump() { return clip('mariojumpsound.webm', 0.7); }
+  function playPoleSlide() { return clip('poleslide.webm', 0.8); }
+
   // ---- the ending ----------------------------------------------------------
   // The last screen, where the four letters come home: its own theme, playing
   // over the confetti with everything else in the school gone quiet.
@@ -795,6 +818,7 @@ var G = window.G = window.G || {};
     if (jamEl && jamEl !== 'missing') jamEl.volume = mv(jamBaseVol);
     if (errorEl && errorEl !== 'missing') errorEl.volume = mv(0.5);
     if (groveEl && groveEl !== 'missing') groveEl.volume = mv(0.55);
+    if (marioEl && marioEl !== 'missing') marioEl.volume = mv(0.55);
     if (endingEl && endingEl !== 'missing') endingEl.volume = mv(0.55);
     var btn = document.getElementById('mute-btn');
     if (btn) btn.classList.toggle('muted', musicMuted || musicVol <= 0);
@@ -890,6 +914,11 @@ var G = window.G = window.G || {};
     stopErrorMusic: stopErrorMusic,
     playGroveMusic: playGroveMusic,
     stopGroveMusic: stopGroveMusic,
+    playMarioTheme: playMarioTheme,
+    stopMarioTheme: stopMarioTheme,
+    playPipeSound: playPipeSound,
+    playMarioJump: playMarioJump,
+    playPoleSlide: playPoleSlide,
     playEnding: playEnding,
     stopEnding: stopEnding,
     playDolly: playDolly,
