@@ -2512,10 +2512,10 @@ var G = window.G = window.G || {};
         m.dir = ax > 0 ? 'right' : 'left';
         m.anim += dt * 8;
         var nx = Math.max(12, Math.min(G.Mario.W - 10, m.px + ax * MARIO_RUN * dt));
-        // a wall is any floor higher than your feet -- and it is the
+        // a wall is any floor higher than your feet -- and it is the full
         // LEADING EDGE of the sprite that must clear it, not its middle,
-        // or half a student ends up buried in the staircase
-        if (m.py <= G.Mario.floorAt(nx + ax * 7) + 0.5) m.px = nx;
+        // or a student ends up buried in the staircase
+        if (m.py <= G.Mario.floorAt(nx + ax * 8) + 0.5) m.px = nx;
       } else {
         m.anim = 0;
       }

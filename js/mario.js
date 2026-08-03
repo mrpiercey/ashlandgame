@@ -47,13 +47,16 @@ var G = window.G = window.G || {};
 
   // where feet land, per native x: the ground, the arrival pipe, and the
   // eight-step staircase. Everything else (castle, hills, clouds) is scenery.
+  // Boundaries are pulled a couple of pixels PAST the artwork's block faces
+  // on purpose: stopping a hair early reads as solid, stopping a hair late
+  // reads as clipping.
   function floorAt(x) {
-    if (x >= 24 && x <= 56) return 186;                   // the pipe
-    if (x >= 63 && x <= 214) {                            // the staircase
-      var k = Math.min(7, Math.floor((x - 63) / 18));
+    if (x >= 22 && x <= 58) return 186;                   // the pipe
+    if (x >= 61 && x <= 214) {                            // the staircase
+      var k = Math.min(7, Math.floor((x - 61) / 18));
       return 205 - k * 18;
     }
-    if (x >= 355 && x <= 374) return 202;                 // the pole's base block
+    if (x >= 353 && x <= 376) return 202;                 // the pole's base block
     return 216;
   }
 
