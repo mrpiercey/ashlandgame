@@ -39,7 +39,7 @@ var G = window.G = window.G || {};
     var x = wx / S, y = wy / S;
     var inField = x >= 40 && x <= 245 && y >= 30 && y <= 505;
     var inStump = x >= 96 && x <= 176 && y > 505 && y <= 552;
-    var inSteps = x >= 80 && x <= 104 && y >= 205 && y <= 248;
+    var inSteps = x >= 98 && x <= 166 && y >= 200 && y <= 236;
     if (!inField && !inStump && !inSteps) return true;
     if (x >= 104 && x <= 160 && y >= 122 && y <= 172) return true;  // pedestal
     var inPlaza = x >= 46 && x <= 212 && y >= 82 && y <= 232;
