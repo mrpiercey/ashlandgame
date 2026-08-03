@@ -2566,7 +2566,7 @@ var G = window.G = window.G || {};
           { text: 'You picked up the golden book! It\'s...' },
           { text: 'The GOLDEN DICTIONARY', big: true },
           { text: 'Every word in the world, in solid gold! Not even the library has one of these.' }
-        ], { onDone: function () { if (mario) mario.phase = 'march'; } });
+        ], { top: true, onDone: function () { if (mario) mario.phase = 'march'; } });
       }
       if (m.px >= G.Mario.DOOR_X) { leaveMario(); return; }
     }
@@ -2586,11 +2586,13 @@ var G = window.G = window.G || {};
     G.Mario.drawScene(ctx, camX, SW, SH);
     G.Mario.drawSkyPatch(ctx, camX);   // the baked-in flag steps aside
 
-    // the golden book: waiting at the top of the pole, dropping down its
-    // far side, then sitting on the ground until it is scooped up
+    // the golden dictionary: at the top of the pole until the slide starts,
+    // then wherever it fell -- it must never climb back up while the
+    // course-clear jingle plays
     if (!m.bookCollected) {
-      var bx = (m.phase === 'slide' || m.phase === 'march') ? m.bx : G.Mario.POLE.x + 3;
-      var by = (m.phase === 'slide' || m.phase === 'march') ? m.by : G.Mario.POLE.bookTop;
+      var atTop = m.phase === 'spawn' || m.phase === 'play';
+      var bx = atTop ? G.Mario.POLE.x + 3 : m.bx;
+      var by = atTop ? G.Mario.POLE.bookTop : m.by;
       G.Mario.drawBook(ctx, Math.round((bx - camX) * s), Math.round(by * s));
     }
 

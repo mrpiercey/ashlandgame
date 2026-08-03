@@ -13,6 +13,7 @@ var G = window.G = window.G || {};
   var choiceIdx = 0;
   var inChoices = false;
   var onDone = null;
+  var atTop = false;   // window at the top of the screen (for ground-level scenes)
 
   function font(px) { return px + 'px "Press Start 2P", monospace'; }
 
@@ -98,6 +99,7 @@ var G = window.G = window.G || {};
       });
     }
     onDone = (opts && opts.onDone) || null;
+    atTop = !!(opts && opts.top);
     choiceIdx = 0;
     inChoices = false;
     active = true;
@@ -153,7 +155,7 @@ var G = window.G = window.G || {};
     if (!wrapped) preparePage(ctx);
 
     var h = 70;
-    var y = SH - h - 4;
+    var y = atTop ? 4 : SH - h - 4;
     drawWindow(ctx, 4, y, SW - 8, h);
 
     ctx.textBaseline = 'top';
@@ -184,7 +186,7 @@ var G = window.G = window.G || {};
       var bounce = Math.floor(Date.now() / 300) % 2;
       ctx.fillStyle = '#f7d84d';
       ctx.beginPath();
-      var ax = SW / 2, ay = SH - 14 + bounce;
+      var ax = SW / 2, ay = (atTop ? y + h - 10 : SH - 14) + bounce;
       ctx.moveTo(ax - 4, ay);
       ctx.lineTo(ax + 4, ay);
       ctx.lineTo(ax, ay + 4);
@@ -203,7 +205,7 @@ var G = window.G = window.G || {};
       });
       var cw = Math.min(SW - 12, Math.max(170, maxLabel + 46));
       var chH = choices.length * rowH + 32;
-      var cx = SW - cw - 8, cy = y - chH - 2;
+      var cx = SW - cw - 8, cy = atTop ? y + h + 2 : y - chH - 2;
       drawWindow(ctx, cx, cy, cw, chH);
       ctx.font = font(8);
       ctx.fillStyle = '#9fd4e8';

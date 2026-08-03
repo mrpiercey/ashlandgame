@@ -245,13 +245,6 @@ var G = window.G = window.G || {};
     applySprites(JSON.parse(localStorage.getItem('ashland-teacher-sprites') || '{}'));
   } catch (e) { /* ignore bad saved data */ }
 
-  // Mr. Givan (room 223) has a big black beard -- painted on AFTER the
-  // editor overrides, which know nothing about beards and would shave him
-  if (T['t-223']) {
-    T['t-223'].spriteOv.beard = '#20203a';
-    T['t-223'].sprite = G.Sprites.cfgFrom(T['t-223'].spriteOv);
-  }
-
   // rooms created in the editor get a teacher on demand
   G.addCustomTeacher = function (id, name) {
     if (T[id]) return T[id];
