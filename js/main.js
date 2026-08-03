@@ -3322,7 +3322,8 @@ var G = window.G = window.G || {};
       G.Audio.sfx('tick');
       G.Dialogue.start([
         { text: 'You take a look at the board and it says...' },
-        { text: 'Hopefully you can LINK what you learned last year.', big: true }
+        { text: '"Hopefully you can LINK what you learned last year."', big: true },
+        { text: "Huh. That's a strange thing to put on a board..." }
       ]);
       return;
     }
