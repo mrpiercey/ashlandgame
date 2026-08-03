@@ -679,7 +679,25 @@ var G = window.G = window.G || {};
   // in flips with the direction the player faces (left/up walks would
   // otherwise show them reversed as "RAOS")
   var trail = [];        // sampled player footprints, newest first
-  var followers = {};    // letter -> {x, y} current float position
+  var followers = {};    // letter/item -> {x, y} current float position
+  // trophies from the secret places (the giant pencil, the MASTER RULER):
+  // they join the parade too, always BEHIND the letters as their own block,
+  // so however the letter block flips it still spells SOAR
+  var carriedItems = [];
+
+  // everyone in the parade with the distance they ride back along the trail
+  function paradeRanks() {
+    var carried = G.Quest.carriedLetters();
+    var flip = player.dir === 'left' || player.dir === 'up';
+    var list = [];
+    carried.forEach(function (l, i) {
+      list.push({ key: l, rank: flip ? i + 1 : carried.length - i });
+    });
+    carriedItems.forEach(function (it, i) {
+      list.push({ key: it, rank: carried.length + (flip ? i + 1 : carriedItems.length - i) });
+    });
+    return list;
+  }
 
   function recordTrail() {
     if (!trail.length ||
@@ -707,22 +725,20 @@ var G = window.G = window.G || {};
 
   function resetFollowers() {
     trail.length = 0;
-    G.Quest.carriedLetters().forEach(function (l) {
-      followers[l] = { x: player.x, y: player.y };
+    G.Quest.carriedLetters().concat(carriedItems).forEach(function (k) {
+      followers[k] = { x: player.x, y: player.y };
     });
   }
 
   function updateFollowers(dt) {
-    var carried = G.Quest.carriedLetters();
     // facing right/down: the trail stretches left/up of the player, so S
     // rides FARTHEST to sit leftmost/topmost. facing left/up: the trail
     // stretches right/down, so S rides CLOSEST instead. either way the
-    // letters read S-O-A-R across (or down) the screen.
-    var flip = player.dir === 'left' || player.dir === 'up';
-    carried.forEach(function (l, i) {
-      var f = followers[l] || (followers[l] = { x: player.x, y: player.y });
-      var rank = flip ? i + 1 : carried.length - i;
-      var t = trailPoint(rank * 14);
+    // letters read S-O-A-R across (or down) the screen, and the trophies
+    // ride at the back of the line.
+    paradeRanks().forEach(function (p) {
+      var f = followers[p.key] || (followers[p.key] = { x: player.x, y: player.y });
+      var t = trailPoint(p.rank * 14);
       var k = Math.min(1, dt * 10);
       f.x += (t.x - f.x) * k;
       f.y += (t.y - f.y) * k;
@@ -748,6 +764,20 @@ var G = window.G = window.G || {};
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(x + 1 + (i * 5) % 12, y - 8 + bob, 2, 2);
       }
+    });
+    // the trophies at the back of the line, floating like the letters do
+    carriedItems.forEach(function (it, i) {
+      var f = followers[it];
+      if (!f) return;
+      var bob = Math.sin(Date.now() / 240 + (carried.length + i) * 1.3) * 2;
+      var x = Math.round(f.x - cam.x), y = Math.round(f.y - cam.y);
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.beginPath();
+      ctx.ellipse(x + 8, y + 15.5, 4.5, 1.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.imageSmoothingEnabled = false;
+      if (it === 'pencil') G.Secret.drawPencil(ctx, x, y - 6 + bob, true);
+      else G.Grove.drawRulerHeld(ctx, x + 8, y + 12 + bob);
     });
   }
 
@@ -1671,16 +1701,22 @@ var G = window.G = window.G || {};
   }
 
   // Touch the pencil and the student turns to face you and holds it over their
-  // head for as long as the fanfare lasts -- the pose everyone remembers. It
-  // is pure ceremony: nothing is carried out of the cave.
+  // head for as long as the fanfare lasts -- the pose everyone remembers.
+  // When the arms come down, the pencil stays won: it joins the parade
+  // behind the letters and follows for the rest of the session.
   var pencilHold = null;      // {} while the student is holding it up
   var pencilTimer = null;
 
   function endPencilHold() {
     clearTimeout(pencilTimer);
     pencilTimer = null;
+    var was = pencilHold;
     pencilHold = null;
     if (pencilEnded) { pencilEnded(); pencilEnded = null; }
+    if (was && carriedItems.indexOf('pencil') < 0) {
+      carriedItems.push('pencil');
+      followers.pencil = { x: player.x, y: player.y };
+    }
   }
 
   // The pose lasts exactly as long as the fanfare: the arms stay up until the
@@ -1912,7 +1948,7 @@ var G = window.G = window.G || {};
       onMid: function () {
         state = 'grove';
         errorRoom = null;
-        grove = { x: G.Grove.SPAWN.x, y: G.Grove.SPAWN.y, dir: 'up', moving: false, anim: 0, scene: null };
+        grove = { x: G.Grove.SPAWN.x, y: G.Grove.SPAWN.y, dir: 'up', moving: false, anim: 0, scene: null, trail: [] };
         G.Audio.playGroveMusic();
       }
     };
@@ -2043,6 +2079,8 @@ var G = window.G = window.G || {};
     groveHold = null;
     if (groveHoldEnded) { groveHoldEnded(); groveHoldEnded = null; }
     if (was && grove) {
+      // the ruler joins the parade for good, right behind the pencil
+      if (carriedItems.indexOf('ruler') < 0) carriedItems.push('ruler');
       // ...and then the forest theme starts playing again
       G.Audio.playGroveMusic();
       G.Dialogue.start([
@@ -2128,6 +2166,7 @@ var G = window.G = window.G || {};
       gv.y = r.y0 - (r.y0 + 80) * u2 * u2;
       r.ex = gv.x;
       r.ey = gv.y - 26;
+      groveRecord();     // the trophies chase the flight out
       if (u2 >= 1) { groveDepart(); return; }
     }
     G.Input.consumeAction();
@@ -2189,6 +2228,7 @@ var G = window.G = window.G || {};
       if (dy && !G.Grove.blocked(gv.x, gv.y + dy * sp)) gv.y += dy * sp;
       gv.dir = dy < 0 ? 'up' : dy > 0 ? 'down' : dx < 0 ? 'left' : 'right';
       gv.anim += dt * 7;
+      groveRecord();
       // halfway down with the ruler in hand: the whistle finds them
       if (rulerTaken && !rideDone && gv.y > G.Grove.WORLD_H / 2) {
         startGroveRide();
@@ -2206,6 +2246,30 @@ var G = window.G = window.G || {};
 
   function groveCam() {
     return Math.max(0, Math.min(G.Grove.WORLD_H - SH, Math.round(grove.y) - 132));
+  }
+
+  // the grove keeps its own little footprint trail so the trophies can tag
+  // along here too, same as they do in the halls
+  function groveRecord() {
+    var tr = grove.trail;
+    if (!tr.length || Math.abs(tr[0].x - grove.x) + Math.abs(tr[0].y - grove.y) >= 4) {
+      tr.unshift({ x: grove.x, y: grove.y });
+      if (tr.length > 30) tr.pop();
+    }
+  }
+
+  function groveTrailPoint(dist) {
+    var prev = { x: grove.x, y: grove.y }, d = 0, tr = grove.trail;
+    for (var i = 0; i < tr.length; i++) {
+      var seg = Math.hypot(tr[i].x - prev.x, tr[i].y - prev.y);
+      if (d + seg >= dist) {
+        var f = (dist - d) / (seg || 1);
+        return { x: prev.x + (tr[i].x - prev.x) * f, y: prev.y + (tr[i].y - prev.y) * f };
+      }
+      d += seg;
+      prev = tr[i];
+    }
+    return prev;
   }
 
   function drawGroveStorm(camY) {
@@ -2258,6 +2322,16 @@ var G = window.G = window.G || {};
     var sy = Math.round(gv.y) - camY - frame.height;
     ctx.drawImage(frame, sx, sy);
     if (groveHold) G.Grove.drawRulerHeld(ctx, gv.x, sy - 4);
+    // the parade, grove edition: whatever has been won so far tags along
+    if (!groveHold) {
+      carriedItems.forEach(function (it, i) {
+        var p = groveTrailPoint((i + 1) * 16);
+        var bx = Math.round(p.x), by = Math.round(p.y) - camY;
+        var bob = Math.sin(Date.now() / 240 + i * 1.3) * 2;
+        if (it === 'pencil') G.Secret.drawPencil(ctx, bx - 8, by - 22 + bob, true);
+        else G.Grove.drawRulerHeld(ctx, bx, by - 4 + bob);
+      });
+    }
     if (groveRide) drawGroveRide(camY);
     if (gv.scene) drawGroveStorm(camY);
     G.Dialogue.draw(ctx);
@@ -6189,6 +6263,7 @@ var G = window.G = window.G || {};
   }
 
   G.Game = {
+    hasPencil: function () { return carriedItems.indexOf('pencil') >= 0; },
     startEnding: startEnding,
     startParty: startParty,
     startDollyParty: startDollyParty,

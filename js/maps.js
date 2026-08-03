@@ -472,7 +472,10 @@ var G = window.G = window.G || {};
     m.npcs.push({ kind: 'oldman', x: 9, y: 6 });
     m.npcs.push({ kind: 'cavefire', x: 6, y: 6 });
     m.npcs.push({ kind: 'cavefire', x: 13, y: 6 });
-    m.npcs.push({ kind: 'pencil', x: 9, y: 8 });   // dead centre of the room
+    // once the pencil has joined the parade, the floor stays bare
+    if (!(G.Game && G.Game.hasPencil && G.Game.hasPencil())) {
+      m.npcs.push({ kind: 'pencil', x: 9, y: 8 });   // dead centre of the room
+    }
   }
 
   // Which bulletin board becomes the cave mouth: the one nearest Eddie that
