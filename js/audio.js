@@ -356,6 +356,7 @@ var G = window.G = window.G || {};
   function playPipeSound() { return clip('pipesound.webm', 0.8); }
   function playMarioJump() { return clip('mariojumpsound.webm', 0.7); }
   function playPoleSlide() { return clip('poleslide.webm', 0.8); }
+  function playMarioEnding() { return clip('endingsoundmario.webm', 0.8); }
 
   // ---- the ending ----------------------------------------------------------
   // The last screen, where the four letters come home: its own theme, playing
@@ -919,6 +920,7 @@ var G = window.G = window.G || {};
     playPipeSound: playPipeSound,
     playMarioJump: playMarioJump,
     playPoleSlide: playPoleSlide,
+    playMarioEnding: playMarioEnding,
     playEnding: playEnding,
     stopEnding: stopEnding,
     playDolly: playDolly,
