@@ -2564,8 +2564,8 @@ var G = window.G = window.G || {};
         G.Audio.sfx('blip');
         G.Dialogue.start([
           { text: 'You picked up the golden book! It\'s...' },
-          { text: '"Super Mario Brothers: The Book"', big: true },
-          { text: 'The GOLDEN edition! Not even the library has this one.' }
+          { text: 'The GOLDEN DICTIONARY', big: true },
+          { text: 'Every word in the world, in solid gold! Not even the library has one of these.' }
         ], { onDone: function () { if (mario) mario.phase = 'march'; } });
       }
       if (m.px >= G.Mario.DOOR_X) { leaveMario(); return; }
