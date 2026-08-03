@@ -32,13 +32,17 @@ var G = window.G = window.G || {};
     g.imageSmoothingEnabled = sm;
   }
 
-  // the little flag baked into the artwork gets the sky painted over it --
-  // the golden book flies from that pole instead
-  var FLAG = { x0: 343, y0: 40, x1: 368, y1: 64 };
+  // the little flag baked into the artwork disappears behind a patch of
+  // sky CLONED from just left of it -- real pixels, so the blues always
+  // match -- and the patch stops short of the pole, which stays whole
   function drawSkyPatch(g, camX) {
-    g.fillStyle = '#6993f4';
-    g.fillRect(Math.round((FLAG.x0 - camX) * S), Math.round(FLAG.y0 * S),
-      Math.ceil((FLAG.x1 - FLAG.x0) * S), Math.ceil((FLAG.y1 - FLAG.y0) * S));
+    if (!ready()) return;
+    var sm = g.imageSmoothingEnabled;
+    g.imageSmoothingEnabled = false;
+    g.drawImage(art, 300, 42, 18, 22,
+      Math.round((343 - camX) * S), Math.round(42 * S),
+      Math.ceil(18 * S), Math.ceil(22 * S));
+    g.imageSmoothingEnabled = sm;
   }
 
   // where feet land, per native x: the ground, the arrival pipe, and the
@@ -52,18 +56,25 @@ var G = window.G = window.G || {};
     return 216;
   }
 
-  // the GOLDEN BOOK, small enough to fly a pole and follow a student
+  // the GOLDEN BOOK: spine on the left, a proper block of white pages on
+  // the fore-edge, and a title bar -- unmistakably a book, even at 16px
   function drawBook(g, sx, sy) {
-    g.fillStyle = '#7c4a12';
-    g.fillRect(sx - 1, sy - 1, 14, 12);
-    g.fillStyle = '#f2c14e';
-    g.fillRect(sx, sy, 12, 10);
-    g.fillStyle = '#fff7d0';
-    g.fillRect(sx + 9, sy + 1, 2, 8);      // the page block
-    g.fillStyle = '#7c4a12';
-    g.fillRect(sx + 2, sy, 1, 10);         // the spine
-    g.fillStyle = '#fff7d0';
-    g.fillRect(sx + 5, sy + 3, 2, 2);      // a glint of title
+    g.fillStyle = '#4a2f08';               // outline
+    g.fillRect(sx - 1, sy - 1, 16, 14);
+    g.fillStyle = '#f2c14e';               // golden cover
+    g.fillRect(sx, sy, 11, 12);
+    g.fillStyle = '#c9942e';               // the spine...
+    g.fillRect(sx, sy, 3, 12);
+    g.fillStyle = '#f7e08a';               // ...with its two little bands
+    g.fillRect(sx, sy + 2, 3, 1);
+    g.fillRect(sx, sy + 9, 3, 1);
+    g.fillStyle = '#fff7ea';               // the page block
+    g.fillRect(sx + 11, sy + 1, 3, 10);
+    g.fillStyle = '#d8cfae';               // page seams
+    g.fillRect(sx + 12, sy + 2, 1, 8);
+    g.fillStyle = '#fff7d0';               // title lines on the cover
+    g.fillRect(sx + 5, sy + 3, 4, 2);
+    g.fillRect(sx + 5, sy + 7, 3, 1);
   }
 
   G.Mario = {

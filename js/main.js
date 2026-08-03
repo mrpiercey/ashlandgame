@@ -2454,26 +2454,23 @@ var G = window.G = window.G || {};
     m.dir = 'left';           // hanging onto the pole
     m.slideY0 = m.py;
     // the book drops down the OTHER side of the pole while the student
-    // slides this one -- both timed to the slide sound itself
+    // slides this one -- quick, like the flag-fall sound itself
     m.bx = G.Mario.POLE.x + 3;
     m.by = G.Mario.POLE.bookTop;
-    m.slideLen = 4.3;
     G.Audio.stopMarioTheme();
-    var el = G.Audio.playPoleSlide();
-    if (el) {
-      if (isFinite(el.duration) && el.duration > 0) m.slideLen = el.duration;
-      else {
-        el.addEventListener('loadedmetadata', function once() {
-          el.removeEventListener('loadedmetadata', once);
-          if (mario && mario.phase === 'slide') mario.slideLen = el.duration;
-        });
-      }
-    }
+    G.Audio.playPoleSlide();
   }
+  var SLIDE_LEN = 1.3;   // the audible whip of the fall, not the whole clip
 
   function updateMario(dt) {
     var m = mario;
     if (!m) return;
+
+    // the book-pickup chat (and any other page) has the floor
+    if (G.Dialogue.isActive()) {
+      G.Dialogue.update(ctx);
+      return;
+    }
 
     if (m.phase === 'spawn') {
       // rising up out of the pipe, then the theme kicks in
@@ -2492,18 +2489,22 @@ var G = window.G = window.G || {};
         m.dir = ax > 0 ? 'right' : 'left';
         m.anim += dt * 8;
         var nx = Math.max(12, Math.min(G.Mario.W - 10, m.px + ax * MARIO_RUN * dt));
-        // a wall is any floor higher than your feet: no walking through steps
-        if (m.py <= G.Mario.floorAt(nx) + 0.5) m.px = nx;
+        // a wall is any floor higher than your feet -- and it is the
+        // LEADING EDGE of the sprite that must clear it, not its middle,
+        // or half a student ends up buried in the staircase
+        if (m.py <= G.Mario.floorAt(nx + ax * 7) + 0.5) m.px = nx;
       } else {
         m.anim = 0;
       }
-      var fl = G.Mario.floorAt(m.px);
+      // you stand on the highest ground under EITHER foot, Mario-style
+      var fl = Math.min(G.Mario.floorAt(m.px - 6), G.Mario.floorAt(m.px), G.Mario.floorAt(m.px + 6));
       if (m.onGround && m.py < fl - 1) m.onGround = false;   // walked off an edge
       if (!m.onGround) {
         m.vy += MARIO_G * dt;
         m.py += m.vy * dt;
-        if (m.vy > 0 && m.py >= G.Mario.floorAt(m.px)) {
-          m.py = G.Mario.floorAt(m.px);
+        fl = Math.min(G.Mario.floorAt(m.px - 6), G.Mario.floorAt(m.px), G.Mario.floorAt(m.px + 6));
+        if (m.vy > 0 && m.py >= fl) {
+          m.py = fl;
           m.vy = 0;
           m.onGround = true;
         }
@@ -2519,26 +2520,53 @@ var G = window.G = window.G || {};
         startMarioSlide();
       }
     } else if (m.phase === 'slide') {
-      // down the pole for exactly as long as the slide sound lasts, the
-      // book dropping down the far side to wait on the ground
+      // a fast drop down the pole, the book falling the far side with them
       m.t += dt;
-      var u = Math.min(1, m.t / (m.slideLen || 4.3));
+      var u = Math.min(1, m.t / SLIDE_LEN);
       m.py = m.slideY0 + (G.Mario.GROUND - m.slideY0) * u;
       m.by = G.Mario.POLE.bookTop + ((G.Mario.GROUND - 10) - G.Mario.POLE.bookTop) * u;
       if (u >= 1) {
+        // holding the pole at the bottom for the whole course-clear jingle
+        m.phase = 'wait';
+        m.t = 0;
+        m.waitLen = 8.6;
+        var el = G.Audio.playMarioEnding();
+        if (el) {
+          if (isFinite(el.duration) && el.duration > 0) m.waitLen = el.duration;
+          else {
+            el.addEventListener('loadedmetadata', function once() {
+              el.removeEventListener('loadedmetadata', once);
+              if (mario && mario.phase === 'wait') mario.waitLen = el.duration;
+            });
+          }
+          el.addEventListener('ended', function onEnd() {
+            el.removeEventListener('ended', onEnd);
+            if (mario && mario.phase === 'wait') mario.waitOver = true;
+          });
+        }
+      }
+    } else if (m.phase === 'wait') {
+      m.t += dt;
+      if (m.waitOver || m.t >= m.waitLen + 0.2) {
         m.phase = 'march';
         m.dir = 'right';
-        G.Audio.playMarioEnding();   // the course-clear jingle sees them out
       }
     } else if (m.phase === 'march') {
       // no buttons now: the level ends itself. The book waits on the far
-      // side of the pole, and the student scoops it up on the way past.
+      // side of the pole, and the student stops to see what they found.
       m.px += 62 * dt;
       m.py = G.Mario.floorAt(m.px);
       m.anim += dt * 8;
       if (!m.bookCollected && m.px >= m.bx - 4) {
         m.bookCollected = true;
+        m.phase = 'bookTalk';
+        m.anim = 0;
         G.Audio.sfx('blip');
+        G.Dialogue.start([
+          { text: 'You picked up the golden book! It\'s...' },
+          { text: '"Super Mario Brothers: The Book"', big: true },
+          { text: 'The GOLDEN edition! Not even the library has this one.' }
+        ], { onDone: function () { if (mario) mario.phase = 'march'; } });
       }
       if (m.px >= G.Mario.DOOR_X) { leaveMario(); return; }
     }
@@ -2584,6 +2612,7 @@ var G = window.G = window.G || {};
     } else {
       ctx.drawImage(frame, sx, sy);
     }
+    G.Dialogue.draw(ctx);
   }
 
   var returnPoint = null; // where you were before your last door warp
