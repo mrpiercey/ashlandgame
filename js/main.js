@@ -58,6 +58,8 @@ var G = window.G = window.G || {};
     // per party tier, for showing off the endings without replaying the game.
     var em = /[?&]ending=(\d+|all)\b/.exec(location.search);
     if (em) previewEnding = em[1] === 'all' ? Infinity : parseInt(em[1], 10);
+    // ...and ?mario drops you straight down the library pipe
+    previewMario = /[?&]mario\b/.test(location.search);
 
     playerFrames = G.Sprites.make({
       hair: '#c8451f', skin: '#f2c398', shirt: '#2e8f57', pants: '#3d5c92', shoes: '#e8e8e2', style: 'short'
@@ -2388,7 +2390,7 @@ var G = window.G = window.G || {};
 
   // SUPERMARIO typed in the library: a green pipe grows out of the reading
   // tent's spot, and stepping onto it is a one-way trip (well, round trip)
-  function revealMarioPipe() {
+  function revealMarioPipe(quiet) {
     var m = G.Maps.all['t-lib'];
     if (!m || marioPipeSpot) return;
     var spot = null;
@@ -2401,8 +2403,26 @@ var G = window.G = window.G || {};
     marioPipeSpot = spot;
     m.set(spot.x, spot.y, 'pipe');
     m.stairs[spot.x + ',' + spot.y] = { marioIn: true };
-    secretPuff = { map: 't-lib', x: spot.x, y: spot.y, t: 0 };
-    playSecretSound('secretdoor.webm', true);
+    if (!quiet) {
+      secretPuff = { map: 't-lib', x: spot.x, y: spot.y, t: 0 };
+      playSecretSound('secretdoor.webm', true);
+    }
+  }
+
+  // ?mario in the address bar: skip the school day -- the pipe is already
+  // open in the library and you start at the bottom of it. Walking out of
+  // the level drops you in the library like always.
+  function startMarioPreview() {
+    state = 'play';
+    revealMarioPipe(true);
+    currentMapId = 't-lib';
+    visited['t-lib'] = true;
+    var p = marioPipeSpot || { x: 18, y: 11 };
+    player.x = p.x * TS;
+    player.y = p.y * TS;
+    player.dir = 'down';
+    lastTriggerKey = p.x + ',' + p.y;
+    enterMarioPipe();
   }
 
   function enterMarioPipe() {
@@ -3629,6 +3649,7 @@ var G = window.G = window.G || {};
   // one keypress away. Her desk moves around between loads, so we find her
   // and take whichever side of her is walkable.
   var previewEnding = null;
+  var previewMario = false;
 
   function startWalkerPreview(n) {
     // Officer Garth and Eddie round out the roster, so ?ending=all really is
@@ -3688,6 +3709,7 @@ var G = window.G = window.G || {};
   }
 
   function startIntro() {
+    if (previewMario) { startMarioPreview(); return; }
     if (previewEnding !== null) { startWalkerPreview(previewEnding); return; }
     state = 'play';
     G.Audio.startBgm(); // stops the title theme, starts the floor theme
