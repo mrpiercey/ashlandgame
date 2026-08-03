@@ -31,8 +31,8 @@ var G = window.G = window.G || {};
     ctx.strokeRect(x + 4.5, y + 4.5, w - 9, h - 9);
   }
 
-  function wrapText(ctx, text, maxW) {
-    ctx.font = font(8);
+  function wrapText(ctx, text, maxW, px) {
+    ctx.font = font(px || 8);
     var words = text.split(' ');
     var lines = [];
     var line = '';
@@ -52,13 +52,14 @@ var G = window.G = window.G || {};
   function preparePage(ctx) {
     var p = pages[pageIdx];
     var maxW = p.icon ? 250 : 284;
-    wrapped = wrapText(ctx, p.text, maxW);
+    // a page marked big shouts in a larger font (fewer lines fit)
+    wrapped = wrapText(ctx, p.text, maxW, p.big ? 10 : 8);
     // split anything too tall for the window into a follow-up page
-    var maxLines = p.name ? 3 : 4;
+    var maxLines = p.big ? 3 : p.name ? 3 : 4;
     if (wrapped.length > maxLines) {
       var rest = wrapped.slice(maxLines).join(' ');
       wrapped = wrapped.slice(0, maxLines);
-      pages.splice(pageIdx + 1, 0, { name: p.name, text: rest, icon: p.icon });
+      pages.splice(pageIdx + 1, 0, { name: p.name, text: rest, icon: p.icon, big: p.big });
     }
     charCount = 0;
     if (p.fanfare && p.letter) {
@@ -167,14 +168,15 @@ var G = window.G = window.G || {};
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(p.icon, SW - 40, y + 20, 24, 24);
     }
-    // typewriter across wrapped lines
-    ctx.font = font(8);
+    // typewriter across wrapped lines (big pages get big letters)
+    ctx.font = font(p.big ? 10 : 8);
     ctx.fillStyle = '#f4f4f4';
+    var lineH = p.big ? 15 : 12;
     var remaining = charCount;
     for (var i = 0; i < wrapped.length; i++) {
       if (remaining <= 0) break;
       var lineText = wrapped[i].slice(0, remaining);
-      ctx.fillText(lineText, tx, ty + i * 12);
+      ctx.fillText(lineText, tx, ty + i * lineH);
       remaining -= wrapped[i].length + 1;
     }
     // continue arrow

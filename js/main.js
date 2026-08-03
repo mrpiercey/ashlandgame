@@ -3319,11 +3319,10 @@ var G = window.G = window.G || {};
     var sat = G.Maps.secret.at;
     if (sat && !G.Maps.secret.isOpen() && currentMapId === sat.map &&
         px + dx === sat.x && py + dy === sat.y) {
-      var bf = FACTS[FACT_ALIAS[ft] || ft];
       G.Audio.sfx('tick');
       G.Dialogue.start([
-        { text: bf ? bf[0] : 'A bulletin board, ready for amazing student work.' },
-        { text: 'Hopefully you can LINK what you learned last year!' }
+        { text: 'You take a look at the board and it says...' },
+        { text: 'Hopefully you can LINK what you learned last year.', big: true }
       ]);
       return;
     }
