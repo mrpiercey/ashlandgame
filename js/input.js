@@ -16,6 +16,20 @@ var G = window.G = window.G || {};
     ArrowRight: 'right', KeyD: 'right'
   };
 
+  // every secret code the game listens for; a mute key pressed while one of
+  // these is being spelled out is a LETTER, not a volume control
+  var CODES = ['hdd', 'link', 'zelda', 'error', 'supermario'];
+  function partOfCode(ch) {
+    var t = typedBuffer + ch;
+    for (var i = 0; i < CODES.length; i++) {
+      var c = CODES[i];
+      for (var n = Math.min(c.length, t.length); n >= 2; n--) {
+        if (t.slice(-n) === c.slice(0, n)) return true;
+      }
+    }
+    return false;
+  }
+
   function press(dir) {
     if (!held[dir]) dirPressed[dir] = true;
     held[dir] = true;
@@ -43,10 +57,10 @@ var G = window.G = window.G || {};
     var d = KEYMAP[e.code];
     if (d) { press(d); e.preventDefault(); }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyX') held.run = true;
-    if (e.code === 'KeyM') G.Audio.toggleMute();
-    // F, not N: 'n' is a letter of the "link" secret code, and typing it in
-    // must not flip the sound effects off halfway through
-    if (e.code === 'KeyF') G.Audio.toggleSfx();
+    // M mutes and F flips the sound effects -- but NOT while the letter is
+    // part of a secret code mid-type ("superM..." must not kill the music)
+    if (e.code === 'KeyM' && !partOfCode('m')) G.Audio.toggleMute();
+    if (e.code === 'KeyF' && !partOfCode('f')) G.Audio.toggleSfx();
     // TAB pulls up the ASHLAND STAFF roster (and puts it away again).
     // preventDefault matters twice over: TAB would otherwise walk the
     // browser's focus ring off the canvas and the game would go deaf.
