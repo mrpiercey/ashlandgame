@@ -122,9 +122,18 @@ body.touch #touch-controls { display: block; }
   border-radius: 14px;
   background: rgba(20, 82, 47, 0.55);
   color: #fff;
-  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;   /* ...so the buttons themselves are just artwork */
   touch-action: none;
+}
+/* one size for every arrow -- font glyphs rendered the four triangles at
+   wildly different sizes on phones (emoji vs text presentation) */
+.dbtn svg {
+  width: 30px;
+  height: 30px;
+  fill: #fff;
 }
 #d-up    { left: 72px;  top: 0; }
 #d-left  { left: 0;     top: 72px; }

@@ -21,10 +21,13 @@
   </div>
   <div id="touch-controls">
     <div id="dpad">
-      <button class="dbtn" id="d-up">&#9650;</button>
-      <button class="dbtn" id="d-left">&#9664;</button>
-      <button class="dbtn" id="d-right">&#9654;</button>
-      <button class="dbtn" id="d-down">&#9660;</button>
+      <!-- arrows are drawn as SVGs, not text: iOS shows the left/right
+           triangle CHARACTERS as big emoji but up/down as tiny glyphs,
+           which made the pad look mismatched -->
+      <button class="dbtn" id="d-up"><svg viewBox="0 0 24 24"><path d="M12 4 L21 19 L3 19 Z"/></svg></button>
+      <button class="dbtn" id="d-left"><svg viewBox="0 0 24 24"><path d="M4 12 L19 3 L19 21 Z"/></svg></button>
+      <button class="dbtn" id="d-right"><svg viewBox="0 0 24 24"><path d="M20 12 L5 3 L5 21 Z"/></svg></button>
+      <button class="dbtn" id="d-down"><svg viewBox="0 0 24 24"><path d="M12 20 L3 5 L21 5 Z"/></svg></button>
     </div>
     <button id="a-btn">TALK &amp;<br>CHECK</button>
   </div>
