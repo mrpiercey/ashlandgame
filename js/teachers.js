@@ -191,8 +191,8 @@ var G = window.G = window.G || {};
     { intro: "Hi there! I'm Mrs. Helton. If you ever need help finding your way, just ask me!" });
   staff('staff-garcia', 'Mrs. Garcia', { style: 1, skin: 5, hairColor: 1, outfit: 6 }, { roomOf: 't-224' });
   // teacher support, roaming the halls
-  staff('staff-kjackson', 'Ms. Kay Jackson', { style: 6, skin: 6, hairColor: 0, outfit: 3 },
-    { intro: "Hi! I'm Ms. Kay Jackson. I support students and teachers all over Ashland!" });
+  staff('staff-kjackson', 'Ms. Kay Jackson', { style: 1, skin: 0, hairColor: 6, outfit: 1 },
+    { intro: "Hi! I'm Ms. Kay Jackson, the district's mental health specialist for kids. I'm someone you can ALWAYS talk to!" });
   staff('staff-stanfield', 'Mrs. Stanfield', { style: 1, skin: 0, hairColor: 3, outfit: 4 },
     { intro: "Hello! I'm Mrs. Stanfield. I'm part of the teacher support team -- we help make every classroom great!" });
   // band and orchestra, by the gym stage

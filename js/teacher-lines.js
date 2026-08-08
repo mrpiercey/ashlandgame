@@ -208,12 +208,12 @@ G.TEACHER_LINES = {
     'Story time is the best part of my day.',
     'We are going to have SO much fun this year!'
   ],
-  'staff-kjackson': [ // teacher support, top floor hallway
-    'I go wherever I am needed -- and I am needed everywhere!',
-    'Helping students AND teachers? Best job in the building.',
-    'If you ever feel stuck, find a grown-up like me. We will figure it out!',
-    'Every classroom on this floor is getting ready for YOU.',
-    'This year is going to be amazing. I can already tell!'
+  'staff-kjackson': [ // district mental health specialist, top floor hallway
+    'Big feelings are welcome here. ALL of them.',
+    'I am someone you can always talk to -- about anything, big or small!',
+    "One of my favorite guiding quotes is from Michelle Obama: 'When they go low, we go high.'",
+    'Taking care of your heart and mind matters just as much as math and reading!',
+    'If you ever feel stuck, find a grown-up like me. We will figure it out together!'
   ],
   'staff-stanfield': [ // teacher support, middle floor hallway
     'I support our teachers so they can do their very best for you!',
