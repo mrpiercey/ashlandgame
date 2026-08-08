@@ -134,8 +134,8 @@ var G = window.G = window.G || {};
   T['t-216b'] = {
     name: 'Mr. Love',
     // green shirt and jeans (outfit 0 = green polo + denim-blue pants)
-    sprite: G.Sprites.cfgFrom({ style: 0, skin: 7, hairColor: 0, outfit: 0, glasses: false }),
-    spriteOv: { style: 0, skin: 7, hairColor: 0, outfit: 0, glasses: false },
+    sprite: G.Sprites.cfgFrom({ style: 0, skin: 6, hairColor: 0, outfit: 0, glasses: false }),
+    spriteOv: { style: 0, skin: 6, hairColor: 0, outfit: 0, glasses: false },
     roomOf: 't-216',    // he lives in room 216's map
     noLetter: true,     // the room's letter is handled by Mr. Richards
     intro: "Hi there! I'm Mr. Love! I'm new to Ashland this year, and I can't wait to help every single student I work with!"
