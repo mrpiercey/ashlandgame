@@ -74,7 +74,6 @@ var G = window.G = window.G || {};
   var NOT_ACTION = {
     ShiftLeft: 1, ShiftRight: 1, KeyX: 1,        // run
     KeyM: 1,                                     // music on/off
-    KeyF: 1,                                     // sound effects on/off
     ControlLeft: 1, ControlRight: 1, AltLeft: 1, AltRight: 1,
     MetaLeft: 1, MetaRight: 1, OSLeft: 1, OSRight: 1,
     Tab: 1, CapsLock: 1, ContextMenu: 1, NumLock: 1, ScrollLock: 1,
@@ -90,10 +89,10 @@ var G = window.G = window.G || {};
     var d = KEYMAP[e.code];
     if (d) { press(d); e.preventDefault(); }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyX') held.run = true;
-    // M mutes and F flips the sound effects -- but NOT while the letter is
-    // part of a secret code mid-type ("superM..." must not kill the music)
+    // M mutes -- but NOT while the letter is part of a secret code
+    // mid-type ("superM..." must not kill the music). Sound effects have
+    // no key at all: their volume lives in the FX button's slider.
     if (e.code === 'KeyM' && !partOfCode('m')) toggleMaybeCode('m', function () { G.Audio.toggleMute(); });
-    if (e.code === 'KeyF' && !partOfCode('f')) toggleMaybeCode('f', function () { G.Audio.toggleSfx(); });
     // TAB pulls up the ASHLAND STAFF roster (and puts it away again).
     // preventDefault matters twice over: TAB would otherwise walk the
     // browser's focus ring off the canvas and the game would go deaf.
