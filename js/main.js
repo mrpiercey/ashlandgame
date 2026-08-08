@@ -2423,21 +2423,46 @@ var G = window.G = window.G || {};
   var mahjongFinds = {};    // mapId -> books found on that room's shelf
   var mahjongFloor = {};    // mapId -> true once the code was typed there
 
-  var MAHJONG_BOOKS = [
-    'Lots of books here...',
-    'You find "The Brothers Karamazov: For Kids"!',
-    'You find "Green Eggs and Hamlet"!',
-    'You find "War and Peace and Naptime"!',
-    'You find "Goodnight, Crime and Punishment"!'
-  ];
+  // every shelf is stocked differently -- same strange book at the end
+  var MAHJONG_BOOKS = {
+    't-224': [
+      'Lots of books here...',
+      'You find "The Brothers Karamazov: For Kids"!',
+      'You find "Green Eggs and Hamlet"!',
+      'You find "War and Peace and Naptime"!',
+      'You find "Goodnight, Crime and Punishment"!'
+    ],
+    't-233': [
+      'So many books to explore...',
+      'You find "The Odyssey: A Long Walk Home"!',
+      'You find "Little Women, Even Littler"!',
+      'You find "The Great Gatsby Learns to Share"!',
+      'You find "A Tale of Two Recesses"!'
+    ],
+    't-212': [
+      'This shelf is stuffed full...',
+      'You find "Don Quixote and the Playground Windmill"!',
+      'You find "The Grapes of Math"!',
+      'You find "Where the Wild Homework Is"!',
+      'You find "Wuthering Heights (the Monkey Bars)"!'
+    ],
+    't-230': [
+      'Books, books, books...',
+      'You find "The Very Old Man and the Seesaw"!',
+      'You find "Anne of Green Crayons"!',
+      'You find "The Count of Monte Crayon"!',
+      'You find "Romeo and Juliet Clean Up Their Desks"!'
+    ]
+  };
 
   function mahjongShelfFind() {
     G.Audio.sfx('tick');
+    var books = MAHJONG_BOOKS[currentMapId] || MAHJONG_BOOKS['t-224'];
     var finds = mahjongFinds[currentMapId] || 0;
-    if (finds < MAHJONG_BOOKS.length) {
-      G.Dialogue.start([{ text: MAHJONG_BOOKS[finds] }]);
+    if (finds < books.length) {
+      G.Dialogue.start([{ text: books[finds] }]);
       mahjongFinds[currentMapId] = finds + 1;
-    } else if (finds === MAHJONG_BOOKS.length) {
+    } else if (finds === books.length) {
       mahjongFinds[currentMapId] = finds + 1;
       G.Dialogue.start([
         { text: 'Squeezed in at the very end of the shelf is a book you have NEVER heard of...' },
