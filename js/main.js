@@ -340,7 +340,9 @@ var G = window.G = window.G || {};
           G.Input.recentTyped().indexOf('mahjogn') !== -1)) {
         G.Input.clearTyped();
         mahjongFloor[currentMapId] = true;
-        playSecretSound('secretdoor.webm', true);
+        // the tiles clack into place the second they flip -- no ducking,
+        // the clack rides right on top of the music
+        playSecretSound('clacksound.webm', false);
       }
     } else if (currentMapId === 't-223') {
       // FORCE typed in Mr. Givan's room: the poster meant every word of it
@@ -2415,7 +2417,9 @@ var G = window.G = window.G || {};
   // Mrs. Mulert (230). Each shelf reads like any classroom shelf at first,
   // but the sixth look finds a book that should NOT exist -- and its title
   // is a secret code too. Each room keeps its own count and its own floor.
-  var MAHJONG_ROOMS = { 't-224': 1, 't-233': 1, 't-212': 1, 't-230': 1 };
+  // each value picks that room's tile set in js/tiles.js (1-based so a
+  // simple truthiness check still answers "is this a mahjong room?")
+  var MAHJONG_ROOMS = { 't-224': 1, 't-233': 2, 't-212': 3, 't-230': 4 };
   var mahjongFinds = {};    // mapId -> books found on that room's shelf
   var mahjongFloor = {};    // mapId -> true once the code was typed there
 
@@ -5688,9 +5692,10 @@ var G = window.G = window.G || {};
         var drawType = t;
         if (mahjongFloor[currentMapId] && t === 'floor') {
           // the MAHJONG code: each floor tile picks its own face from the
-          // wall, scattered by position so neighbors never match
+          // wall, scattered by position so neighbors never match, drawn
+          // from this room's own set
           var mjh = ((tx * 73856093) | 0) ^ ((ty * 19349663) | 0);
-          drawType = 'mahjong:' + ((mjh % 36 + 36) % 36);
+          drawType = 'mahjong:' + ((mjh % 36 + 36) % 36) + ':' + (MAHJONG_ROOMS[currentMapId] - 1);
         } else if (t === 'wall' && !G.Tiles.isWalkable(m.get(tx, ty + 1))) {
           drawType = 'wallTop';
         } else if (t === 'table') {

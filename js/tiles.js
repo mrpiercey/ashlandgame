@@ -2008,29 +2008,38 @@ var G = window.G = window.G || {};
 
   // ---- mahjong tiles (the Kindergarten "MAHJONG" secret) ------------------
   // 36 faces: craks 1-9, bams 1-9, dots 1-9, the four winds, three dragons,
-  // a flower and the joker. Ivory face up top, green tile back peeking out
-  // below, dark seams between neighbors so a floor of them reads as a wall
-  // of racked tiles.
-  var MJ_RED = '#c03028', MJ_GREEN = '#2e7d46', MJ_BLUE = '#2c4a9e';
-  var MJ_FACE = '#f8f3e2';
-  function mjBase(ctx) {
+  // a flower and the joker. Ivory face up top, colored tile back peeking
+  // out below, dark seams between neighbors so a floor of them reads as a
+  // wall of racked tiles. Every room that knows the word owns a different
+  // set: its own ivory, its own back, its own three inks.
+  var MJ_SETS = [
+    { face: '#f8f3e2', hi: '#fffdf2', lo: '#e2d9c2', back: '#3f7a52', back2: '#2d5c3c',
+      r: '#c03028', g: '#2e7d46', g2: '#1e5c32', b: '#2c4a9e' },   // classic green (Mrs. Messer)
+    { face: '#eef3f8', hi: '#fbfdff', lo: '#d4dee8', back: '#2e4a80', back2: '#20355e',
+      r: '#c94a68', g: '#1f8a7a', g2: '#146455', b: '#3452c4' },   // ocean blue (room 233)
+    { face: '#fbf0da', hi: '#fffaf0', lo: '#e8d9b8', back: '#a8385a', back2: '#7e2843',
+      r: '#b32d3c', g: '#6a8f28', g2: '#4a681a', b: '#7a3f9e' },   // rose & gold (Mrs. Myers)
+    { face: '#f2edfa', hi: '#fcfaff', lo: '#dcd2ec', back: '#5a3a8e', back2: '#43296a',
+      r: '#c8501e', g: '#2d6e4e', g2: '#1e5038', b: '#8a2dbe' }    // violet dusk (Mrs. Mulert)
+  ];
+  function mjBase(ctx, S) {
     ctx.fillStyle = '#141018';
     ctx.fillRect(0, 0, TS, TS);        // the seam between tiles
-    ctx.fillStyle = MJ_FACE;
+    ctx.fillStyle = S.face;
     ctx.fillRect(1, 1, 14, 12);        // ivory face
-    ctx.fillStyle = '#fffdf2';
+    ctx.fillStyle = S.hi;
     ctx.fillRect(1, 1, 14, 1);         // top catches the light
-    ctx.fillStyle = '#e2d9c2';
+    ctx.fillStyle = S.lo;
     ctx.fillRect(1, 12, 14, 1);        // face rolls away at the bottom
-    ctx.fillStyle = '#3f7a52';
-    ctx.fillRect(1, 13, 14, 1);        // green back of the tile
-    ctx.fillStyle = '#2d5c3c';
+    ctx.fillStyle = S.back;
+    ctx.fillRect(1, 13, 14, 1);        // colored back of the tile
+    ctx.fillStyle = S.back2;
     ctx.fillRect(1, 14, 14, 1);
   }
-  function mjDot(ctx, x, y, color) {
+  function mjDot(ctx, x, y, color, S) {
     ctx.fillStyle = color;
     ctx.fillRect(x, y, 3, 3);
-    ctx.fillStyle = MJ_FACE;
+    ctx.fillStyle = S.face;
     ctx.fillRect(x + 1, y + 1, 1, 1);  // ring, not blob
   }
   // hand-placed layouts so 1-9 read at a glance, like the real faces
@@ -2044,26 +2053,26 @@ var G = window.G = window.G || {};
     8: [[2, 2], [6, 2], [10, 2], [4, 5], [8, 5], [2, 8], [6, 8], [10, 8]],
     9: [[2, 2], [6, 2], [10, 2], [2, 5], [6, 5], [10, 5], [2, 8], [6, 8], [10, 8]]
   };
-  var MJ_DOT_COLORS = [MJ_GREEN, MJ_RED, MJ_BLUE];
-  function mjDots(ctx, n) {
+  function mjDots(ctx, n, S) {
     if (n === 1) {
       // the one-dot is a single proud bullseye
-      ctx.fillStyle = MJ_RED;
+      ctx.fillStyle = S.r;
       ctx.fillRect(5, 4, 6, 6);
-      ctx.fillStyle = MJ_FACE;
+      ctx.fillStyle = S.face;
       ctx.fillRect(6, 5, 4, 4);
-      ctx.fillStyle = MJ_GREEN;
+      ctx.fillStyle = S.g;
       ctx.fillRect(7, 6, 2, 2);
       return;
     }
+    var inks = [S.g, S.r, S.b];
     MJ_DOT_POS[n].forEach(function (p, i) {
-      mjDot(ctx, p[0], p[1], MJ_DOT_COLORS[i % 3]);
+      mjDot(ctx, p[0], p[1], inks[i % 3], S);
     });
   }
-  function mjStick(ctx, x, y, h) {
-    ctx.fillStyle = MJ_GREEN;
+  function mjStick(ctx, x, y, h, S) {
+    ctx.fillStyle = S.g;
     ctx.fillRect(x, y, 2, h);
-    ctx.fillStyle = '#1e5c32';
+    ctx.fillStyle = S.g2;
     ctx.fillRect(x, y + 1, 2, 1);      // bamboo node
   }
   var MJ_BAM_POS = {
@@ -2075,39 +2084,48 @@ var G = window.G = window.G || {};
     7: [[3, 2], [7, 2], [11, 2], [2, 7], [5, 7], [8, 7], [11, 7]],
     8: [[2, 2], [5, 2], [8, 2], [11, 2], [2, 7], [5, 7], [8, 7], [11, 7]]
   };
-  function mjBams(ctx, n) {
+  function mjBams(ctx, n, S) {
     if (n === 1) {
       // the one-bam is traditionally a bird: one tall shoot, red head
-      mjStick(ctx, 7, 3, 8);
-      ctx.fillStyle = MJ_RED;
+      mjStick(ctx, 7, 3, 8, S);
+      ctx.fillStyle = S.r;
       ctx.fillRect(6, 2, 4, 2);
       return;
     }
     if (n === 9) {
       // three short rows of three
       [2, 5, 8].forEach(function (y) {
-        [3, 7, 11].forEach(function (x) { mjStick(ctx, x, y, 3); });
+        [3, 7, 11].forEach(function (x) { mjStick(ctx, x, y, 3, S); });
       });
       return;
     }
-    MJ_BAM_POS[n].forEach(function (p) { mjStick(ctx, p[0], p[1], 4); });
+    MJ_BAM_POS[n].forEach(function (p) { mjStick(ctx, p[0], p[1], 4, S); });
   }
-  function pMahjong(ctx, rnd, idx) {
-    mjBase(ctx);
+  function pMahjong(ctx, rnd, idx, setIdx) {
+    var S = MJ_SETS[((setIdx % MJ_SETS.length) + MJ_SETS.length) % MJ_SETS.length];
+    mjBase(ctx, S);
     var i = ((idx % 36) + 36) % 36;
     if (i < 9) {
-      // craks: the big red number
-      drawTinyText(ctx, String(i + 1), 5, 2, MJ_RED, 2);
+      // craks, like a real tile face: the little number tucked in the
+      // corner, and the big red WAN character doing the talking
+      drawTinyText(ctx, String(i + 1), 2, 2, S.r, 1);
+      ctx.fillStyle = S.r;
+      ctx.fillRect(6, 4, 8, 2);        // the character's top bar
+      ctx.fillRect(9, 6, 2, 2);        // stroke stepping down-left...
+      ctx.fillRect(8, 8, 2, 2);
+      ctx.fillRect(7, 10, 2, 2);       // ...to its foot
+      ctx.fillRect(11, 6, 2, 2);       // right leg...
+      ctx.fillRect(12, 8, 2, 2);       // ...kicking out with a hook
     } else if (i < 18) {
-      mjBams(ctx, i - 8);
+      mjBams(ctx, i - 8, S);
     } else if (i < 27) {
-      mjDots(ctx, i - 17);
+      mjDots(ctx, i - 17, S);
     } else if (i < 31) {
       // winds: E S W N in wind-blue
-      drawTinyText(ctx, 'ESWN'[i - 27], 5, 2, MJ_BLUE, 2);
+      drawTinyText(ctx, 'ESWN'[i - 27], 5, 2, S.b, 2);
     } else if (i === 31) {
       // red dragon: a chunky 8-bit take on the character
-      ctx.fillStyle = MJ_RED;
+      ctx.fillStyle = S.r;
       ctx.fillRect(7, 2, 2, 10);
       ctx.fillRect(3, 4, 10, 1);
       ctx.fillRect(3, 8, 10, 1);
@@ -2115,31 +2133,31 @@ var G = window.G = window.G || {};
       ctx.fillRect(12, 4, 1, 5);
     } else if (i === 32) {
       // green dragon: a sprout bursting upward
-      ctx.fillStyle = MJ_GREEN;
+      ctx.fillStyle = S.g;
       ctx.fillRect(7, 2, 2, 10);
       ctx.fillRect(4, 4, 3, 2);
       ctx.fillRect(9, 4, 3, 2);
       ctx.fillRect(3, 8, 4, 2);
       ctx.fillRect(9, 8, 4, 2);
     } else if (i === 33) {
-      // white dragon: the empty blue frame ("the soap")
-      ctx.fillStyle = MJ_BLUE;
+      // white dragon: the empty frame ("the soap")
+      ctx.fillStyle = S.b;
       ctx.fillRect(3, 2, 10, 1);
       ctx.fillRect(3, 11, 10, 1);
       ctx.fillRect(3, 2, 1, 10);
       ctx.fillRect(12, 2, 1, 10);
     } else if (i === 34) {
-      // flower: red petals round a green heart
-      mjDot(ctx, 6, 2, MJ_RED);
-      mjDot(ctx, 3, 5, MJ_RED);
-      mjDot(ctx, 9, 5, MJ_RED);
-      mjDot(ctx, 6, 8, MJ_RED);
-      ctx.fillStyle = MJ_GREEN;
+      // flower: petals round a leafy heart
+      mjDot(ctx, 6, 2, S.r, S);
+      mjDot(ctx, 3, 5, S.r, S);
+      mjDot(ctx, 9, 5, S.r, S);
+      mjDot(ctx, 6, 8, S.r, S);
+      ctx.fillStyle = S.g;
       ctx.fillRect(7, 6, 2, 2);
     } else {
-      // joker: the wild card gets a wink of red
-      drawTinyText(ctx, 'J', 5, 2, MJ_GREEN, 2);
-      ctx.fillStyle = MJ_RED;
+      // joker: the wild card gets a wink
+      drawTinyText(ctx, 'J', 5, 2, S.g, 2);
+      ctx.fillStyle = S.r;
       ctx.fillRect(11, 9, 2, 2);
     }
   }
@@ -2154,8 +2172,9 @@ var G = window.G = window.G || {};
       var parts = type.split(':');
       pBannerLetter(ctx, rnd, parts[1], parts[2] === '1');
     } else if (type.indexOf('mahjong:') === 0) {
-      // mahjong:7 -> face number 7 of the secret floor
-      pMahjong(ctx, rnd, parseInt(type.split(':')[1], 10) || 0);
+      // mahjong:7:2 -> face number 7 from room-set number 2
+      var mj = type.split(':');
+      pMahjong(ctx, rnd, parseInt(mj[1], 10) || 0, parseInt(mj[2], 10) || 0);
     } else {
       var p = PAINTERS[type] || PAINTERS['void'];
       p(ctx, rnd);
