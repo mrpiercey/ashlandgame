@@ -18,7 +18,7 @@ var G = window.G = window.G || {};
 
   // every secret code the game listens for; a mute key pressed while one of
   // these is being spelled out is a LETTER, not a volume control
-  var CODES = ['hdd', 'link', 'zelda', 'error', 'supermario', 'mahjong'];
+  var CODES = ['hdd', 'link', 'zelda', 'error', 'supermario', 'mahjong', 'force'];
   function partOfCode(ch) {
     var t = typedBuffer + ch;
     for (var i = 0; i < CODES.length; i++) {
@@ -30,27 +30,37 @@ var G = window.G = window.G || {};
     return false;
   }
 
-  // "mahjong" STARTS with the mute key, and one lone M can't say whether it
-  // is volume control or the first letter of the code. So an M that might
-  // open a code waits a moment: the next letter tells us ("ma..." keeps
-  // spelling, anything else -- or silence -- means it really was the mute).
-  var pendingMute = null;
-  function muteMaybeCode() {
-    var opensCode = CODES.some(function (c) { return c[0] === 'm'; });
-    if (!opensCode) { G.Audio.toggleMute(); return; }
-    if (pendingMute) { clearTimeout(pendingMute); G.Audio.toggleMute(); } // M M: the first one pays up
-    pendingMute = setTimeout(function () {
-      pendingMute = null;
-      G.Audio.toggleMute();
-    }, 650);
+  // "mahjong" STARTS with the mute key and "force" with the sound-effects
+  // key, and one lone press can't say whether it is volume control or the
+  // first letter of a code. So a press that might open a code waits a
+  // moment: the next letter tells us ("ma...", "fo..." keeps spelling,
+  // anything else -- or silence -- means it really was the toggle).
+  var pendingToggle = null;   // {ch, fn, timer}
+  function toggleMaybeCode(ch, fn) {
+    var opensCode = CODES.some(function (c) { return c[0] === ch; });
+    if (!opensCode) { fn(); return; }
+    if (pendingToggle) { clearTimeout(pendingToggle.timer); pendingToggle.fn(); } // double press: the first one pays up
+    pendingToggle = {
+      ch: ch, fn: fn,
+      timer: setTimeout(function () {
+        pendingToggle = null;
+        // one last look before firing: on a janky frame the next letter's
+        // event can lose the race to this timer even when it was typed in
+        // time, so trust the buffer over the clock
+        var t2 = typedBuffer.slice(-2);
+        var spelling = CODES.some(function (c) { return c[0] === ch && c.slice(0, 2) === t2; });
+        if (!spelling) fn();
+      }, 900)
+    };
   }
-  function settlePendingMute() {
-    if (!pendingMute) return;
-    clearTimeout(pendingMute);
-    pendingMute = null;
+  function settlePendingToggle() {
+    if (!pendingToggle) return;
+    var p = pendingToggle;
+    clearTimeout(p.timer);
+    pendingToggle = null;
     var t2 = typedBuffer.slice(-2);
-    var spelling = CODES.some(function (c) { return c[0] === 'm' && c.slice(0, 2) === t2; });
-    if (!spelling) G.Audio.toggleMute();   // it was the mute button after all
+    var spelling = CODES.some(function (c) { return c[0] === p.ch && c.slice(0, 2) === t2; });
+    if (!spelling) p.fn();   // it was the toggle button after all
   }
 
   function press(dir) {
@@ -82,8 +92,8 @@ var G = window.G = window.G || {};
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyX') held.run = true;
     // M mutes and F flips the sound effects -- but NOT while the letter is
     // part of a secret code mid-type ("superM..." must not kill the music)
-    if (e.code === 'KeyM' && !partOfCode('m')) muteMaybeCode();
-    if (e.code === 'KeyF' && !partOfCode('f')) G.Audio.toggleSfx();
+    if (e.code === 'KeyM' && !partOfCode('m')) toggleMaybeCode('m', function () { G.Audio.toggleMute(); });
+    if (e.code === 'KeyF' && !partOfCode('f')) toggleMaybeCode('f', function () { G.Audio.toggleSfx(); });
     // TAB pulls up the ASHLAND STAFF roster (and puts it away again).
     // preventDefault matters twice over: TAB would otherwise walk the
     // browser's focus ring off the canvas and the game would go deaf.
@@ -97,7 +107,8 @@ var G = window.G = window.G || {};
     var lm = /^Key([A-Z])$/.exec(e.code);
     if (lm) {
       typedBuffer = (typedBuffer + lm[1].toLowerCase()).slice(-12);
-      if (e.code !== 'KeyM') settlePendingMute();
+      // the press that just opened its own wait must not settle itself
+      if (!pendingToggle || 'Key' + pendingToggle.ch.toUpperCase() !== e.code) settlePendingToggle();
     }
     // any other key is the interact button (space, enter, letters --
     // whatever a kid mashes) as long as the browser isn't using it

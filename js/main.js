@@ -266,6 +266,11 @@ var G = window.G = window.G || {};
       return;
     }
 
+    if (state === 'starwars') {
+      updateStarWars(dt);
+      return;
+    }
+
     // ---- play ----
     // TAB pulls the staff roster up and puts it away again (the same panel
     // a finger opens by tapping the STAFF readout)
@@ -336,6 +341,12 @@ var G = window.G = window.G || {};
         G.Input.clearTyped();
         mahjongFloor = true;
         playSecretSound('secretdoor.webm', true);
+      }
+    } else if (currentMapId === 't-223') {
+      // FORCE typed in Mr. Givan's room: the poster meant every word of it
+      if (!starWars && G.Input.recentTyped().indexOf('force') !== -1) {
+        G.Input.clearTyped();
+        startStarWars();
       }
     } else {
       G.Input.clearTyped();
@@ -2429,6 +2440,195 @@ var G = window.G = window.G || {};
     }
   }
 
+  // ---- the ASHLAND WARS movie (Mr. Givan's FORCE poster) ------------------
+  // typing FORCE in room 223 fades the school away for a proper space
+  // opera: the blue "not far, far away" card, the ASH LAND logo falling
+  // backwards into the stars, and a yellow crawl about the 26/27 school
+  // year -- timed so the whole show fills crawlsound.webm exactly, with
+  // the last words gone a few seconds before the music is.
+  var starWars = null;              // {phase, t, audio, dur, stars}
+  var swFarawayImg = null, swLogoImg = null;
+
+  var SW_FAR_HOLD = 3;              // the blue card gets its three seconds
+  var SW_FAR_FADE = 0.6;            // ...then melts back into black
+  var SW_GAP = 0.8;                 // a beat of empty space before the logo
+  var SW_TRAVEL = 22;               // seconds a crawl line takes, floor to stars
+  var SW_CRAWL_START = 5.5;         // crawl rises while the logo still shrinks
+  var SW_END_PAD = 3;               // last words leave before the music does
+
+  var SW_CRAWL = [
+    'It is a new school year.',
+    '',
+    'Ashland students, returning',
+    'from a summer of adventure,',
+    'are ready for another year',
+    'of learning, friendship,',
+    'and discovery.',
+    '',
+    'Throughout the year, Eagles',
+    'will face new challenges,',
+    'explore new ideas, and work',
+    'together as they follow the',
+    'four letters that guide',
+    'Ashland Elementary: SOAR.',
+    '',
+    'By staying SAFE, ON TASK,',
+    'ACCOUNTABLE, and RESPECTFUL,',
+    'every Ashland Eagle has the',
+    'power to make our school',
+    'an amazing place to learn.',
+    '',
+    'With teachers, families,',
+    'and friends beside them,',
+    'Ashland students are ready',
+    'for their greatest adventure',
+    'yet...',
+    '',
+    'It is time to SOAR!'
+  ];
+
+  function startStarWars() {
+    if (!swLogoImg) {
+      swFarawayImg = new Image(); swFarawayImg.src = 'notfarfaraway.png';
+      swLogoImg = new Image(); swLogoImg.src = 'ashlandwars.png';
+    }
+    G.Audio.hushFloor();
+    transition = {
+      phase: 'out', t: 0,
+      onMid: function () {
+        state = 'starwars';
+        var stars = [];
+        for (var i = 0; i < 70; i++) {
+          stars.push({ x: Math.random() * SW, y: Math.random() * SH, b: Math.random() });
+        }
+        starWars = { phase: 'faraway', t: 0, audio: null, dur: 87, stars: stars };
+        G.Input.clearEdges();
+      }
+    };
+  }
+
+  function updateStarWars(dt) {
+    var sw = starWars;
+    if (!sw) { state = 'play'; return; }
+    sw.t += dt;
+    if (sw.phase === 'faraway') {
+      if (sw.t >= SW_FAR_HOLD + SW_FAR_FADE + SW_GAP) {
+        // the logo appears and the music starts on the SAME frame
+        sw.phase = 'movie';
+        sw.t = 0;
+        sw.audio = new Audio('crawlsound.webm');
+        sw.audio.addEventListener('loadedmetadata', function () {
+          if (sw.audio.duration && isFinite(sw.audio.duration)) sw.dur = sw.audio.duration;
+        });
+        try {
+          var p = sw.audio.play();
+          if (p && p.catch) p.catch(function () {});
+        } catch (e) {}
+      }
+    } else if (sw.phase === 'movie' && sw.t >= sw.dur) {
+      sw.phase = 'over';
+      transition = {
+        phase: 'out', t: 0,
+        onMid: function () {
+          state = 'play';
+          starWars = null;
+          G.Audio.startBgm();
+          G.Input.clearEdges();
+          // the room fades back in and Mr. Givan is as stunned as anyone
+          var givan = G.TEACHERS['t-223'];
+          G.Dialogue.start([{
+            name: (givan && givan.name ? givan.name : 'Mr. Givan').toUpperCase(),
+            text: 'WHOA. What was that?'
+          }]);
+        }
+      };
+    }
+  }
+
+  function drawStarWars() {
+    var sw = starWars;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, SW, SH);
+    if (!sw) return;
+    if (sw.phase === 'faraway') {
+      // the card carries its own black frame, so it appears, waits, fades
+      var a = sw.t < SW_FAR_HOLD ? 1 : Math.max(0, 1 - (sw.t - SW_FAR_HOLD) / SW_FAR_FADE);
+      if (swFarawayImg.complete && a > 0) {
+        ctx.globalAlpha = a;
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(swFarawayImg, 0, 0, SW, SH);
+        ctx.imageSmoothingEnabled = false;
+        ctx.globalAlpha = 1;
+      }
+      return;
+    }
+    // stars twinkle behind everything
+    for (var i = 0; i < sw.stars.length; i++) {
+      var s = sw.stars[i];
+      var tw = 0.55 + 0.45 * Math.sin(sw.t * 1.7 + s.b * 12);
+      ctx.fillStyle = 'rgba(232,236,255,' + (0.2 + 0.65 * s.b * tw).toFixed(3) + ')';
+      ctx.fillRect(Math.floor(s.x), Math.floor(s.y), 1, 1);
+    }
+    drawSWCrawl(sw);
+    drawSWLogo(sw);
+  }
+
+  // ASH LAND falls away backwards, fast at first, then drifting off
+  function drawSWLogo(sw) {
+    if (sw.t >= 10 || !swLogoImg.complete) return;
+    var k = Math.pow(0.68, sw.t);
+    var w = 348 * k, h = w * 270 / 480;
+    var a = sw.t < 7.5 ? 1 : Math.max(0, 1 - (sw.t - 7.5) / 1.5);
+    ctx.globalAlpha = a;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(swLogoImg, (SW - w) / 2, 92 - h / 2, w, h);
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = 1;
+  }
+
+  function drawSWCrawl(sw) {
+    var n = SW_CRAWL.length;
+    // the pace is computed from the music: the last line must be fully
+    // gone SW_END_PAD seconds before the file runs out
+    var lastStart = (sw.dur - SW_END_PAD) - SW_TRAVEL * 0.86;
+    var gap = Math.max(1.2, (lastStart - SW_CRAWL_START) / (n - 1));
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFE81F';
+    for (var i = 0; i < n; i++) {
+      if (!SW_CRAWL[i]) continue;   // blank rows are the paragraph breaks
+      var p = (sw.t - SW_CRAWL_START - i * gap) / SW_TRAVEL;
+      if (p <= 0 || p >= 0.88) continue;
+      var ease = 1 - Math.pow(1 - p, 1.55);        // slows as it recedes
+      var y = 258 - ease * 218;                    // floor of the screen -> horizon
+      var scale = 1.2 - ease * 0.95;               // big up close, tiny far away
+      var alpha = Math.min(1, p * 12 + 0.15) * Math.min(1, Math.max(0, (0.86 - p) / 0.1));
+      var fs = Math.round(8 * scale * 10) / 10;
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.font = fs + 'px "Press Start 2P", monospace';
+      // the movie look: both edges of the column line up, so each line's
+      // words spread to fill it -- except a paragraph's last line, which
+      // stays flush left just like "galaxy...."
+      var colW = fs * 28;
+      var left = (SW - colW) / 2;
+      var words = SW_CRAWL[i].split(' ');
+      var ww = [], wsum = 0;
+      for (var w = 0; w < words.length; w++) {
+        ww.push(ctx.measureText(words[w]).width);
+        wsum += ww[w];
+      }
+      var lastOfPara = i + 1 >= n || !SW_CRAWL[i + 1];
+      var justify = words.length > 1 && !lastOfPara;
+      var space = justify ? (colW - wsum) / (words.length - 1) : ctx.measureText(' ').width;
+      var x = left;
+      for (var w2 = 0; w2 < words.length; w2++) {
+        ctx.fillText(words[w2], x, y);
+        x += ww[w2] + space;
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.textBaseline = 'alphabetic';
+  }
+
   // SUPERMARIO typed in the library: a green pipe grows out of the reading
   // tent's spot, and stepping onto it is a one-way trip (well, round trip)
   function revealMarioPipe(quiet) {
@@ -3625,6 +3825,16 @@ var G = window.G = window.G || {};
     // Mrs. Messer's shelf plays the same game with a different library card
     if (currentMapId === 't-224' && (ft === 'shelf' || ft === 'shelfLow')) {
       messerShelfFind();
+      return;
+    }
+    // Mr. Givan's galaxy poster: big yellow words and a mystery
+    if (currentMapId === 't-223' && ft === 'swposter') {
+      G.Audio.sfx('tick');
+      G.Dialogue.start([
+        { text: 'A poster of a galaxy hangs between the windows. It says...' },
+        { text: '"Use the FORCE, Students"', big: true, bold: 'FORCE' },
+        { text: 'Hmm. The FORCE? What could THAT mean?' }
+      ]);
       return;
     }
     // inside the cave, the stretch of wall straight up from the old man
@@ -6587,6 +6797,8 @@ var G = window.G = window.G || {};
       drawGrove();
     } else if (state === 'mario') {
       drawMario();
+    } else if (state === 'starwars') {
+      drawStarWars();
     } else {
       drawWorld();
       drawBanner();

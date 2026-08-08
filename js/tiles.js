@@ -1560,6 +1560,25 @@ var G = window.G = window.G || {};
     ctx.fillRect(9, 5, 2, 6);
   }
 
+  // Mr. Givan's galaxy poster: yellow words racing away into the stars
+  function pSWPoster(ctx, rnd) {
+    pWall(ctx, rnd);
+    ctx.fillStyle = '#20242a';
+    ctx.fillRect(2, 2, 12, 12);          // frame
+    ctx.fillStyle = '#0a0e24';
+    ctx.fillRect(3, 3, 10, 10);          // deep space
+    ctx.fillStyle = '#e8ecff';
+    [[4, 4], [7, 3], [11, 4], [12, 8], [4, 10], [10, 12]].forEach(function (s) {
+      ctx.fillRect(s[0], s[1], 1, 1);
+    });
+    // the crawl, narrowing toward the horizon
+    ctx.fillStyle = '#f7d84d';
+    ctx.fillRect(6, 5, 4, 1);
+    ctx.fillRect(5, 7, 6, 1);
+    ctx.fillRect(4, 9, 8, 1);
+    ctx.fillRect(3, 11, 10, 1);
+  }
+
   function pWelcomeL(ctx, rnd) {
     pWall(ctx, rnd);
     ctx.fillStyle = '#1f7a4d';
@@ -1974,6 +1993,7 @@ var G = window.G = window.G || {};
     'trophycase': pTrophycase,
     'mapposter': pMapPoster,
     'pencilposter': pPencilPoster,
+    'swposter': pSWPoster,
     'welcome': pWelcomeL,
     'welcomeL': pWelcomeL,
     'welcomeR': pWelcomeR,
