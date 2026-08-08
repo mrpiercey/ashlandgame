@@ -292,9 +292,10 @@ var G = window.G = window.G || {};
       return;
     }
 
-    // the cafeteria "hdd" sushi secret -- only counts letters typed in here
+    // the cafeteria sushi secret -- "hdd" or "sushi", typed in here
     if (currentMapId === 'm-caf') {
-      if (!G.Quest.sushiOn() && G.Input.recentTyped().indexOf('hdd') !== -1) {
+      if (!G.Quest.sushiOn() && (G.Input.recentTyped().indexOf('hdd') !== -1 ||
+          G.Input.recentTyped().indexOf('sushi') !== -1)) {
         G.Quest.setSushi();
         G.Input.clearTyped();
         playSecretSound();
@@ -2455,6 +2456,38 @@ var G = window.G = window.G || {};
     ]
   };
 
+  // ---- the cafeteria serving line -----------------------------------------
+  // poking around behind the lunch line turns up seven finds -- and then
+  // next week's menu, which spills the cafeteria's other secret word
+  var cafLineFinds = 0;
+
+  var CAF_LINE_FINDS = [
+    'You peek behind the lunch line... a mountain of freshly washed trays.',
+    'You find the BIG serving spoon. The legendary one.',
+    'You find a whole crate of chocolate milk. Ice cold.',
+    'You find seventeen ketchup bottles, lined up like soldiers.',
+    'You find the nacho cheese warmer. It hums a happy little tune.',
+    'You find a hairnet. Somebody decorated it with sequins.',
+    'You find a clue in the mystery of the missing tater tots. The case continues.'
+  ];
+
+  function cafLineFind() {
+    G.Audio.sfx('tick');
+    if (cafLineFinds < CAF_LINE_FINDS.length) {
+      G.Dialogue.start([{ text: CAF_LINE_FINDS[cafLineFinds] }]);
+      cafLineFinds++;
+    } else if (cafLineFinds === CAF_LINE_FINDS.length) {
+      cafLineFinds++;
+      G.Dialogue.start([
+        { text: "Taped to the wall behind the line, you find NEXT WEEK'S MENU..." },
+        { text: 'Monday: Pizza. Tuesday: Tacos. Wednesday: SUSHI', big: true, bold: 'SUSHI' },
+        { text: 'SUSHI?! At school?! Somebody in this cafeteria is dreaming BIG.' }
+      ]);
+    } else {
+      G.Dialogue.start([{ text: 'The menu still says SUSHI. Wednesday cannot come soon enough.' }]);
+    }
+  }
+
   function mahjongShelfFind() {
     G.Audio.sfx('tick');
     var books = MAHJONG_BOOKS[currentMapId] || MAHJONG_BOOKS['t-224'];
@@ -3861,6 +3894,11 @@ var G = window.G = window.G || {};
       mahjongShelfFind();
       return;
     }
+    // the cafeteria serving line hides its own trail of finds
+    if (currentMapId === 'm-caf' && ft === 'counter') {
+      cafLineFind();
+      return;
+    }
     // Mr. Givan's galaxy poster: big yellow words and a mystery
     if (currentMapId === 't-223' && ft === 'swposter') {
       G.Audio.sfx('tick');
@@ -4819,6 +4857,9 @@ var G = window.G = window.G || {};
     for (var y = 0; y < m.h; y++) {
       for (var x = 0; x < m.w; x++) {
         if (m.get(x, y) !== 'table') continue;
+        // a few place settings here and there -- a pair on EVERY tile
+        // buried the tables in bamboo
+        if ((x * 7 + y * 13) % 3 !== 0) continue;
         drawChopsticks(x * TS + TS / 2 - cam.x, y * TS + TS / 2 - cam.y);
       }
     }

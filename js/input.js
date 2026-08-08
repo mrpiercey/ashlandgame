@@ -18,7 +18,7 @@ var G = window.G = window.G || {};
 
   // every secret code the game listens for; a mute key pressed while one of
   // these is being spelled out is a LETTER, not a volume control
-  var CODES = ['hdd', 'link', 'zelda', 'error', 'supermario', 'mahjong', 'force'];
+  var CODES = ['hdd', 'link', 'zelda', 'error', 'supermario', 'mahjong', 'force', 'sushi'];
   function partOfCode(ch) {
     var t = typedBuffer + ch;
     for (var i = 0; i < CODES.length; i++) {
