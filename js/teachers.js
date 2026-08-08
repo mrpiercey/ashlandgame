@@ -134,8 +134,8 @@ var G = window.G = window.G || {};
   T['t-216b'] = {
     name: 'Mr. Love',
     // green shirt and jeans (outfit 0 = green polo + denim-blue pants)
-    sprite: G.Sprites.cfgFrom({ style: 0, skin: 8, hairColor: 0, outfit: 0, glasses: false }),
-    spriteOv: { style: 0, skin: 8, hairColor: 0, outfit: 0, glasses: false },
+    sprite: G.Sprites.cfgFrom({ style: 0, skin: 7, hairColor: 0, outfit: 0, glasses: false }),
+    spriteOv: { style: 0, skin: 7, hairColor: 0, outfit: 0, glasses: false },
     roomOf: 't-216',    // he lives in room 216's map
     noLetter: true,     // the room's letter is handled by Mr. Richards
     intro: "Hi there! I'm Mr. Love! I'm new to Ashland this year, and I can't wait to help every single student I work with!"
@@ -144,10 +144,6 @@ var G = window.G = window.G || {};
   // Mrs. Wilson (room 200) designed look
   T['t-200'].spriteOv = { style: 2, skin: 1, hairColor: 0, outfit: 6, glasses: false };
   T['t-200'].sprite = G.Sprites.cfgFrom(T['t-200'].spriteOv);
-
-  // Mrs. Brown (room 232) has light red hair
-  T['t-232'].sprite = G.Sprites.cfgFrom(T['t-232'].spriteOv);
-  T['t-232'].sprite.hair = '#e0705a';   // light red / strawberry
 
   // Mrs. Patel (room 233) has dark brown hair
   T['t-233'].spriteOv.hairColor = 1;    // dark brown, not blonde
@@ -244,6 +240,10 @@ var G = window.G = window.G || {};
   try {
     applySprites(JSON.parse(localStorage.getItem('ashland-teacher-sprites') || '{}'));
   } catch (e) { /* ignore bad saved data */ }
+
+  // Mrs. Brown (room 232) has light red hair -- set after the editor
+  // overrides above so a saved look can't turn it back to brown
+  T['t-232'].sprite.hair = '#e0705a';   // light red / strawberry
 
   // rooms created in the editor get a teacher on demand
   G.addCustomTeacher = function (id, name) {
