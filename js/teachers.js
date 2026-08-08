@@ -169,7 +169,7 @@ var G = window.G = window.G || {};
     { intro: "Hi there! I'm Mr. Mellow, one of Ashland's custodians. I keep this whole floor SHINING!" });
   staff('staff-rampulla', 'Mr. Rampulla', { style: 0, skin: 1, hairColor: 2, outfit: 8 },
     { intro: "Hello! I'm Mr. Rampulla, one of Ashland's custodians. This floor doesn't clean itself!" });
-  staff('staff-perry', 'Mrs. Perry', { style: 5, skin: 0, hairColor: 1, outfit: 8, shirtColor: 1 },
+  staff('staff-perry', 'Mrs. Perry', { style: 5, skin: 0, hairColor: 6, outfit: 8, shirtColor: 1 },
     { intro: "Hi! I'm Mrs. Perry, one of Ashland's custodians. We keep every corner of this school sparkling!" });
   // helpers around the building
   staff('staff-hurt', 'Mrs. Hurt', { style: 1, skin: 1, hairColor: 3, outfit: 2 },
@@ -244,6 +244,9 @@ var G = window.G = window.G || {};
   // Mrs. Brown (room 232) has light red hair -- set after the editor
   // overrides above so a saved look can't turn it back to brown
   T['t-232'].sprite.hair = '#ff0000';   // bright red
+
+  // Mrs. Perry's dark blonde isn't in the 10-color palette, so it's hex too
+  T['staff-perry'].sprite.hair = '#c9a24b';   // dark blonde
 
   // rooms created in the editor get a teacher on demand
   G.addCustomTeacher = function (id, name) {
