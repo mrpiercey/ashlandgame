@@ -196,7 +196,7 @@ var G = window.G = window.G || {};
   staff('staff-stanfield', 'Mrs. Stanfield', { style: 1, skin: 0, hairColor: 3, outfit: 4 },
     { intro: "Hello! I'm Mrs. Stanfield. I'm part of the teacher support team -- we help make every classroom great!" });
   // band and orchestra, by the gym stage
-  staff('staff-baker', 'Mrs. Baker', { style: 5, skin: 1, hairColor: 5, outfit: 2 },
+  staff('staff-baker', 'Mrs. Baker', { style: 1, skin: 1, hairColor: 5, outfit: 2 },
     { intro: "Hi! I'm Mrs. Baker, the BAND teacher! When you're in 5th grade, you can join band and learn an instrument!" });
   staff('staff-komprs', 'Mrs. Komprs', { style: 2, skin: 2, hairColor: 1, outfit: 9 },
     { intro: "Hello! I'm Mrs. Komprs, the ORCHESTRA teacher! You can join orchestra in 4th or 5th grade -- strings are the best!" });
