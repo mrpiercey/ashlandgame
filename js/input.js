@@ -18,7 +18,7 @@ var G = window.G = window.G || {};
 
   // every secret code the game listens for; a mute key pressed while one of
   // these is being spelled out is a LETTER, not a volume control
-  var CODES = ['hdd', 'link', 'zelda', 'error', 'supermario'];
+  var CODES = ['hdd', 'link', 'zelda', 'error', 'supermario', 'mahjong'];
   function partOfCode(ch) {
     var t = typedBuffer + ch;
     for (var i = 0; i < CODES.length; i++) {
@@ -28,6 +28,29 @@ var G = window.G = window.G || {};
       }
     }
     return false;
+  }
+
+  // "mahjong" STARTS with the mute key, and one lone M can't say whether it
+  // is volume control or the first letter of the code. So an M that might
+  // open a code waits a moment: the next letter tells us ("ma..." keeps
+  // spelling, anything else -- or silence -- means it really was the mute).
+  var pendingMute = null;
+  function muteMaybeCode() {
+    var opensCode = CODES.some(function (c) { return c[0] === 'm'; });
+    if (!opensCode) { G.Audio.toggleMute(); return; }
+    if (pendingMute) { clearTimeout(pendingMute); G.Audio.toggleMute(); } // M M: the first one pays up
+    pendingMute = setTimeout(function () {
+      pendingMute = null;
+      G.Audio.toggleMute();
+    }, 650);
+  }
+  function settlePendingMute() {
+    if (!pendingMute) return;
+    clearTimeout(pendingMute);
+    pendingMute = null;
+    var t2 = typedBuffer.slice(-2);
+    var spelling = CODES.some(function (c) { return c[0] === 'm' && c.slice(0, 2) === t2; });
+    if (!spelling) G.Audio.toggleMute();   // it was the mute button after all
   }
 
   function press(dir) {
@@ -59,7 +82,7 @@ var G = window.G = window.G || {};
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyX') held.run = true;
     // M mutes and F flips the sound effects -- but NOT while the letter is
     // part of a secret code mid-type ("superM..." must not kill the music)
-    if (e.code === 'KeyM' && !partOfCode('m')) G.Audio.toggleMute();
+    if (e.code === 'KeyM' && !partOfCode('m')) muteMaybeCode();
     if (e.code === 'KeyF' && !partOfCode('f')) G.Audio.toggleSfx();
     // TAB pulls up the ASHLAND STAFF roster (and puts it away again).
     // preventDefault matters twice over: TAB would otherwise walk the
@@ -72,7 +95,10 @@ var G = window.G = window.G || {};
     // remember the last few letters typed, for secret codes like "hdd"
     // (12 letters of memory: "supermario" is the longest code)
     var lm = /^Key([A-Z])$/.exec(e.code);
-    if (lm) typedBuffer = (typedBuffer + lm[1].toLowerCase()).slice(-12);
+    if (lm) {
+      typedBuffer = (typedBuffer + lm[1].toLowerCase()).slice(-12);
+      if (e.code !== 'KeyM') settlePendingMute();
+    }
     // any other key is the interact button (space, enter, letters --
     // whatever a kid mashes) as long as the browser isn't using it
     if (!d && !NOT_ACTION[e.code] && !/^F\d+$/.test(e.code) &&

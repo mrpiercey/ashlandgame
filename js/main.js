@@ -327,6 +327,16 @@ var G = window.G = window.G || {};
         G.Input.clearTyped();
         revealMarioPipe();
       }
+    } else if (currentMapId === 't-224') {
+      // "mahjong" typed in Mrs. Messer's room: the strange kindergarten
+      // book means it, and every floor tile flips into a different tile
+      // from the wall (the typo "mahjogn" is close enough for kindergarten)
+      if (!mahjongFloor && (G.Input.recentTyped().indexOf('mahjong') !== -1 ||
+          G.Input.recentTyped().indexOf('mahjogn') !== -1)) {
+        G.Input.clearTyped();
+        mahjongFloor = true;
+        playSecretSound('secretdoor.webm', true);
+      }
     } else {
       G.Input.clearTyped();
     }
@@ -2388,6 +2398,37 @@ var G = window.G = window.G || {};
     }
   }
 
+  // ---- Mrs. Messer's bookshelf --------------------------------------------
+  // it reads like any classroom shelf at first, but the sixth look finds a
+  // book that should NOT exist -- and its title is a secret code too
+  var messerFinds = 0;
+  var mahjongFloor = false;   // t-224's floor, once the code has been typed
+
+  var MESSER_BOOKS = [
+    'Lots of books here...',
+    'You find "The Brothers Karamazov: For Kids"!',
+    'You find "Green Eggs and Hamlet"!',
+    'You find "War and Peace and Naptime"!',
+    'You find "Goodnight, Crime and Punishment"!'
+  ];
+
+  function messerShelfFind() {
+    G.Audio.sfx('tick');
+    if (messerFinds < MESSER_BOOKS.length) {
+      G.Dialogue.start([{ text: MESSER_BOOKS[messerFinds] }]);
+      messerFinds++;
+    } else if (messerFinds === MESSER_BOOKS.length) {
+      messerFinds++;
+      G.Dialogue.start([
+        { text: 'Squeezed in at the very end of the shelf is a book you have NEVER heard of...' },
+        { text: 'Kindergarten "MAHJONG"', big: true, bold: 'MAHJONG' },
+        { text: 'The word MAHJONG is printed in big bold letters. What a strange book.' }
+      ]);
+    } else {
+      G.Dialogue.start([{ text: 'That strange book is still there. "MAHJONG", the cover says.' }]);
+    }
+  }
+
   // SUPERMARIO typed in the library: a green pipe grows out of the reading
   // tent's spot, and stepping onto it is a one-way trip (well, round trip)
   function revealMarioPipe(quiet) {
@@ -3579,6 +3620,11 @@ var G = window.G = window.G || {};
     // one book that is very much not like the others
     if (currentMapId === 't-lib' && (ft === 'shelf' || ft === 'shelfLow')) {
       libraryShelfFind();
+      return;
+    }
+    // Mrs. Messer's shelf plays the same game with a different library card
+    if (currentMapId === 't-224' && (ft === 'shelf' || ft === 'shelfLow')) {
+      messerShelfFind();
       return;
     }
     // inside the cave, the stretch of wall straight up from the old man
@@ -5425,7 +5471,12 @@ var G = window.G = window.G || {};
         // FF6-style walls: bright FACE where it meets the floor below,
         // darker TOP everywhere else
         var drawType = t;
-        if (t === 'wall' && !G.Tiles.isWalkable(m.get(tx, ty + 1))) {
+        if (mahjongFloor && currentMapId === 't-224' && t === 'floor') {
+          // the MAHJONG code: each floor tile picks its own face from the
+          // wall, scattered by position so neighbors never match
+          var mjh = ((tx * 73856093) | 0) ^ ((ty * 19349663) | 0);
+          drawType = 'mahjong:' + ((mjh % 36 + 36) % 36);
+        } else if (t === 'wall' && !G.Tiles.isWalkable(m.get(tx, ty + 1))) {
           drawType = 'wallTop';
         } else if (t === 'table') {
           // tables join vertically: edge on top, wood through, bench at bottom

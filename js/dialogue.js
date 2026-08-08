@@ -60,7 +60,7 @@ var G = window.G = window.G || {};
     if (wrapped.length > maxLines) {
       var rest = wrapped.slice(maxLines).join(' ');
       wrapped = wrapped.slice(0, maxLines);
-      pages.splice(pageIdx + 1, 0, { name: p.name, text: rest, icon: p.icon, big: p.big });
+      pages.splice(pageIdx + 1, 0, { name: p.name, text: rest, icon: p.icon, big: p.big, bold: p.bold });
     }
     charCount = 0;
     if (p.fanfare && p.letter) {
@@ -179,6 +179,16 @@ var G = window.G = window.G || {};
       if (remaining <= 0) break;
       var lineText = wrapped[i].slice(0, remaining);
       ctx.fillText(lineText, tx, ty + i * lineH);
+      // a page can name one bold word (p.bold): the pixel-font trick is a
+      // second strike one pixel over, which thickens every stem
+      if (p.bold) {
+        var bi = wrapped[i].indexOf(p.bold);
+        if (bi !== -1 && remaining > bi) {
+          var seg = p.bold.slice(0, Math.min(p.bold.length, remaining - bi));
+          var bx = tx + ctx.measureText(wrapped[i].slice(0, bi)).width;
+          ctx.fillText(seg, bx + 1, ty + i * lineH);
+        }
+      }
       remaining -= wrapped[i].length + 1;
     }
     // continue arrow
