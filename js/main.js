@@ -335,13 +335,14 @@ var G = window.G = window.G || {};
       }
     } else if (MAHJONG_ROOMS[currentMapId]) {
       // "mahjong" typed in a room that hides the strange kindergarten
-      // book: every floor tile flips into a different tile from the wall
+      // book: every floor tile flips into a different tile from the wall,
+      // and typing it again flips the whole floor right back
       // (the typo "mahjogn" is close enough for kindergarten)
-      if (!mahjongFloor[currentMapId] && (G.Input.recentTyped().indexOf('mahjong') !== -1 ||
-          G.Input.recentTyped().indexOf('mahjogn') !== -1)) {
+      if (G.Input.recentTyped().indexOf('mahjong') !== -1 ||
+          G.Input.recentTyped().indexOf('mahjogn') !== -1) {
         G.Input.clearTyped();
-        mahjongFloor[currentMapId] = true;
-        // the tiles clack into place the second they flip -- no ducking,
+        mahjongFloor[currentMapId] = !mahjongFloor[currentMapId];
+        // the tiles clack the second they flip, either way -- no ducking,
         // the clack rides right on top of the music
         playSecretSound('clacksound.webm', false);
       }
@@ -2574,9 +2575,36 @@ var G = window.G = window.G || {};
     };
   }
 
+  // the movie ends the same way whether it runs its course or Enter cuts
+  // it short: music off, fade to the room, Mr. Givan agog. It re-arms, so
+  // the poster works again.
+  function endStarWars() {
+    var sw = starWars;
+    if (!sw || sw.phase === 'over') return;
+    if (sw.audio) { try { sw.audio.pause(); } catch (e) {} }
+    sw.phase = 'over';
+    transition = {
+      phase: 'out', t: 0,
+      onMid: function () {
+        state = 'play';
+        starWars = null;
+        G.Audio.startBgm();
+        G.Input.clearEdges();
+        // the room fades back in and Mr. Givan is as stunned as anyone
+        var givan = G.TEACHERS['t-223'];
+        G.Dialogue.start([{
+          name: (givan && givan.name ? givan.name : 'Mr. Givan').toUpperCase(),
+          text: 'WHOA. What was that?'
+        }]);
+      }
+    };
+  }
+
   function updateStarWars(dt) {
     var sw = starWars;
     if (!sw) { state = 'play'; return; }
+    // Enter (or any action press) walks out of the theater early
+    if (G.Input.consumeAction()) { endStarWars(); return; }
     sw.t += dt;
     if (sw.phase === 'faraway') {
       if (sw.t >= SW_FAR_HOLD + SW_FAR_FADE + SW_GAP) {
@@ -2593,22 +2621,7 @@ var G = window.G = window.G || {};
         } catch (e) {}
       }
     } else if (sw.phase === 'movie' && sw.t >= sw.dur) {
-      sw.phase = 'over';
-      transition = {
-        phase: 'out', t: 0,
-        onMid: function () {
-          state = 'play';
-          starWars = null;
-          G.Audio.startBgm();
-          G.Input.clearEdges();
-          // the room fades back in and Mr. Givan is as stunned as anyone
-          var givan = G.TEACHERS['t-223'];
-          G.Dialogue.start([{
-            name: (givan && givan.name ? givan.name : 'Mr. Givan').toUpperCase(),
-            text: 'WHOA. What was that?'
-          }]);
-        }
-      };
+      endStarWars();
     }
   }
 
