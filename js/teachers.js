@@ -243,7 +243,7 @@ var G = window.G = window.G || {};
 
   // Mrs. Brown (room 232) has light red hair -- set after the editor
   // overrides above so a saved look can't turn it back to brown
-  T['t-232'].sprite.hair = '#e05555';   // light red
+  T['t-232'].sprite.hair = '#ff0000';   // bright red
 
   // rooms created in the editor get a teacher on demand
   G.addCustomTeacher = function (id, name) {
