@@ -332,14 +332,14 @@ var G = window.G = window.G || {};
         G.Input.clearTyped();
         revealMarioPipe();
       }
-    } else if (currentMapId === 't-224') {
-      // "mahjong" typed in Mrs. Messer's room: the strange kindergarten
-      // book means it, and every floor tile flips into a different tile
-      // from the wall (the typo "mahjogn" is close enough for kindergarten)
-      if (!mahjongFloor && (G.Input.recentTyped().indexOf('mahjong') !== -1 ||
+    } else if (MAHJONG_ROOMS[currentMapId]) {
+      // "mahjong" typed in a room that hides the strange kindergarten
+      // book: every floor tile flips into a different tile from the wall
+      // (the typo "mahjogn" is close enough for kindergarten)
+      if (!mahjongFloor[currentMapId] && (G.Input.recentTyped().indexOf('mahjong') !== -1 ||
           G.Input.recentTyped().indexOf('mahjogn') !== -1)) {
         G.Input.clearTyped();
-        mahjongFloor = true;
+        mahjongFloor[currentMapId] = true;
         playSecretSound('secretdoor.webm', true);
       }
     } else if (currentMapId === 't-223') {
@@ -2409,13 +2409,17 @@ var G = window.G = window.G || {};
     }
   }
 
-  // ---- Mrs. Messer's bookshelf --------------------------------------------
-  // it reads like any classroom shelf at first, but the sixth look finds a
-  // book that should NOT exist -- and its title is a secret code too
-  var messerFinds = 0;
-  var mahjongFloor = false;   // t-224's floor, once the code has been typed
+  // ---- the MAHJONG bookshelves --------------------------------------------
+  // four rooms hide a copy of the strange kindergarten book: Mrs. Messer
+  // (224), Mrs. Patel and Mrs. Songstad (233), Mrs. Myers (212) and
+  // Mrs. Mulert (230). Each shelf reads like any classroom shelf at first,
+  // but the sixth look finds a book that should NOT exist -- and its title
+  // is a secret code too. Each room keeps its own count and its own floor.
+  var MAHJONG_ROOMS = { 't-224': 1, 't-233': 1, 't-212': 1, 't-230': 1 };
+  var mahjongFinds = {};    // mapId -> books found on that room's shelf
+  var mahjongFloor = {};    // mapId -> true once the code was typed there
 
-  var MESSER_BOOKS = [
+  var MAHJONG_BOOKS = [
     'Lots of books here...',
     'You find "The Brothers Karamazov: For Kids"!',
     'You find "Green Eggs and Hamlet"!',
@@ -2423,13 +2427,14 @@ var G = window.G = window.G || {};
     'You find "Goodnight, Crime and Punishment"!'
   ];
 
-  function messerShelfFind() {
+  function mahjongShelfFind() {
     G.Audio.sfx('tick');
-    if (messerFinds < MESSER_BOOKS.length) {
-      G.Dialogue.start([{ text: MESSER_BOOKS[messerFinds] }]);
-      messerFinds++;
-    } else if (messerFinds === MESSER_BOOKS.length) {
-      messerFinds++;
+    var finds = mahjongFinds[currentMapId] || 0;
+    if (finds < MAHJONG_BOOKS.length) {
+      G.Dialogue.start([{ text: MAHJONG_BOOKS[finds] }]);
+      mahjongFinds[currentMapId] = finds + 1;
+    } else if (finds === MAHJONG_BOOKS.length) {
+      mahjongFinds[currentMapId] = finds + 1;
       G.Dialogue.start([
         { text: 'Squeezed in at the very end of the shelf is a book you have NEVER heard of...' },
         { text: 'Kindergarten "MAHJONG"', big: true, bold: 'MAHJONG' },
@@ -3822,9 +3827,9 @@ var G = window.G = window.G || {};
       libraryShelfFind();
       return;
     }
-    // Mrs. Messer's shelf plays the same game with a different library card
-    if (currentMapId === 't-224' && (ft === 'shelf' || ft === 'shelfLow')) {
-      messerShelfFind();
+    // the mahjong rooms play the same game with a different library card
+    if (MAHJONG_ROOMS[currentMapId] && (ft === 'shelf' || ft === 'shelfLow')) {
+      mahjongShelfFind();
       return;
     }
     // Mr. Givan's galaxy poster: big yellow words and a mystery
@@ -5681,7 +5686,7 @@ var G = window.G = window.G || {};
         // FF6-style walls: bright FACE where it meets the floor below,
         // darker TOP everywhere else
         var drawType = t;
-        if (mahjongFloor && currentMapId === 't-224' && t === 'floor') {
+        if (mahjongFloor[currentMapId] && t === 'floor') {
           // the MAHJONG code: each floor tile picks its own face from the
           // wall, scattered by position so neighbors never match
           var mjh = ((tx * 73856093) | 0) ^ ((ty * 19349663) | 0);
