@@ -185,8 +185,8 @@ var G = window.G = window.G || {};
   staff('staff-marsh', 'Mrs. Marsh', { style: 2, skin: 2, hairColor: 1, outfit: 5 }, { roomOf: 'm-caf' });
   staff('staff-seivers', 'Mrs. Seivers', { style: 1, skin: 1, hairColor: 1, outfit: 7 },
     { intro: "Hello! I'm Mrs. Seivers. I help students all over this school -- maybe I'll get to help YOU this year!" });
-  staff('staff-shadler', 'Mrs. Shadler', { style: 1, skin: 0, hairColor: 6, outfit: 0 },
-    { intro: "Hi! I'm Mrs. Shadler. I'm always somewhere in the building lending a hand!" });
+  staff('staff-shadler', 'Mrs. Schadler', { style: 1, skin: 0, hairColor: 6, outfit: 0 },
+    { intro: "Hi! I'm Mrs. Schadler. I'm always somewhere in the building lending a hand!" });
   staff('staff-helton', 'Mrs. Helton', { style: 1, skin: 0, hairColor: 6, outfit: 3 },
     { intro: "Hi there! I'm Mrs. Helton. If you ever need help finding your way, just ask me!" });
   staff('staff-garcia', 'Mrs. Garcia', { style: 1, skin: 5, hairColor: 1, outfit: 6 }, { roomOf: 't-224' });
