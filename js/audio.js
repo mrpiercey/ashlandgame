@@ -158,24 +158,33 @@ var G = window.G = window.G || {};
     if (ensure()) scheduleLoop();
   }
 
+  // Every kind of first contact a kid can make. One tap fires several of
+  // these in a row (pointerdown, then touchend, then click) -- and that is
+  // the point: if the browser refuses the earliest one as an autoplay
+  // unlock, the later ones in the SAME tap get their own try.
+  var RETRY_EVENTS = ['keydown', 'pointerdown', 'touchend', 'mousedown', 'click'];
+
   function armRetry() {
-    // browser blocked autoplay - try again on the next real key press / tap
+    // browser blocked autoplay - try again on every real key press / tap
+    // until one of them actually gets the music going
     if (retryArmed) return;
     retryArmed = true;
-    var retry = function () {
-      window.removeEventListener('keydown', retry, true);
-      window.removeEventListener('pointerdown', retry, true);
+    var disarm = function () {
       retryArmed = false;
+      RETRY_EVENTS.forEach(function (ev) { window.removeEventListener(ev, retry, true); });
+    };
+    var retry = function () {
       if (ensure()) { /* also unlocks the sfx context */ }
       // a room that asked for silence keeps it: the retry must not sneak the
       // floor theme back in behind the old man's line
-      if (bgmEl && bgmEl.paused && !fellBack && !floorHushed) {
-        var p = bgmEl.play();
-        if (p && p.catch) p.catch(function () { armRetry(); });
-      }
+      if (!bgmEl || fellBack || floorHushed || !bgmEl.paused) { disarm(); return; }
+      var p = bgmEl.play();
+      // only a play() that really started counts; a refusal stays armed
+      // for the next event, even the next one inside this same tap
+      if (p && p.then) p.then(disarm, function () {});
+      else disarm();
     };
-    window.addEventListener('keydown', retry, true);
-    window.addEventListener('pointerdown', retry, true);
+    RETRY_EVENTS.forEach(function (ev) { window.addEventListener(ev, retry, true); });
   }
 
   function playFloor(floor) {
@@ -390,6 +399,8 @@ var G = window.G = window.G || {};
     if (!titleEl) {
       titleEl = new Audio('introtheme.webm');
       titleEl.loop = true;
+      // fetch it NOW, so the first tap starts the song instead of a download
+      titleEl.preload = 'auto';
       // a missing title track just means a quiet title screen
       titleEl.addEventListener('error', function () { titleEl = 'missing'; });
     }
@@ -397,7 +408,14 @@ var G = window.G = window.G || {};
     titleEl.volume = mv(0.55);
     bgmEl = titleEl; // so the autoplay retry restarts THIS track
     var p = titleEl.play();
-    if (p && p.catch) p.catch(function () { armRetry(); });
+    if (p && p.catch) p.catch(function () {});
+    // arm regardless of how that first try goes: browsers that block
+    // autoplay get the music on the very first tap or key press, and on
+    // browsers that allowed it the first event finds it playing and stands
+    // down. (The old version armed only after play() rejected, and only
+    // listened for pointerdown/keydown -- iPads regularly missed it, and
+    // the title screen stayed silent until well into the game.)
+    armRetry();
   }
   function stopTitle() {
     if (titleEl && titleEl !== 'missing') {

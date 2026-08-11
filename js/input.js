@@ -148,6 +148,36 @@ var G = window.G = window.G || {};
         if (e.cancelable) e.preventDefault();
       }, { passive: false });
     });
+    // 3) ...and the same pinch as raw touches, for browsers that skip the
+    //    gesture events. Two fingers moving at once is never gameplay here
+    //    (the d-pad and TALK button each track their own single pointer),
+    //    so a second finger's movement can be cancelled outright.
+    document.addEventListener('touchmove', function (e) {
+      if (e.touches.length > 1 && e.cancelable) e.preventDefault();
+    }, { passive: false });
+    // 4) the rescue: whoever still lands zoomed in (accessibility zoom, a
+    //    pinch that slipped past the guards) used to be STUCK, because the
+    //    guards block pinching back out too. Watch the visual viewport, and
+    //    when it settles at more than 1x, rewrite the viewport meta tag --
+    //    the re-parse makes the browser re-apply maximum-scale=1 and snaps
+    //    the page back to normal.
+    var vpMeta = document.querySelector('meta[name="viewport"]');
+    var vv = window.visualViewport;
+    if (vpMeta && vv) {
+      var vpBase = vpMeta.getAttribute('content');
+      var unzoomTimer = null;
+      vv.addEventListener('resize', function () {
+        if (vv.scale <= 1.02) return;
+        clearTimeout(unzoomTimer);
+        // wait for the gesture to finish -- fighting a live pinch just janks
+        unzoomTimer = setTimeout(function () {
+          if (vv.scale <= 1.02) return;
+          // the content string must actually CHANGE to force a re-parse
+          vpMeta.setAttribute('content', vpBase + ', minimum-scale=1.0');
+          setTimeout(function () { vpMeta.setAttribute('content', vpBase); }, 120);
+        }, 300);
+      });
+    }
 
     // The pad reads the finger's POSITION, not which button it landed on, so
     // you can slide from left to up to right without lifting off. Buttons
